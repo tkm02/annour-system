@@ -21,15 +21,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
+    <html lang="fr" className={`${GeistSans.variable} ${GeistMono.variable} antialiased light`}>
       <body>
         <AuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-            <Suspense fallback={null}>
-              {children}
-              <Toaster />
-            </Suspense>
-          </ThemeProvider>
+          <Suspense fallback={null}>
+            {children}
+            <Toaster />
+          </Suspense>
         </AuthProvider>
         <Analytics />
       </body>
