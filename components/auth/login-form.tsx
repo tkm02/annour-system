@@ -172,7 +172,7 @@ export default function LoginForm() {
           <div className="text-xs space-y-1 text-muted-foreground">
             <p>Utilisez votre <strong>email</strong> et mot de passe fournis par l'administrateur.</p>
             <p className="text-primary font-medium mt-2">
-              Exemple : admin@annour.com
+              Exemple : admin@annour.ci
             </p>
           </div>
         </div>
