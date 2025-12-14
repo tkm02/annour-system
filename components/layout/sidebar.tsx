@@ -28,13 +28,7 @@ interface SidebarProps {
 const getNavigationByRole = (role: UserRole) => {
   const baseNavigation = [{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard }]
 
-  switch (role) {
-    case "SUPER_ADMIN":
-      return [
-        ...baseNavigation,
-        { name: "Gestion Admins", href: "/admin-management", icon: Shield },
-        { name: "Statistiques", href: "/statistics", icon: FileText },
-      ]
+  switch (role.toLocaleUpperCase()) {
 
     case "ADMINISTRATION":
       return [

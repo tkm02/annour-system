@@ -1,83 +1,97 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { authApi, type User } from "@/lib/api"
+import type { LoginResponse } from "@/lib/api"
 
-export type UserRole = "SUPER_ADMIN" | "ADMINISTRATION" | "SCIENTIFIQUE" | "SANTE" | "FINANCE"
-
-interface User {
-  id: string
-  email: string
-  name: string
-  role: UserRole
-}
+export type UserRole =  "ADMINISTRATION" | "SCIENTIFIQUE" | "FINANCE"
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<boolean>
+  login: (username: string, password: string) => Promise<boolean>
   logout: () => void
   isAuthenticated: boolean
+  isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const mockUsers: Record<string, User> = {
-  "superadmin@annour.com": {
-    id: "1",
-    email: "superadmin@annour.com",
-    name: "Super Admin",
-    role: "SUPER_ADMIN",
-  },
-  "admin@annour.com": {
-    id: "2",
-    email: "admin@annour.com",
-    name: "Administrateur",
-    role: "ADMINISTRATION",
-  },
-  "scientifique@annour.com": {
-    id: "3",
-    email: "scientifique@annour.com",
-    name: "Comité Scientifique",
-    role: "SCIENTIFIQUE",
-  },
-  "sante@annour.com": {
-    id: "4",
-    email: "sante@annour.com",
-    name: "Comité Santé",
-    role: "SANTE",
-  },
-  "finance@annour.com": {
-    id: "5",
-    email: "finance@annour.com",
-    name: "Comité Finance",
-    role: "FINANCE",
-  },
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check for stored user on mount
-    const storedUser = localStorage.getItem("an-nour-user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+    // Charger l'utilisateur depuis le localStorage au montage
+    const loadUser = () => {
+      try {
+        const storedUser = authApi.getCurrentUser()
+        const token = authApi.getToken()
+        
+        if (storedUser && token) {
+          console.log("👤 Utilisateur chargé depuis le localStorage:", storedUser.username)
+          setUser(storedUser)
+        } else {
+          console.log("ℹ️ Aucun utilisateur connecté")
+        }
+      } catch (error) {
+        console.error("❌ Erreur chargement utilisateur:", error)
+      } finally {
+        setIsLoading(false)
+      }
     }
+
+    loadUser()
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // Mock authentication
-    const user = mockUsers[email]
-    if (user) {
-      setUser(user)
-      localStorage.setItem("an-nour-user", JSON.stringify(user))
+  /**
+   * Fonction de connexion utilisant l'API réelle
+   */
+  const login = async (usernameOrEmail: string, password: string): Promise<boolean> => {
+    try {
+      console.log("🔐 Appel API login pour:", usernameOrEmail)
+      
+      // Appel de l'API de connexion
+      const response: LoginResponse = await authApi.login({ identifier: usernameOrEmail, password })
+      
+      console.log("✅ Réponse API login:", response)
+      
+      // Vérifier que l'utilisateur est actif
+      if (!response.user.is_active) {
+        console.warn("⚠️ Utilisateur désactivé:", usernameOrEmail)
+        throw new Error("Votre compte a été désactivé. Contactez l'administrateur.")
+      }
+      
+      // Mettre à jour l'état local
+      setUser(response.user)
+      
+      console.log("✅ Utilisateur connecté:", response.user.username, "Rôle:", response.user.role)
+      
       return true
+    } catch (error: any) {
+      console.error("❌ Erreur lors de la connexion:", error)
+      
+      // Nettoyer en cas d'erreur
+      setUser(null)
+      authApi.logout()
+      
+      // Propager l'erreur pour affichage
+      throw error
     }
-    return false
   }
 
+  /**
+   * Fonction de déconnexion
+   */
   const logout = () => {
+    console.log("🚪 Déconnexion de l'utilisateur:", user?.username)
+    
+    authApi.logout()
     setUser(null)
-    localStorage.removeItem("an-nour-user")
+    
+    // Rediriger vers la page de connexion
+    if (typeof window !== 'undefined') {
+      window.location.href = "/"
+    }
   }
 
   return (
@@ -87,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         isAuthenticated: !!user,
+        isLoading,
       }}
     >
       {children}
@@ -101,3 +116,6 @@ export function useAuth() {
   }
   return context
 }
+
+// Export du type User pour utilisation dans d'autres composants
+export type { User }

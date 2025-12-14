@@ -1,78 +1,125 @@
-"use client"
+// "use client"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { X, AlertTriangle } from "lucide-react"
+// import { useState } from "react"
+// import { usersApi } from "@/lib/api"
+// import { Button } from "@/components/ui/button"
+// import { AlertTriangle, X, Loader2, CheckCircle } from "lucide-react"
 
-interface AccessUser {
-  id: string
-  username: string
-  commission: "ADMINISTRATION" | "SCIENTIFIQUE" | "SANTÉ"
-}
+// interface DeleteAccessModalProps {
+//   user: {
+//     id: string
+//     username: string
+//   }
+//   onClose: () => void
+//   onSuccess: () => void
+// }
 
-interface DeleteAccessModalProps {
-  user: AccessUser
-  onClose: () => void
-}
+// export default function DeleteAccessModal({ user, onClose, onSuccess }: DeleteAccessModalProps) {
+//   const [loading, setLoading] = useState(false)
+//   const [error, setError] = useState<string | null>(null)
+//   const [success, setSuccess] = useState(false)
 
-export default function DeleteAccessModal({ user, onClose }: DeleteAccessModalProps) {
-  const handleDelete = () => {
-    // Handle deletion
-    console.log("Access deleted:", user)
-    onClose()
-  }
+//   const handleDelete = async () => {
+//     try {
+//       setLoading(true)
+//       setError(null)
+      
+//       await usersApi.deleteUser(user.id)
+      
+//       setSuccess(true)
+      
+//       setTimeout(() => {
+//         onSuccess()
+//       }, 1500)
+//     } catch (err: any) {
+//       setError(err.message || "Erreur lors de la suppression")
+//       console.error("Erreur:", err)
+//     } finally {
+//       setLoading(false)
+//     }
+//   }
 
-  const getCommissionColor = (commission: string) => {
-    switch (commission) {
-      case "ADMINISTRATION":
-        return "bg-secondary text-white"
-      case "SCIENTIFIQUE":
-        return "bg-primary text-white"
-      case "SANTÉ":
-        return "bg-green-600 text-white"
-      default:
-        return "bg-gray-500 text-white"
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-bold text-secondary">SUPPRIMER L'ACCÈS</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          <div className="flex items-center gap-3 text-amber-600">
-            <AlertTriangle className="h-5 w-5" />
-            <p className="font-medium">Vous êtes sur le point de supprimer cet utilisateur</p>
-          </div>
-
-          <div className="space-y-3 p-4 bg-muted rounded-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Nom d'utilisateur</span>
-              <span className="font-medium">{user.username}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Commission</span>
-              <Badge className={getCommissionColor(user.commission)}>{user.commission}</Badge>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              ANNULER
-            </Button>
-            <Button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">
-              SUPPRIMER
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+//   return (
+//     <div 
+//       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+//       onClick={(e) => {
+//         if (e.target === e.currentTarget) onClose()
+//       }}
+//     >
+//       <div className="bg-white rounded-lg p-6 w-full max-w-md">
+//         <div className="flex justify-between items-start mb-4">
+//           <div className="flex items-center gap-3">
+//             <div className="p-2 bg-red-100 rounded-full">
+//               <AlertTriangle className="h-6 w-6 text-red-600" />
+//             </div>
+//             <h2 className="text-xl font-bold text-secondary">Confirmer la Suppression</h2>
+//           </div>
+//           <Button
+//             variant="ghost"
+//             size="sm"
+//             onClick={onClose}
+//             disabled={loading}
+//             className="h-8 w-8 p-0"
+//           >
+//             <X className="h-4 w-4" />
+//           </Button>
+//         </div>
+        
+//         {success && (
+//           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 flex items-center gap-2">
+//             <CheckCircle className="h-5 w-5" />
+//             <span>Utilisateur supprimé avec succès!</span>
+//           </div>
+//         )}
+        
+//         {error && (
+//           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+//             <strong className="font-bold">Erreur : </strong>
+//             <span className="block sm:inline">{error}</span>
+//           </div>
+//         )}
+        
+//         {!success && (
+//           <div className="mb-6">
+//             <p className="text-gray-700 mb-2">
+//               Êtes-vous sûr de vouloir supprimer l'accès de :
+//             </p>
+//             <p className="font-semibold text-lg text-secondary">
+//               {user.username}
+//             </p>
+//             <p className="text-sm text-red-600 mt-3">
+//               ⚠️ Cette action est irréversible et supprimera définitivement cet utilisateur.
+//             </p>
+//           </div>
+//         )}
+        
+//         <div className="flex gap-3 justify-end">
+//           <Button 
+//             variant="outline" 
+//             onClick={onClose}
+//             disabled={loading || success}
+//           >
+//             Annuler
+//           </Button>
+//           <Button 
+//             variant="destructive"
+//             onClick={handleDelete}
+//             disabled={loading || success}
+//             className="bg-red-600 hover:bg-red-700 min-w-[120px]"
+//           >
+//             {loading ? (
+//               <>
+//                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+//                 Suppression...
+//               </>
+//             ) : success ? (
+//               "Supprimé ✓"
+//             ) : (
+//               "Supprimer"
+//             )}
+//           </Button>
+//         </div>
+//       </div>
+//     </div>
+//   )
+// }

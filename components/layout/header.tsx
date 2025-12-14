@@ -17,19 +17,16 @@ interface HeaderProps {
 }
 
 const getRoleDisplayName = (role: string) => {
-  switch (role) {
-    case "SUPER_ADMIN":
-      return "Super Admin"
+  console.log("🔍 Rôle utilisateur pour affichage:", role)
+  switch (role.toLocaleUpperCase()) {
     case "ADMINISTRATION":
       return "Administration"
     case "SCIENTIFIQUE":
       return "Scientifique"
-    case "SANTE":
-      return "Santé"
     case "FINANCE":
       return "Finance"
     default:
-      return "Utilisateur"
+      return "Utilisa"
   }
 }
 
@@ -66,7 +63,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="flex items-center gap-x-2">
               <User className="h-5 w-5" />
-              <span className="hidden sm:block text-sm font-medium">{user?.name || "Utilisateur"}</span>
+              <span className="hidden sm:block text-sm font-medium">{user?.username || "Utilisateur"}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Search, Download, Plus, Eye, Edit, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/contexts/auth-context"
 import SeminaristModal from "./seminarist-modal"
 import DeleteSeminaristModal from "./delete-seminarist-modal"
 
@@ -69,6 +70,15 @@ export default function SeminaristesTable() {
   const [selectedSeminarist, setSelectedSeminarist] = useState<any>(null)
   const [showModal, setShowModal] = useState(false)
   const [deleteModal, setDeleteModal] = useState<any>(null)
+
+  // ✅ Récupérer l'utilisateur connecté
+  const { user } = useAuth()
+  
+  // ✅ Vérifier si l'utilisateur est admin
+  const isAdmin = user?.role?.toUpperCase() === "ADMINISTRATION"
+  
+  console.log("👤 Utilisateur connecté:", user?.username, "- Rôle:", user?.role)
+  console.log("🔑 Est admin?", isAdmin)
 
   const filteredSeminaristes = seminaristes.filter((seminarist) => {
     const matchesSearch =
@@ -159,16 +169,21 @@ export default function SeminaristesTable() {
             </div>
 
             <div className="flex gap-2">
+              {/* ✅ Tout le monde peut exporter */}
               <Button variant="outline" size="sm" className="gap-2 bg-transparent">
                 <Download className="h-4 w-4" />
                 EXPORTER
               </Button>
-              <Link href="/seminaristes/ajouter">
-                <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90">
-                  <Plus className="h-4 w-4" />
-                  AJOUTER UN SÉMINARISTE
-                </Button>
-              </Link>
+              
+              {/* ✅ Seuls les admins peuvent ajouter */}
+              {isAdmin && (
+                <Link href="/seminaristes/ajouter">
+                  <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90">
+                    <Plus className="h-4 w-4" />
+                    AJOUTER UN SÉMINARISTE
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -207,6 +222,7 @@ export default function SeminaristesTable() {
                     <TableCell>{seminarist.niveau}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
+                        {/* ✅ Tout le monde peut voir */}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -215,26 +231,37 @@ export default function SeminaristesTable() {
                             setShowModal(true)
                           }}
                           className="h-8 w-8 p-0 text-primary hover:text-primary/80"
+                          title="Voir les détails"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Link href={`/seminaristes/${seminarist.id}/modifier`}>
+                        
+                        {/* ✅ Seuls les admins peuvent modifier */}
+                        {isAdmin && (
+                          <Link href={`/seminaristes/${seminarist.id}/modifier`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-secondary hover:text-secondary/80"
+                              title="Modifier"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        )}
+                        
+                        {/* ✅ Seuls les admins peuvent supprimer */}
+                        {isAdmin && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 text-secondary hover:text-secondary/80"
+                            onClick={() => setDeleteModal(seminarist)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive/80"
+                            title="Supprimer"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteModal(seminarist)}
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive/80"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
