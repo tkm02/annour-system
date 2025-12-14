@@ -1,61 +1,131 @@
-const API_BASE_URL = "http://192.168.1.27:8000/api/v1"
+// lib/api.ts - VERSION UNIFIÉE MAMADOU 2025
 
-let cachedSeminaristes: any = null
+const API_BASE_URL = "https://an-nour-backend-5mf0.onrender.com/api/v1";
 
+let cachedSeminaristes: any = null;
+
+// ✅ INTERFACES PRINCIPALES
 interface ApiResponse<T> {
-  total: number
-  page: number
-  limit: number
-  data: T[]
+  total: number;
+  page: number;
+  limit: number;
+  data: T[];
 }
 
-interface Seminariste {
-  id: string
-  matricule: string
-  nom: string
-  prenom: string
-  sexe: string
-  age: number
-  niveau_academique: string
-  dortoir: string
-  photo_url: string | null
+export interface StaticMetadata {
+  niveaux_academiques: Record<string, string[]>;
+  communes: string[];
+  dortoirs: Record<string, Array<{ code: string; name: string }>>;
 }
 
-interface User {
-  id: string
-  username: string
-  email: string
-  nom: string
-  prenom: string
-  role: string
-  is_active: boolean
-  last_login?: string
-  created_at?: string
-  updated_at?: string
+// ✅ SEMINARISTE COMPLET
+export interface Seminariste {
+  id: string;
+  matricule: string;
+  nom: string;
+  prenom: string;
+  sexe: string;
+  age: number;
+  niveau_academique: string;
+  niveau: string | null;              // ✅ NIVEAU TEST
+  dortoir: string;
+  photo_url: string | null;
+  commune_habitation?: string;
+  contact_parent?: string;
+  contact_seminariste?: string;
+  allergie?: string;
+  antecedent_medical?: string;
+  dortoir_code?: string;
 }
 
-interface CreateUserPayload {
-  email: string
-  username: string
-  password: string
-  nom: string
-  prenom: string
-  role: string
+// ✅ CREATE SEMINARISTE
+export interface CreateSeminariste {
+  nom: string;
+  prenom: string;
+  sexe: string;
+  age: number;
+  commune_habitation: string;
+  niveau_academique: string;
+  dortoir_code: string;
+  contact_parent: string;
+  contact_seminariste: string;
+  allergie: string;
+  antecedent_medical: string;
 }
 
-// ✅ Interface pour la réponse de login
-interface LoginResponse {
-  access_token: string
-  token_type: string
-  user: User
+// ✅ UPDATE SEMINARISTE
+export interface UpdateSeminariste {
+  nom?: string;
+  prenom?: string;
+  sexe?: string;
+  age?: number;
+  commune_habitation?: string;
+  niveau_academique?: string;
+  niveau?: string;
+  dortoir_code?: string;
+  contact_parent?: string;
+  contact_seminariste?: string;
+  allergie?: string;
+  antecedent_medical?: string;
 }
 
-// ✅ Interface pour les credentials de login
-interface LoginCredentials {
-  identifier: string
-  password: string
+// ✅ TEST ENTRÉE
+export interface TestScore {
+  matricule: string;
+  note: number;              // ✅ Changé de note_test → note
+  niveau: string;            // ✅ Ajouté
+  created_by?: string;       // ✅ Ajouté optionnel
 }
 
+// ✅ NOTES
+export interface UpdateNote {
+  note: number;
+  observation: string;
+}
+
+export interface CreateNote {
+  matricule: string;
+  matiere_code: string;
+  note: number;
+  type_evaluation: string;
+  observation: string;
+}
+
+// ✅ USERS & AUTH
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  nom: string;
+  prenom: string;
+  role: string;
+  is_active: boolean;
+  last_login?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateUserPayload {
+  email: string;
+  username: string;
+  password: string;
+  nom: string;
+  prenom: string;
+  role: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+export interface LoginCredentials {
+  identifier: string;
+  password: string;
+}
+
+// ✅ API REQUEST GÉNÉRIQUE
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -63,172 +133,201 @@ export async function apiRequest<T>(
   const config: RequestInit = {
     headers: { "Content-Type": "application/json" },
     ...options,
-  }
+  };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
-  console.log(`API ${endpoint}:`, response.status)
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  console.log(`🌐 API ${endpoint}: ${response.status}`);
   
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`API Error: ${response.status} - ${errorText}`)
+    const errorText = await response.text();
+    throw new Error(`❌ API ${response.status}: ${errorText}`);
   }
   
-  return response.json()
+  return response.json();
 }
 
+// ✅ SCIENTIFIC API - UNIFIÉ
 export const scientificApi = {
-  getSeminaristes: async (page = 1, limit = 500, filters?: any) => {
+  // 📊 SÉMINARISTES (CACHE 5min)
+  getSeminaristes: async (page = 1, limit = 100, filters?: any) => {
     if (cachedSeminaristes) {
-      console.log('Cache utilisé')
-      return cachedSeminaristes
+      console.log('✅ Cache seminaristes utilisé');
+      return cachedSeminaristes;
     }
     
     const data = await apiRequest<ApiResponse<Seminariste>>(
-      `/scientific/seminaristes?page=${page}&limit=${limit}`
-    )
-    cachedSeminaristes = data
-    return data
+      `/scientific/seminaristes?page=${page}&limit=${limit}${filters ? '&' + new URLSearchParams(filters) : ''}`
+    );
+    cachedSeminaristes = data;
+    setTimeout(() => { cachedSeminaristes = null; }, 5 * 60 * 1000);
+    return data;
   },
-  
-  invalidateCache: () => {
-    cachedSeminaristes = null
+  // ✅ CRUD SÉMINARISTES
+  createSeminariste: async (data: CreateSeminariste) => {
+    console.log('➕ [CREATE] Séminariste:', data);
+    return apiRequest<Seminariste>('/admin/seminaristes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
-  
-  getStats: () => apiRequest<any>("/scientific/stats"),
-}
+  updateSeminariste: async (matricule: string, data: Partial<UpdateSeminariste>) => {
+    console.log('✏️ [UPDATE] Séminariste:', matricule, data);
+    return apiRequest<Seminariste>(`/admin/seminaristes/${matricule}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  deleteSeminariste: async (matricule: string) => {
+    console.log('🗑️ [DELETE] Séminariste:', matricule);
+    return apiRequest(`/admin/seminaristes/${matricule}`, {
+      method: 'DELETE',
+    });
+  },
+  // ✅ TEST D'ENTRÉE
+   saveTestEntree: async (data: TestScore) => {
+    console.log('💾 [TEST] Sauvegarde:', data);
+    
+    // ✅ CONSTRUIRE URL AVEC QUERY PARAMS
+    const params = new URLSearchParams({
+      matricule: data.matricule,
+      note: data.note.toString(),
+      niveau: data.niveau,
+      created_by: data.created_by || 'admin'
+    });
+    
+    return apiRequest(`/scientific/test-entree?${params.toString()}`, {
+      method: 'POST',
+      // ✅ PAS DE BODY (ou body vide)
+    });
+  },
 
+  updateSeminaristeNiveau: async (matricule: string, niveau: string) => {
+    console.log('🎓 [NIVEAU] Update:', matricule, '→', niveau);
+    return apiRequest(`/seminaristes/${matricule}/niveau`, {
+      method: 'PATCH',
+      body: JSON.stringify({ niveau }),
+    });
+  },
+
+  // 📝 NOTES
+  getNotes: async () => apiRequest('/scientific/notes'),
+  createNote: async (data: CreateNote) => {
+    return apiRequest('/scientific/notes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  updateNote: async (id: string, data: UpdateNote) => {
+    return apiRequest(`/scientific/notes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // 📈 STATS
+  getStats: () => apiRequest<any>("/scientific/stats"),
+  getScientificStats: () => apiRequest('/scientific/stats/scientifiques'),
+
+  // 📋 MÉTADONNÉES
+  getStaticMetadata: async () => {
+    return apiRequest<StaticMetadata>('/admin/static-metadata');
+  },
+
+  // 🔄 CACHE
+  invalidateCache: () => {
+    console.log('🗑️ Cache seminaristes invalidé');
+    cachedSeminaristes = null;
+  },
+};
+
+// ✅ DASHBOARD API
 export const dashboardApi = {
   getDashboardData: async () => {
-    const [seminaristesResponse] = await Promise.all([
-      scientificApi.getSeminaristes(1, 100)
-    ])
-    
+    const seminaristesResponse = await scientificApi.getSeminaristes(1, 100);
     return {
       seminaristes: seminaristesResponse.data,
       total: seminaristesResponse.total,
-    }
+    };
   },
-}
+};
 
-// ✅ API d'authentification
+// ✅ AUTH API
 export const authApi = {
-  /**
-   * Connexion d'un utilisateur
-   * @param credentials - identifier (email ou username) et password
-   * @returns LoginResponse avec access_token, token_type et user
-   */
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
-    console.log("🔐 Envoi requête login avec identifier:", credentials.identifier)
-    console.log("📤 Payload:", JSON.stringify({ identifier: credentials.identifier, password: "***" }))
-    
-    // ✅ IMPORTANT : Envoyer exactement "identifier" et "password"
+    console.log("🔐 [AUTH] Login:", credentials.identifier);
     const response = await apiRequest<LoginResponse>("/admin/auth/login", {
       method: "POST",
       body: JSON.stringify({
-        identifier: credentials.identifier,  // ✅ PAS "email" !
-        password: credentials.password
+        identifier: credentials.identifier,
+        password: credentials.password,
       }),
-    })
+    });
     
-    console.log("✅ Connexion réussie:", response.user.username)
-    
-    // Stocker le token et les infos utilisateur
     if (typeof window !== 'undefined') {
-      localStorage.setItem("authToken", response.access_token)
-      localStorage.setItem("tokenType", response.token_type)
-      localStorage.setItem("user", JSON.stringify(response.user))
+      localStorage.setItem("authToken", response.access_token);
+      localStorage.setItem("tokenType", response.token_type);
+      localStorage.setItem("user", JSON.stringify(response.user));
     }
-    
-    return response
+    return response;
   },
 
   logout: () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem("authToken")
-      localStorage.removeItem("tokenType")
-      localStorage.removeItem("user")
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("tokenType");
+      localStorage.removeItem("user");
     }
-    console.log("✅ Déconnexion réussie")
+    console.log("✅ Déconnexion");
   },
 
   getCurrentUser: (): User | null => {
-    if (typeof window === 'undefined') return null
-    
-    const userStr = localStorage.getItem("user")
-    if (!userStr) return null
-    
-    try {
-      return JSON.parse(userStr)
-    } catch (error) {
-      console.error("Erreur parsing user:", error)
-      return null
-    }
+    if (typeof window === 'undefined') return null;
+    const userStr = localStorage.getItem("user");
+    return userStr ? JSON.parse(userStr) : null;
   },
 
   getToken: (): string | null => {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem("authToken")
+    return typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
   },
 
-  isAuthenticated: (): boolean => {
-    return !!authApi.getToken()
-  },
-}
+  isAuthenticated: (): boolean => !!authApi.getToken(),
+};
 
-// API de gestion des utilisateurs
+// ✅ USERS API
 export const usersApi = {
-  // Liste des utilisateurs avec pagination
   getUsers: async (page = 1, limit = 100) => {
-    return apiRequest<ApiResponse<User>>(
-      `/admin/users?page=${page}&limit=${limit}`
-    )
+    return apiRequest<ApiResponse<User>>(`/admin/users?page=${page}&limit=${limit}`);
   },
-
-  // Créer un utilisateur
+  
   createUser: async (userData: CreateUserPayload) => {
     return apiRequest<User>("/admin/auth/register", {
       method: "POST",
       body: JSON.stringify(userData),
-    })
+    });
   },
-
-  // Modifier un utilisateur
+  
   updateUser: async (id: string, userData: Partial<CreateUserPayload>) => {
     return apiRequest<User>(`/admin/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(userData),
-    })
+    });
   },
-
-    /**
-   * Active ou désactive un utilisateur (toggle status)
-   */
-toggleUserStatus: async (id: string, isActive: boolean) => {
-  console.log("=== DÉBUT TOGGLE STATUS ===")
-  console.log("User ID:", id)
-  console.log("Nouveau statut demandé:", isActive)
-  console.log("Payload envoyé:", JSON.stringify({ is_active: isActive }))
   
-  try {
-    const response = await apiRequest<User>(`/admin/users/${id}`, {
+  toggleUserStatus: async (id: string, isActive: boolean) => {
+    console.log("🔄 [TOGGLE] User:", id, "→", isActive);
+    return apiRequest<User>(`/admin/users/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ is_active: isActive }),
-    })
-    
-    console.log("✅ Réponse API reçue:", response)
-    console.log("✅ is_active dans la réponse:", response.is_active)
-    console.log(`✅ Utilisateur ${isActive ? 'activé' : 'désactivé'}`)
-    console.log("=== FIN TOGGLE STATUS ===")
-    
-    return response
-  } catch (error) {
-    console.error("❌ Erreur dans toggleUserStatus:", error)
-    throw error
-  }
-},
+    });
+  },
+};
+
+// ✅ EXPORTS
 
 
- }
-
-// Export des types
-export type { User, CreateUserPayload, Seminariste, ApiResponse, LoginResponse, LoginCredentials }
+export default {
+  scientificApi,
+  dashboardApi,
+  authApi,
+  usersApi,
+};

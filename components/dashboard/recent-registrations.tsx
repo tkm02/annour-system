@@ -1,35 +1,42 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface RecentRegistration {
-  matricule: string
-  nom: string
-  prenom: string
-  sexe: string
-  dortoir: string
+  matricule: string;
+  nom: string;
+  prenom: string;
+  sexe: string;
+  dortoir: string;
+  registration_date: string;
 }
 
 interface RecentRegistrationsProps {
-  data: RecentRegistration[]
+  data: RecentRegistration[];
 }
 
-export default function RecentRegistrations({ data }: RecentRegistrationsProps) {
+export default function RecentRegistrations({
+  data,
+}: RecentRegistrationsProps) {
   // Les 5 plus récents (tri par ID ou date si disponible)
   const recent = data
-    .sort((a, b) => (b.matricule as string).localeCompare(a.matricule as string))
-    .slice(0, 5)
-    .map(reg => ({
+    .sort((a, b) =>
+      (b.registration_date as string).localeCompare(
+        a.registration_date as string
+      )
+    )
+    .slice(0, 10)
+    .map((reg) => ({
       matricule: reg.matricule,
       nom: `${reg.nom} ${reg.prenom}`,
       genre: reg.sexe,
-      dortoir: reg.dortoir || 'Non assigné',
-      date: new Date().toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    }))
+      dortoir: reg.dortoir || "Non assigné",
+      date: new Date(reg.registration_date).toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    }));
 
   return (
     <Card className="border-border">
@@ -41,14 +48,19 @@ export default function RecentRegistrations({ data }: RecentRegistrationsProps) 
       <CardContent>
         <div className="space-y-4">
           {recent.map((registration, index) => (
-            <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+            <div
+              key={index}
+              className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+            >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground">
                     {registration.matricule}
                   </span>
-                  <Badge 
-                    variant={registration.genre === "M" ? "default" : "secondary"} 
+                  <Badge
+                    variant={
+                      registration.genre === "M" ? "default" : "secondary"
+                    }
                     className="text-xs"
                   >
                     {registration.genre}
@@ -76,5 +88,5 @@ export default function RecentRegistrations({ data }: RecentRegistrationsProps) 
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

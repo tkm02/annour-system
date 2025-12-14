@@ -34,6 +34,7 @@ interface Seminariste {
   niveau: string | null;
   age: number;
   dortoir: string;
+  note_entree: number | null;
 }
 
 export default function TestEntreePage() {
@@ -105,6 +106,7 @@ export default function TestEntreePage() {
     return matchesSearch && matchesNiveau;
   });
 
+
   // ✅ ÉQUILIBRAGE UNIQUEMENT Secondaire/Primaire
   const getBalancedNiveau = (note: number): string => {
     if (note >= 16) return "Universitaire - Djoumada Thaniya";
@@ -136,31 +138,43 @@ export default function TestEntreePage() {
   };
 
   const handleSaveNote = async (sem: Seminariste) => {
-    if (tempNote === 0) return;
+  if (tempNote === 0) {
+    toast.warning("⚠️ Entrez une note entre 0 et 20");
+    return;
+  }
 
-    try {
-      setSavingMatricule(sem.matricule);
-      
-      const nouveauNiveau = getBalancedNiveau(tempNote);
-      const testData: TestScore = {
-        matricule: sem.matricule,
-        note_test: tempNote,
-        observation: `Placement auto: ${nouveauNiveau}`,
-      };
-      
-      await scientificApi.saveTestEntree(testData);
-      await scientificApi.updateSeminaristeNiveau(sem.matricule, nouveauNiveau);
-      
-      toast.success(`✅ ${nouveauNiveau} (${tempNote}/20)`);
-      await fetchSeminaristes();
-    } catch (error: any) {
-      toast.error(error.message || "Erreur sauvegarde");
-    } finally {
-      setSavingMatricule(null);
-      setEditingMatricule(null);
-    }
-  };
-
+  try {
+    setSavingMatricule(sem.matricule);
+    
+    const nouveauNiveau = getBalancedNiveau(tempNote);
+    
+    // ✅ FORMAT QUERY PARAMS
+    const testData: TestScore = {
+      matricule: sem.matricule,
+      note: tempNote,
+      niveau: nouveauNiveau,
+      created_by: 'admin'
+    };
+    
+    console.log('📤 Envoi test entrée:', testData);
+    
+    await scientificApi.saveTestEntree(testData);
+    
+    toast.success(`✅ ${nouveauNiveau} • Note: ${tempNote}/20`);
+    
+    // ✅ Rafraîchir liste
+    scientificApi.invalidateCache();
+    await fetchSeminaristes();
+    
+  } catch (error: any) {
+    console.error('❌ Erreur test entrée:', error);
+    toast.error(error.message || "Erreur sauvegarde test");
+  } finally {
+    setSavingMatricule(null);
+    setEditingMatricule(null);
+    setTempNote(0);
+  }
+};
   const getNiveauVariant = (niveau: string | null) => {
     if (niveau?.includes('Universitaire')) return "default";
     if (niveau?.includes('Supérieur')) return "secondary";
@@ -174,6 +188,9 @@ export default function TestEntreePage() {
     classed: seminaristes.filter(s => s?.niveau).length,
     toTest: seminaristes.filter(s => !s?.niveau).length,
   };
+
+  console.log('📊 Stats test entrée:', filteredSeminaristes);
+
 
   if (loading) {
     return (
@@ -327,7 +344,7 @@ export default function TestEntreePage() {
                         </div>
                       ) : (
                         <div className="px-2 py-1 font-mono font-semibold text-sm bg-muted/50 rounded">
-                          {sem.niveau ? '✓' : '—'}
+                          {sem.niveau ? sem.note_entree : '—'}
                         </div>
                       )}
                     </TableCell>

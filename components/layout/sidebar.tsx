@@ -34,8 +34,10 @@ const getNavigationByRole = (role: UserRole) => {
       return [
         ...baseNavigation,
         { name: "Séminaristes", href: "/seminaristes", icon: Users },
-        { name: "Communication", href: "/communication", icon: MessageSquare },
-        { name: "Mini-Admins", href: "/mini-admins", icon: UserPlus },
+        // { name: "Communication", href: "/communication", icon: MessageSquare },
+        { name: "Badges", href: "/badges", icon: UserPlus },
+        { name: "Certificats", href: "/certificats", icon: GraduationCap },
+        // { name: "Mini-Admins", href: "/mini-admins", icon: UserPlus },
         { name: "Gérer les accès", href: "/acces", icon: Settings },
       ];
 
@@ -44,8 +46,9 @@ const getNavigationByRole = (role: UserRole) => {
         ...baseNavigation,
         { name: "Séminaristes", href: "/seminaristes", icon: Users },
         { name: "Scientifique", href: "/scientifique", icon: GraduationCap },
+        { name: "Attributions", href: "/attributions", icon: Settings },
         { name: "Notes", href: "/notes", icon: FileText },
-        { name: "Communication", href: "/communication", icon: MessageSquare },
+        // { name: "Communication", href: "/communication", icon: MessageSquare },
       ];
 
     case "SANTE":
@@ -72,7 +75,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  const navigation = user ? getNavigationByRole(user.role) : [];
+  const navigation = user ? getNavigationByRole(user.role as UserRole) : [];
 
   const handleLogout = () => {
     logout();
@@ -99,11 +102,14 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
 
           {user && (
             <div className="px-3 py-2 bg-sidebar-accent rounded-md">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground" style={{color:"white"}}>
                 Connecté en tant que
               </p>
-              <p className="text-sm font-medium text-sidebar-foreground">
-                {user.name}
+              <p
+                className="text-sm font-medium text-sidebar-foreground"
+                style={{ color: "white" }}
+              >
+                {(user.role).toLocaleUpperCase()}
               </p>
             </div>
           )}
@@ -174,11 +180,14 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
 
           {user && (
             <div className="px-3 py-2 bg-sidebar-accent rounded-md">
-              <p className="text-xs text-muted-foreground">
+              <p
+                className="text-sm font-medium text-sidebar-foreground"
+                style={{ color: "white" }}
+              >
                 Connecté en tant que
               </p>
-              <p className="text-sm font-medium text-sidebar-foreground">
-                {user.name}
+              <p className="text-sm font-medium text-sidebar-foreground" style={{ color: "white" }}>
+                {(user.role).toLocaleUpperCase()}
               </p>
             </div>
           )}
