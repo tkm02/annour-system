@@ -31,14 +31,13 @@ import {
   Users,
   RefreshCw,
   FileText,
-  Phone,
-  Home,
-  AlertCircle,
-  Heart,
 } from "lucide-react";
 import { scientificApi, Seminariste } from "@/lib/api";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
+import logoAnnour from "@/public/ANNOUR.png";
+import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
 
 export default function BadgeGenerationPage() {
   const [seminaristes, setSeminaristes] = useState<Seminariste[]>([]);
@@ -46,14 +45,14 @@ export default function BadgeGenerationPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
   const [selectedSeminaristes, setSelectedSeminaristes] = useState<string[]>([]);
-  const [badgeTemplate, setBadgeTemplate] = useState("standard");
   const [generating, setGenerating] = useState(false);
   const [showVerso, setShowVerso] = useState(false);
+  const [qrCodes, setQrCodes] = useState<{ [key: string]: string }>({});
 
   const fetchSeminaristes = async () => {
     try {
       setLoading(true);
-      const response = await scientificApi.getSeminaristes(1, 500);
+      const response = await scientificApi.getSeminaristes(1, 100);
       setSeminaristes(response.data);
     } catch (error: any) {
       toast.error(error.message || "Erreur chargement");
@@ -66,13 +65,37 @@ export default function BadgeGenerationPage() {
     fetchSeminaristes();
   }, []);
 
+  // ✅ Génération QR Code pour preview
+  useEffect(() => {
+    const generateQRCodes = async () => {
+      const codes: { [key: string]: string } = {};
+      for (const sem of selectedSeminaristes.slice(0, 1)) {
+        try {
+          const qrDataUrl = await QRCode.toDataURL(sem, {
+            width: 200,
+            margin: 1,
+          });
+          codes[sem] = qrDataUrl;
+        } catch (err) {
+          console.error("QR Code error:", err);
+        }
+      }
+      setQrCodes(codes);
+    };
+
+    if (selectedSeminaristes.length > 0) {
+      generateQRCodes();
+    }
+  }, [selectedSeminaristes]);
+
   const filteredSeminaristes = seminaristes.filter((sem) => {
     const fullName = `${sem.nom} ${sem.prenom || ""}`.toLowerCase();
     const matchesSearch =
       !searchTerm ||
       fullName.includes(searchTerm.toLowerCase()) ||
       sem.matricule.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesNiveau = selectedNiveau === "tous" || sem.niveau === selectedNiveau;
+    const matchesNiveau =
+      selectedNiveau === "tous" || sem.niveau === selectedNiveau;
     return matchesSearch && matchesNiveau;
   });
 
@@ -86,11 +109,13 @@ export default function BadgeGenerationPage() {
 
   const handleSelectOne = (matricule: string) => {
     setSelectedSeminaristes((prev) =>
-      prev.includes(matricule) ? prev.filter((m) => m !== matricule) : [...prev, matricule]
+      prev.includes(matricule)
+        ? prev.filter((m) => m !== matricule)
+        : [...prev, matricule]
     );
   };
 
-  // ✅ GÉNÉRATION PDF RECTO-VERSO
+  // ✅ GÉNÉRATION PDF avec RECTO et VERSO côte à côte
   const generatePDF = async () => {
     if (selectedSeminaristes.length === 0) {
       toast.warning("⚠️ Sélectionnez au moins un séminariste");
@@ -99,58 +124,52 @@ export default function BadgeGenerationPage() {
 
     try {
       setGenerating(true);
-      toast.info("📄 Génération PDF recto-verso...");
+      toast.info("📄 Génération PDF avec recto-verso côte à côte...");
 
       const pdf = new jsPDF({
-        orientation: "portrait",
+        orientation: "landscape", // ✅ Paysage pour mettre 2 badges côte à côte
         unit: "mm",
         format: "a4",
       });
 
-      const badgeWidth = 85;
-      const badgeHeight = 130;
-      const marginX = (210 - badgeWidth * 2) / 3;
-      const marginY = 20;
-      const spacing = 15;
+      const badgeWidth = 100;
+      const badgeHeight = 145;
+      const marginX = (297 - badgeWidth * 2) / 3; // 297mm largeur A4 paysage
+      const marginY = (210 - badgeHeight) / 2; // Centrer verticalement
 
+      let isFirstPage = true;
+
+      // ✅ GÉNÉRER RECTO et VERSO côte à côte pour chaque séminariste
       for (let i = 0; i < selectedSeminaristes.length; i++) {
-        const seminariste = seminaristes.find((s) => s.matricule === selectedSeminaristes[i]);
+        const seminariste = seminaristes.find(
+          (s) => s.matricule === selectedSeminaristes[i]
+        );
         if (!seminariste) continue;
 
-        const positionInPage = i % 2;
-        const col = positionInPage % 2;
-        const x = marginX + col * (badgeWidth + marginX);
-        const y = marginY;
-
-        if (i > 0 && positionInPage === 0) {
+        // Ajouter une nouvelle page (sauf pour le premier badge)
+        if (!isFirstPage) {
           pdf.addPage();
         }
+        isFirstPage = false;
 
-        // RECTO
-        drawBadgeRectoToPDF(pdf, seminariste, x, y, badgeWidth, badgeHeight);
-      }
-
-      // VERSO (nouvelle page)
-      pdf.addPage();
-      for (let i = 0; i < selectedSeminaristes.length; i++) {
-        const seminariste = seminaristes.find((s) => s.matricule === selectedSeminaristes[i]);
-        if (!seminariste) continue;
-
-        const positionInPage = i % 2;
-        const col = positionInPage % 2;
-        const x = marginX + col * (badgeWidth + marginX);
+        // Position RECTO (gauche)
+        const xRecto = marginX;
         const y = marginY;
 
-        if (i > 0 && positionInPage === 0 && i < selectedSeminaristes.length) {
-          pdf.addPage();
-        }
+        // Position VERSO (droite)
+        const xVerso = marginX + badgeWidth + marginX;
 
-        // VERSO
-        drawBadgeVersoToPDF(pdf, seminariste, x, y, badgeWidth, badgeHeight);
+        // Dessiner RECTO
+        await drawBadgeRectoToPDF(pdf, seminariste, xRecto, y, badgeWidth, badgeHeight);
+
+        // Dessiner VERSO
+        await drawBadgeVersoToPDF(pdf, seminariste, xVerso, y, badgeWidth, badgeHeight);
       }
 
-      pdf.save(`badges-recto-verso-${new Date().toISOString().split("T")[0]}.pdf`);
-      toast.success(`✅ ${selectedSeminaristes.length} badge(s) recto-verso générés`);
+      pdf.save(`badges-annour-${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success(
+        `✅ ${selectedSeminaristes.length} badge(s) générés (recto-verso côte à côte)`
+      );
     } catch (error: any) {
       console.error("❌ Erreur PDF:", error);
       toast.error(error.message || "Erreur génération PDF");
@@ -159,8 +178,32 @@ export default function BadgeGenerationPage() {
     }
   };
 
+  // ✅ Fonction pour ajouter un logo en arrière-plan avec opacité
+  const addWatermarkLogo = (
+    pdf: jsPDF,
+    logoSrc: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    opacity: number = 0.5
+  ) => {
+    pdf.saveGraphicsState();
+    pdf.setGState(new pdf.GState({ opacity: opacity }));
+
+    const logoWidth = w * 1.1;
+    const aspectRatio = 2517 / 1467;
+    const logoHeight = logoWidth / aspectRatio;
+
+    const logoX = x + (w - logoWidth) / 2;
+    const logoY = y + (h - logoHeight) / 2;
+
+    pdf.addImage(logoSrc, "PNG", logoX, logoY, logoWidth, logoHeight);
+    pdf.restoreGraphicsState();
+  };
+
   // ✅ RECTO
-  const drawBadgeRectoToPDF = (
+  const drawBadgeRectoToPDF = async (
     pdf: jsPDF,
     sem: Seminariste,
     x: number,
@@ -168,102 +211,170 @@ export default function BadgeGenerationPage() {
     w: number,
     h: number
   ) => {
-    // Border
-    pdf.setDrawColor(59, 130, 246);
-    pdf.setLineWidth(0.5);
-    pdf.roundedRect(x, y, w, h, 3, 3);
-    pdf.setFillColor(239, 246, 255);
-    pdf.roundedRect(x, y, w, h, 3, 3, "F");
+    // Border vert clair
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1);
+    pdf.rect(x, y, w, h);
 
-    // ✅ LOGOS (2 emplacements)
-    // Logo Gauche
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.3);
-    pdf.rect(x + 5, y + 3, 15, 15);
-    pdf.setFontSize(6);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text("LOGO 1", x + 12.5, y + 11, { align: "center" });
+    // Background blanc
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, w, h, "F");
 
-    // Logo Droit
-    pdf.rect(x + w - 20, y + 3, 15, 15);
-    pdf.text("LOGO 2", x + w - 12.5, y + 11, { align: "center" });
+    // ✅ LOGO EN ARRIÈRE-PLAN (watermark)
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+
+    // Logo gauche AEEMCI
+    const logoSize = 12;
+    const logoX = x + 5;
+    const logoY = y + 4;
+
+    try {
+      pdf.addImage(AEEMCI.src, "JPEG", logoX, logoY, logoSize, logoSize);
+    } catch (error) {
+      console.error("Erreur logo AEEMCI:", error);
+    }
+
+    // Logo droit Annour
+    const logoMaxSize = 12;
+    const aspectRatioNour = 2517 / 1467;
+    const logoHeight = logoMaxSize / aspectRatioNour;
+    const offsetYNour = (logoMaxSize - logoHeight) / 2;
+
+    try {
+      pdf.addImage(
+        logoAnnour.src,
+        "PNG",
+        x + w - 17,
+        y + 4 + offsetYNour,
+        logoMaxSize,
+        logoHeight
+      );
+    } catch (error) {
+      console.error("Erreur logo Annour:", error);
+    }
 
     // Header
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(59, 130, 246);
-    pdf.text("SÉMINAIRE AN-NOUR", x + w / 2, y + 12, { align: "center" });
-
-    pdf.setFontSize(7);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(100, 100, 100);
-    pdf.text("Année 2024-2025", x + w / 2, y + 16, { align: "center" });
-
-    // Photo
-    const photoSize = 28;
-    const photoX = x + w / 2 - photoSize / 2;
-    const photoY = y + 20;
-    pdf.setFillColor(220, 220, 220);
-    pdf.circle(photoX + photoSize / 2, photoY + photoSize / 2, photoSize / 2, "F");
-    pdf.setFontSize(18);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text("👤", photoX + photoSize / 2, photoY + photoSize / 2 + 4, { align: "center" });
-
-    // Nom
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    const nomLines = pdf.splitTextToSize(sem.nom.toUpperCase(), w - 10);
-    pdf.text(nomLines, x + w / 2, y + 57, { align: "center" });
-
-    // Prénom
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(59, 130, 246);
-    pdf.text(sem.prenom, x + w / 2, y + 66, { align: "center" });
-
-    // Matricule
     pdf.setFontSize(8);
-    pdf.setFont("courier", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFillColor(255, 255, 255);
-    pdf.roundedRect(x + w / 2 - 18, y + 71, 36, 5, 2, 2, "F");
-    pdf.text(sem.matricule, x + w / 2, y + 74.5, { align: "center" });
-
-    // Niveau
-    pdf.setFontSize(7);
     pdf.setFont("helvetica", "bold");
-    pdf.setFillColor(240, 240, 240);
-    pdf.roundedRect(x + 5, y + 83, w - 10, 7, 2, 2, "F");
-    pdf.setTextColor(60, 60, 60);
-    pdf.text(sem.niveau || "Non classé", x + w / 2, y + 87.5, { align: "center" });
+    pdf.setTextColor(166, 195, 60);
+    pdf.text("AEEMCI", x + w / 2, y + 8, { align: "center" });
 
-    // Dortoir
-    pdf.setFontSize(7);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(`Dortoir: ${sem.dortoir}`, x + w / 2, y + 95, { align: "center" });
+    pdf.setFontSize(9);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("SERA-EST", x + w / 2, y + 13, { align: "center" });
 
-    // Sexe + Âge
     pdf.setFontSize(6);
-    pdf.text(`${sem.sexe === "M" ? "Masculin" : "Féminin"} • ${sem.age} ans`, x + w / 2, y + 100, {
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 17, {
       align: "center",
     });
 
-    // QR Code
-    pdf.setDrawColor(200, 200, 200);
-    pdf.rect(x + w / 2 - 10, y + 105, 20, 20);
-    pdf.setFontSize(5);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text("QR CODE", x + w / 2, y + 116, { align: "center" });
+    // Titre "SEMINAIRE AN-NOUR"
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text("SEMINAIRE AN-NOUR 25", x + w / 2, y + 27, { align: "center" });
 
-    // Footer
-    pdf.setFontSize(5);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text("www.seminaire-annour.ci", x + w / 2, y + h - 2, { align: "center" });
+    // Photo circulaire avec border vert
+    const photoSize = 30;
+    const photoX = x + w / 2;
+    const photoY = y + 45;
+
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1.2);
+    pdf.circle(photoX, photoY, photoSize / 2);
+
+    pdf.setFillColor(240, 240, 240);
+    pdf.circle(photoX, photoY, photoSize / 2 - 1, "F");
+
+    // Ajouter la photo si disponible
+    if (sem.photo_url) {
+      try {
+        // Charger et ajouter la photo (vous devrez implémenter cette fonction)
+        // pdf.addImage(photoData, "JPEG", photoX - photoSize/2, photoY - photoSize/2, photoSize, photoSize);
+      } catch (error) {
+        console.error("Erreur photo:", error);
+      }
+    }
+
+    // Badge "SEMINARISTE"
+    pdf.setFillColor(166, 195, 60);
+    pdf.roundedRect(x + w / 2 - 18, y + 58, 36, 6, 3, 3, "F");
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text("SEMINARISTE", x + w / 2, y + 62, { align: "center" });
+
+    // Nom
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text(sem.nom.toUpperCase(), x + w / 2, y + 70, { align: "center" });
+
+    // Prénom
+    pdf.setFontSize(9);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(sem.prenom.toUpperCase(), x + w / 2, y + 75, { align: "center" });
+
+    // Matricule
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(x + 8, y + 80, w - 16, 7, 3, 3);
+
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Matricule :", x + 12, y + 85);
+
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(sem.matricule, x + w - 12, y + 85, { align: "right" });
+
+    // Cadre dortoir
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.setFillColor(255, 255, 255);
+    pdf.roundedRect(x + 10, y + 95, w - 20, 20, 4, 4, "FD");
+
+    // Niveau
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(x + w / 2 - 25, y + 91, 50, 8, 4, 4);
+
+    pdf.setFillColor(255, 255, 255);
+    pdf.roundedRect(x + w / 2 - 25, y + 91, 50, 8, 4, 4, "F");
+
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(sem.niveau || "Universitaire", x + w / 2, y + 96, {
+      align: "center",
+    });
+
+    // Dortoir
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("Dortoir :", x + 15, y + 108, { align: "left" });
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text(sem.dortoir || "Salwa - Réconfort", x + w - 15, y + 108, {
+      align: "right",
+    });
+
+    // Footer URL
+    pdf.setFontSize(6);
+    pdf.setTextColor(166, 195, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, {
+      align: "center",
+    });
   };
 
-  // ✅ VERSO - DÉTAILS MÉDICAUX
-  const drawBadgeVersoToPDF = (
+  // ✅ VERSO
+  const drawBadgeVersoToPDF = async (
     pdf: jsPDF,
     sem: Seminariste,
     x: number,
@@ -271,275 +382,346 @@ export default function BadgeGenerationPage() {
     w: number,
     h: number
   ) => {
-    // Border
-    pdf.setDrawColor(220, 38, 38);
-    pdf.setLineWidth(0.5);
-    pdf.roundedRect(x, y, w, h, 3, 3);
-    pdf.setFillColor(254, 242, 242);
-    pdf.roundedRect(x, y, w, h, 3, 3, "F");
+    // Border vert
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1);
+    pdf.rect(x, y, w, h);
 
-    // Header VERSO
-    pdf.setFontSize(9);
+    // Background
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, w, h, "F");
+
+    // ✅ LOGO EN ARRIÈRE-PLAN (watermark)
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+
+    // Header
+    // pdf.setFontSize(8);
+    // pdf.setFont("helvetica", "bold");
+    // pdf.setTextColor(166, 195, 60);
+    // pdf.text("AEEMCI", x + w / 2, y + 6, { align: "center" });
+
+    // pdf.setFontSize(9);
+    // pdf.setTextColor(0, 0, 0);
+    // pdf.text("SERA-EST", x + w / 2, y + 11, { align: "center" });
+
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 15, {
+      align: "center",
+    });
+
+    let currentY = y + 22;
+
+    // SECTION CONTACTS
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(x + 5, currentY, w - 10, 28, 3, 3);
+
+    pdf.setFontSize(8);
     pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(220, 38, 38);
-    pdf.text("INFORMATIONS DÉTAILLÉES", x + w / 2, y + 8, { align: "center" });
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("Contacts", x + w / 2, currentY + 5, { align: "center" });
 
-    // Ligne séparatrice
-    pdf.setDrawColor(220, 38, 38);
-    pdf.setLineWidth(0.3);
-    pdf.line(x + 5, y + 11, x + w - 5, y + 11);
+    currentY += 10;
 
-    let currentY = y + 18;
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("Parents :", x + 8, currentY);
+    pdf.text(sem.contact_parent || "0555990076", x + 45, currentY);
 
-    // ✅ SECTION IDENTITÉ
+    // currentY += 5;
+    // pdf.text("Séminariste :", x + 8, currentY);
+    // pdf.text(sem.contact_seminariste || "0555990076", x + 45, currentY);
+
+    currentY += 5;
+    pdf.text("Commune :", x + 8, currentY);
+    pdf.text(sem.commune_habitation || "Bingerville", x + 45, currentY);
+
+    currentY += 20;
+
+    // SECTION INFORMATIONS MÉDICALES
+    pdf.setDrawColor(166, 195, 60);
+    pdf.roundedRect(x + 5, currentY, w - 10, 35, 3, 3);
+
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("INFORMATIONS MÉDICALES", x + w / 2, currentY + 5, {
+      align: "center",
+    });
+
+    currentY += 10;
+
     pdf.setFontSize(7);
     pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("IDENTITÉ", x + 5, currentY);
-    currentY += 5;
-
-    pdf.setFontSize(6);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(60, 60, 60);
-    pdf.text(`Matricule: ${sem.matricule}`, x + 5, currentY);
+    pdf.text("Allergies :", x + 8, currentY);
     currentY += 4;
-    pdf.text(`Nom complet: ${sem.nom} ${sem.prenom}`, x + 5, currentY);
-    currentY += 4;
-    pdf.text(`Âge: ${sem.age} ans • Sexe: ${sem.sexe === "M" ? "Masculin" : "Féminin"}`, x + 5, currentY);
-    currentY += 4;
-    pdf.text(`Niveau: ${sem.niveau || "Non classé"}`, x + 5, currentY);
-    currentY += 4;
-    pdf.text(`Dortoir: ${sem.dortoir}`, x + 5, currentY);
-    currentY += 7;
-
-    // ✅ SECTION CONTACTS
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("CONTACTS", x + 5, currentY);
-    currentY += 5;
 
     pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(60, 60, 60);
-    pdf.text(`Parent/Tuteur: ${sem.contact_parent || "Non renseigné"}`, x + 5, currentY);
-    currentY += 4;
-    pdf.text(`Séminariste: ${sem.contact_seminariste || "Non renseigné"}`, x + 5, currentY);
-    currentY += 4;
-    pdf.text(`Commune: ${sem.commune_habitation || "Non renseignée"}`, x + 5, currentY);
-    currentY += 7;
-
-    // ✅ SECTION MÉDICALE (IMPORTANT)
-    pdf.setFillColor(255, 237, 213);
-    pdf.roundedRect(x + 3, currentY - 3, w - 6, 28, 2, 2, "F");
-    
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(234, 88, 12);
-    pdf.text("⚕️ INFORMATIONS MÉDICALES", x + 5, currentY);
-    currentY += 5;
+    const allergieLines = pdf.splitTextToSize(sem.allergie || "RAS", w - 20);
+    pdf.text(allergieLines, x + 8, currentY);
+    currentY += allergieLines.length * 4 + 2;
 
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(6);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("Allergies:", x + 5, currentY);
+    pdf.text("Antécédents :", x + 8, currentY);
     currentY += 4;
+
     pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(60, 60, 60);
-    const allergieLines = pdf.splitTextToSize(sem.allergie || "RAS", w - 12);
-    pdf.text(allergieLines, x + 5, currentY);
-    currentY += allergieLines.length * 3.5 + 2;
+    const antecedentLines = pdf.splitTextToSize(
+      sem.antecedent_medical || "Néant",
+      w - 20
+    );
+    pdf.text(antecedentLines, x + 8, currentY);
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("Antécédents médicaux:", x + 5, currentY);
-    currentY += 4;
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(60, 60, 60);
-    const antecedentLines = pdf.splitTextToSize(sem.antecedent_medical || "Néant", w - 12);
-    pdf.text(antecedentLines, x + 5, currentY);
-    currentY += antecedentLines.length * 3.5 + 5;
+    // QR CODE
+    try {
+      const qrDataUrl = await QRCode.toDataURL(sem.matricule, {
+        width: 300,
+        margin: 1,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+      });
 
-    // ✅ URGENCE
-    pdf.setFillColor(254, 226, 226);
-    pdf.roundedRect(x + 3, currentY - 2, w - 6, 12, 2, 2, "F");
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(6);
-    pdf.setTextColor(220, 38, 38);
-    pdf.text("🚨 EN CAS D'URGENCE", x + 5, currentY);
-    currentY += 4;
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(`Contacter: ${sem.contact_parent || "Voir administration"}`, x + 5, currentY);
-    currentY += 4;
-    pdf.text("Ou l'administration du séminaire An-Nour", x + 5, currentY);
+      const qrSize = 25;
+      const qrX = x + w / 2 - qrSize / 2;
+      const qrY = y + h - 32;
+
+      pdf.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+    } catch (err) {
+      console.error("QR Code error:", err);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.rect(x + w / 2 - 12, y + h - 32, 24, 24);
+    }
 
     // Footer
-    pdf.setFontSize(5);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text("Document confidentiel - Usage interne uniquement", x + w / 2, y + h - 2, {
+    pdf.setFontSize(6);
+    pdf.setTextColor(166, 195, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, {
       align: "center",
     });
   };
 
-  // ✅ BADGE RECTO (React)
-  const BadgeRecto = ({ seminariste }: { seminariste: Seminariste }) => (
-    <div className="w-[340px] h-[520px] bg-gradient-to-br from-blue-50 via-white to-blue-50 rounded-2xl shadow-2xl p-6 border-4 border-primary/20 flex flex-col items-center justify-between relative overflow-hidden">
-      {/* Watermark */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
-        <CreditCard className="w-64 h-64 text-primary" />
-      </div>
+  // ✅ BADGE RECTO React (Preview)
+ // ✅ BADGE RECTO React - Design identique au PDF
+const BadgeRecto = ({ seminariste }: { seminariste: Seminariste }) => (
+  <div className="relative w-[400px] h-[630px] bg-white rounded-lg shadow-2xl border-4 border-[#A6C33C] overflow-hidden">
+    {/* ✅ Watermark logo en arrière-plan */}
+    <div className="absolute inset-0 flex items-center justify-center opacity-[0.08] pointer-events-none">
+      <img
+        src={logoAnnour.src}
+        alt="Watermark"
+        className="w-[80%] h-auto object-contain"
+      />
+    </div>
 
-      {/* ✅ LOGOS */}
-      <div className="absolute top-2 left-2 right-2 flex justify-between z-20">
-        <div className="w-16 h-16 border-2 border-dashed border-primary/30 rounded-lg flex items-center justify-center text-xs text-muted-foreground bg-white/50">
-          LOGO 1
+    {/* Contenu principal */}
+    <div className="relative z-10 p-6 flex flex-col items-center">
+      {/* Logos en haut */}
+      <div className="absolute top-4 left-4 right-4 flex justify-between">
+        <div className="w-12 h-12 border border-gray-300 flex items-center justify-center overflow-hidden">
+          <img
+            src={AEEMCI.src}
+            alt="AEEMCI"
+            className="w-full h-full object-cover"
+          />
         </div>
-        <div className="w-16 h-16 border-2 border-dashed border-primary/30 rounded-lg flex items-center justify-center text-xs text-muted-foreground bg-white/50">
-          LOGO 2
+        <div className="w-12 h-12 border border-gray-300 flex items-center justify-center overflow-hidden">
+          <img
+            src={logoAnnour.src}
+            alt="ANNOUR"
+            className="w-full h-auto object-contain"
+          />
         </div>
       </div>
 
       {/* Header */}
-      <div className="text-center space-y-1 z-10 mt-16">
-        <div className="text-sm font-black text-primary uppercase tracking-widest">
-          Séminaire An-Nour
+      <div className="text-center mt-12 space-y-0.5">
+        <div className="text-sm font-bold text-[#A6C33C]">AEEMCI</div>
+        <div className="text-base font-bold text-black">SERA-EST</div>
+        <div className="text-[10px] text-gray-500">
+          Sous-comité Cocody I & Sous-comité Bingerville
         </div>
-        <div className="text-xs text-muted-foreground font-semibold">Année 2024-2025</div>
-        <div className="h-1 w-16 bg-gradient-to-r from-primary to-blue-300 mx-auto rounded-full mt-2" />
       </div>
 
-      {/* Photo */}
-      <div className="relative z-10">
-        <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary/20 to-blue-100 border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
+      {/* Titre */}
+      <div className="text-center mt-3">
+        <div className="text-2xl font-bold text-[#A6C33C]">
+          SEMINAIRE AN-NOUR 25
+        </div>
+      </div>
+
+      {/* Photo circulaire */}
+      <div className="mt-5 relative">
+        <div className="w-[120px] h-[120px] rounded-full border-[3px] border-[#A6C33C] bg-gray-100 flex items-center justify-center overflow-hidden">
           {seminariste.photo_url ? (
-            <img src={seminariste.photo_url} alt={seminariste.nom} className="w-full h-full object-cover" />
+            <img
+              src={seminariste.photo_url}
+              alt={seminariste.nom}
+              className="w-full h-full object-cover"
+            />
           ) : (
-            <Users className="h-16 w-16 text-primary/40" />
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              <Users className="h-12 w-12 text-gray-400" />
+            </div>
           )}
         </div>
-        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-          SÉMINARISTE
-        </div>
       </div>
 
-      {/* Info */}
-      <div className="text-center space-y-2 w-full z-10">
-        <div className="font-black text-xl uppercase leading-tight tracking-tight text-foreground">
+      {/* Badge "SEMINARISTE" */}
+      <div className="mt-3 bg-[#A6C33C] text-white px-7 py-1.2 mt-[-10px] z-10 rounded-full">
+        <span className="text-xs font-bold">SEMINARISTE</span>
+      </div>
+
+      {/* Nom et Prénom */}
+      <div className="text-center mt-4 space-y-0.5">
+        <div className="text-[22px] font-bold text-[#A6C33C] uppercase leading-tight">
           {seminariste.nom}
         </div>
-        <div className="font-bold text-base text-primary capitalize">{seminariste.prenom}</div>
-        <div className="inline-flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow-md border border-border">
-          <span className="text-xs font-medium text-muted-foreground">Matricule:</span>
-          <span className="text-sm font-mono font-black text-foreground">{seminariste.matricule}</span>
+        <div className="text-lg font-bold text-black uppercase leading-tight">
+          {seminariste.prenom}
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="text-center space-y-2 w-full z-10">
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 p-2 rounded-xl">
-          <Badge variant="default" className="text-xs px-3 py-0.5 font-semibold">
-            {seminariste.niveau || "Non classé"}
-          </Badge>
-          <div className="text-xs text-muted-foreground mt-1 font-medium">
-            Dortoir: {seminariste.dortoir}
-          </div>
-        </div>
-        <div className="text-[10px] text-muted-foreground font-medium">www.seminaire-annour.ci</div>
+      {/* Matricule */}
+      <div className="mt-3 w-[90%] border-2 border-[#A6C33C] rounded-lg px-3 py-1.5 flex justify-between items-center">
+        <span className="text-xs text-gray-500">Matricule :</span>
+        <span className="text-sm font-bold text-black">
+          {seminariste.matricule}
+        </span>
       </div>
-    </div>
-  );
 
-  // ✅ BADGE VERSO (React)
-  const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
-    <div className="w-[340px] h-[520px] bg-gradient-to-br from-red-50 via-white to-red-50 rounded-2xl shadow-2xl p-6 border-4 border-red-300/30 flex flex-col relative overflow-hidden">
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="text-center border-b-2 border-red-200 pb-3">
-          <h3 className="font-black text-red-600 text-sm uppercase tracking-wider">
-            Informations Détaillées
-          </h3>
-        </div>
-
-        {/* Identité */}
-        <div className="space-y-2">
-          <h4 className="font-bold text-xs text-foreground flex items-center gap-1">
-            <Users className="h-3 w-3" /> IDENTITÉ
-          </h4>
-          <div className="text-xs space-y-1 text-muted-foreground bg-muted/30 p-2 rounded">
-            <div>
-              <strong>Matricule:</strong> {seminariste.matricule}
-            </div>
-            <div>
-              <strong>Nom complet:</strong> {seminariste.nom} {seminariste.prenom}
-            </div>
-            <div>
-              <strong>Âge:</strong> {seminariste.age} ans • <strong>Sexe:</strong>{" "}
-              {seminariste.sexe === "M" ? "Masculin" : "Féminin"}
-            </div>
-            <div>
-              <strong>Niveau:</strong> {seminariste.niveau || "Non classé"}
-            </div>
-            <div>
-              <strong>Dortoir:</strong> {seminariste.dortoir}
-            </div>
+      {/* Cadre niveau + dortoir */}
+      <div className="mt-6 mb-8 w-[88%] relative">
+        {/* Grand cadre dortoir */}
+        <div className="border-2 border-[#A6C33C] rounded-2xl px-4 py-5 bg-white">
+          {/* Badge niveau (chevauche le grand cadre) */}
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 border-2 border-[#A6C33C] bg-white w-[80%] rounded-lg px-8 py-1.5">
+            <span className="text-sm font-bold text-black">
+              {seminariste.niveau || "Universitaire"}
+            </span>
           </div>
-        </div>
 
-        {/* Contacts */}
-        <div className="space-y-2">
-          <h4 className="font-bold text-xs text-foreground flex items-center gap-1">
-            <Phone className="h-3 w-3" /> CONTACTS
-          </h4>
-          <div className="text-xs space-y-1 text-muted-foreground bg-muted/30 p-2 rounded">
-            <div>
-              <strong>Parent/Tuteur:</strong> {seminariste.contact_parent || "Non renseigné"}
-            </div>
-            <div>
-              <strong>Séminariste:</strong> {seminariste.contact_seminariste || "Non renseigné"}
-            </div>
-            <div>
-              <strong>Commune:</strong> {seminariste.commune_habitation || "Non renseignée"}
-            </div>
-          </div>
-        </div>
-
-        {/* Médical */}
-        <div className="space-y-2 bg-orange-50 p-3 rounded-lg border-2 border-orange-200">
-          <h4 className="font-bold text-xs text-orange-700 flex items-center gap-1">
-            <Heart className="h-3 w-3" /> INFORMATIONS MÉDICALES
-          </h4>
-          <div className="text-xs space-y-2 text-foreground">
-            <div>
-              <strong className="text-orange-700">Allergies:</strong>
-              <div className="mt-1 text-muted-foreground">{seminariste.allergie || "RAS"}</div>
-            </div>
-            <div>
-              <strong className="text-orange-700">Antécédents:</strong>
-              <div className="mt-1 text-muted-foreground">
-                {seminariste.antecedent_medical || "Néant"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Urgence */}
-        <div className="bg-red-100 p-3 rounded-lg border-2 border-red-300">
-          <h4 className="font-bold text-xs text-red-700 flex items-center gap-1 mb-2">
-            <AlertCircle className="h-3 w-3" /> EN CAS D'URGENCE
-          </h4>
-          <div className="text-xs text-red-900 space-y-1">
-            <div>
-              <strong>Contacter:</strong> {seminariste.contact_parent || "Voir administration"}
-            </div>
-            <div className="text-[10px]">Ou l'administration du séminaire An-Nour</div>
+          {/* Dortoir */}
+          <div className="flex justify-between items-center text-sm mt-5">
+            <span className="text-black">Dortoir :</span>
+            <span className="font-bold text-black">
+              {seminariste.dortoir || "Salwa - Réconfort"}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="absolute bottom-2 left-0 right-0 text-center text-[9px] text-muted-foreground">
-        Document confidentiel - Usage interne uniquement
+      <div className="absolute  bottom-3 left-0 right-0 text-center">
+        <span className="text-xs font-bold text-[#A6C33C]">
+          https://an-nour25.vercel.app
+        </span>
       </div>
     </div>
-  );
+  </div>
+);
+
+// ✅ BADGE VERSO React - Design identique au PDF
+const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
+  <div className="relative w-[400px] h-[630px] bg-white rounded-lg shadow-2xl border-4 border-[#A6C33C] overflow-hidden">
+    {/* ✅ Watermark logo en arrière-plan */}
+    <div className="absolute inset-0 flex items-center justify-center opacity-[0.08] pointer-events-none">
+      <img
+        src={logoAnnour.src}
+        alt="Watermark"
+        className="w-[80%] h-auto object-contain"
+      />
+    </div>
+
+    {/* Contenu principal */}
+    <div className="relative z-10 p-5 flex flex-col">
+      {/* Header */}
+      <div className="text-center space-y-0.5 mb-3">
+        <div className="text-sm font-bold text-[#A6C33C]">AEEMCI</div>
+        <div className="text-base font-bold text-black">SERA-EST</div>
+        <div className="text-[10px] text-gray-500">
+          Sous-comité Cocody I & Sous-comité Bingerville
+        </div>
+      </div>
+
+      {/* Section Contacts */}
+      <div className="border-2 border-[#A6C33C] rounded-xl p-4 space-y-2.5">
+        <div className="text-center font-bold text-sm text-black">
+          Contacts
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs">
+            <span className="text-black">Parents :</span>
+            <span className="text-black">
+              {seminariste.contact_parent || "0555990076"}
+            </span>
+          </div>
+          {/* <div className="flex justify-between text-xs">
+            <span className="text-black">Séminariste :</span>
+            <span className="text-black">
+              {seminariste.contact_seminariste || "0555990076"}
+            </span>
+          </div> */}
+          <div className="flex justify-between text-xs">
+            <span className="text-black">Commune :</span>
+            <span className="text-black">
+              {seminariste.commune_habitation || "Bingerville"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Section Informations Médicales */}
+      <div className="border-2 border-[#A6C33C] rounded-xl p-4 mt-4 space-y-2.5">
+        <div className="text-center font-bold text-sm text-black">
+          INFORMATIONS MÉDICALES
+        </div>
+        <div className="space-y-2">
+          <div>
+            <div className="font-bold text-xs text-black">Allergies :</div>
+            <div className="text-xs text-black mt-0.5">
+              {seminariste.allergie || "RAS"}
+            </div>
+          </div>
+          <div>
+            <div className="font-bold text-xs text-black">Antécédents :</div>
+            <div className="text-xs text-black mt-0.5">
+              {seminariste.antecedent_medical || "Néant"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* QR Code */}
+      <div className="flex-1 flex items-center justify-center mt-4 mb-8">
+        {qrCodes[seminariste.matricule] ? (
+          <img
+            src={qrCodes[seminariste.matricule]}
+            alt="QR Code"
+            className="w-[180px] h-[180px]"
+          />
+        ) : (
+          <div className="w-[100px] h-[100px] border-2 border-gray-300 flex items-center justify-center">
+            <span className="text-[10px] text-gray-400">QR CODE</span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-3 left-0 right-0 text-center">
+        <span className="text-xs font-bold text-[#A6C33C]">
+          https://an-nour25.vercel.app
+        </span>
+      </div>
+    </div>
+  </div>
+);
+
 
   if (loading) {
     return (
@@ -562,10 +744,12 @@ export default function BadgeGenerationPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <CreditCard className="h-7 w-7 text-primary" />
-              GÉNÉRATION DE BADGES RECTO-VERSO
+              <CreditCard className="h-7 w-7 text-[#A6C33C]" />
+              GÉNÉRATION DE BADGES AN-NOUR
             </h1>
-            <p className="text-muted-foreground">Badges avec logos et informations médicales</p>
+            <p className="text-muted-foreground">
+              Badges recto-verso côte à côte avec QR code
+            </p>
           </div>
         </div>
 
@@ -592,22 +776,31 @@ export default function BadgeGenerationPage() {
                       className="pl-10"
                     />
                   </div>
-                  <Select value={selectedNiveau} onValueChange={setSelectedNiveau}>
+                  <Select
+                    value={selectedNiveau}
+                    onValueChange={setSelectedNiveau}
+                  >
                     <SelectTrigger className="w-48">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="tous">Tous niveaux</SelectItem>
-                      {Array.from(new Set(seminaristes.map((s) => s.niveau).filter(Boolean))).map(
-                        (niveau) => (
-                          <SelectItem key={niveau} value={niveau || ""}>
-                            {niveau}
-                          </SelectItem>
+                      {Array.from(
+                        new Set(
+                          seminaristes.map((s) => s.niveau).filter(Boolean)
                         )
-                      )}
+                      ).map((niveau) => (
+                        <SelectItem key={niveau} value={niveau || ""}>
+                          {niveau}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm" onClick={fetchSeminaristes}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchSeminaristes}
+                  >
                     <RefreshCw className="h-4 w-4" />
                   </Button>
                 </div>
@@ -618,8 +811,10 @@ export default function BadgeGenerationPage() {
                       <TableRow>
                         <TableHead className="w-12">
                           <Checkbox
+                            className="border-[#A6C33C]"
                             checked={
-                              selectedSeminaristes.length === filteredSeminaristes.length &&
+                              selectedSeminaristes.length ===
+                                filteredSeminaristes.length &&
                               filteredSeminaristes.length > 0
                             }
                             onCheckedChange={handleSelectAll}
@@ -635,17 +830,28 @@ export default function BadgeGenerationPage() {
                         <TableRow key={sem.id}>
                           <TableCell>
                             <Checkbox
-                              checked={selectedSeminaristes.includes(sem.matricule)}
-                              onCheckedChange={() => handleSelectOne(sem.matricule)}
+                              className="border-[#A6C33C]"
+                              checked={selectedSeminaristes.includes(
+                                sem.matricule
+                              )}
+                              onCheckedChange={() =>
+                                handleSelectOne(sem.matricule)
+                              }
                             />
                           </TableCell>
-                          <TableCell className="font-mono font-semibold">{sem.matricule}</TableCell>
-                          <TableCell>
-                            <div className="font-semibold">{sem.nom}</div>
-                            <div className="text-sm text-muted-foreground">{sem.prenom}</div>
+                          <TableCell className="font-mono font-semibold">
+                            {sem.matricule}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">{sem.niveau || "Non classé"}</Badge>
+                            <div className="font-semibold">{sem.nom}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {sem.prenom}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {sem.niveau || "Non classé"}
+                            </Badge>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -680,11 +886,19 @@ export default function BadgeGenerationPage() {
                   <div className="scale-[0.65] origin-top">
                     {showVerso ? (
                       <BadgeVerso
-                        seminariste={seminaristes.find((s) => s.matricule === selectedSeminaristes[0])!}
+                        seminariste={
+                          seminaristes.find(
+                            (s) => s.matricule === selectedSeminaristes[0]
+                          )!
+                        }
                       />
                     ) : (
                       <BadgeRecto
-                        seminariste={seminaristes.find((s) => s.matricule === selectedSeminaristes[0])!}
+                        seminariste={
+                          seminaristes.find(
+                            (s) => s.matricule === selectedSeminaristes[0]
+                          )!
+                        }
                       />
                     )}
                   </div>
@@ -692,7 +906,9 @@ export default function BadgeGenerationPage() {
                   <div className="w-64 h-96 border-2 border-dashed rounded-xl flex items-center justify-center">
                     <div className="text-center space-y-2">
                       <CreditCard className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <div className="text-sm text-muted-foreground">Sélectionnez un séminariste</div>
+                      <div className="text-sm text-muted-foreground">
+                        Sélectionnez un séminariste
+                      </div>
                     </div>
                   </div>
                 )}
@@ -706,7 +922,7 @@ export default function BadgeGenerationPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2 pt-2">
                   <Button
-                    className="w-full gap-2"
+                    className="w-full gap-2 bg-[#A6C33C] hover:bg-[#95B035]"
                     size="lg"
                     onClick={generatePDF}
                     disabled={selectedSeminaristes.length === 0 || generating}
@@ -714,12 +930,12 @@ export default function BadgeGenerationPage() {
                     {generating ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        Génération...
+                        Génération PDF...
                       </>
                     ) : (
                       <>
                         <FileText className="h-5 w-5" />
-                        Télécharger PDF Recto-Verso ({selectedSeminaristes.length})
+                        Télécharger PDF ({selectedSeminaristes.length})
                       </>
                     )}
                   </Button>
@@ -735,12 +951,15 @@ export default function BadgeGenerationPage() {
                 </div>
 
                 <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg space-y-1">
-                  <div className="font-semibold mb-1">ℹ️ Information:</div>
-                  <div>• 2 emplacements pour logos</div>
-                  <div>• Recto: Identité + Photo</div>
-                  <div>• Verso: Infos médicales</div>
-                  <div>• 2 badges par page A4</div>
-                  <div>• Format impression optimisé</div>
+                  <div className="font-semibold mb-1">
+                    ✅ Badges professionnels :
+                  </div>
+                  <div>• Recto-verso côte à côte</div>
+                  <div>• 1 badge par page (recto + verso)</div>
+                  <div>• Logo en arrière-plan subtil</div>
+                  <div>• QR Code avec matricule</div>
+                  <div>• Format A4 paysage</div>
+                  <div>• Prêt à imprimer</div>
                 </div>
               </CardContent>
             </Card>
