@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { X } from "lucide-react"
+import { useState } from "react"
 
 interface AddNotesModalProps {
   seminarist?: any
@@ -167,6 +167,7 @@ export default function AddNotesModal({ seminarist, onClose }: AddNotesModalProp
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">N°</TableHead>
                   <TableHead>MATRICULE</TableHead>
                   <TableHead>NOM & PRÉNOMS</TableHead>
                   <TableHead>GENRE</TableHead>
@@ -175,8 +176,11 @@ export default function AddNotesModal({ seminarist, onClose }: AddNotesModalProp
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {seminaristesForNotes.map((student) => (
+                {seminaristesForNotes.map((student, index) => (
                   <TableRow key={student.id}>
+                    <TableCell className="font-mono text-muted-foreground w-[50px]">
+                      {index + 1}
+                    </TableCell>
                     <TableCell className="font-medium">{student.matricule}</TableCell>
                     <TableCell>{student.nom}</TableCell>
                     <TableCell>

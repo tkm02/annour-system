@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Search, Download, Eye } from "lucide-react"
+import { Download, Eye, Search } from "lucide-react"
+import { useState } from "react"
 import HealthSeminaristModal from "./health-seminarist-modal"
 
 // Mock data
@@ -158,6 +158,7 @@ export default function HealthSeminaristesTable() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">N°</TableHead>
                   <TableHead>MATRICULE</TableHead>
                   <TableHead>NOM</TableHead>
                   <TableHead>PRÉNOMS</TableHead>
@@ -168,8 +169,11 @@ export default function HealthSeminaristesTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSeminaristes.slice(0, 10).map((seminarist) => (
+                {filteredSeminaristes.slice(0, 10).map((seminarist, index) => (
                   <TableRow key={seminarist.id}>
+                    <TableCell className="font-mono text-muted-foreground w-[50px]">
+                      {index + 1}
+                    </TableCell>
                     <TableCell className="font-medium">{seminarist.matricule}</TableCell>
                     <TableCell>{seminarist.nom}</TableCell>
                     <TableCell>{seminarist.prenoms}</TableCell>

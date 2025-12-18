@@ -1,15 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Search, Download, Plus, Eye, Edit } from "lucide-react"
-import ConsultationModal from "./consultation-modal"
+import { Download, Edit, Eye, Plus, Search } from "lucide-react"
+import { useState } from "react"
 import AddConsultationModal from "./add-consultation-modal"
+import ConsultationModal from "./consultation-modal"
 
 // Mock data
 const consultations = [
@@ -151,6 +151,7 @@ export default function ConsultationsTable() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">N°</TableHead>
                   <TableHead>MATRICULE</TableHead>
                   <TableHead>NOM & PRÉNOMS</TableHead>
                   <TableHead>GENRE</TableHead>
@@ -161,8 +162,11 @@ export default function ConsultationsTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {consultations.map((consultation) => (
+                {consultations.map((consultation, index) => (
                   <TableRow key={consultation.id}>
+                    <TableCell className="font-mono text-muted-foreground w-[50px]">
+                      {index + 1}
+                    </TableCell>
                     <TableCell className="font-medium">{consultation.matricule}</TableCell>
                     <TableCell>{consultation.nom}</TableCell>
                     <TableCell>

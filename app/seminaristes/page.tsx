@@ -2,10 +2,10 @@
 
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import SeminaristesTable from "@/components/seminaristes/seminaristes-table";
-import { scientificApi, Seminariste } from "@/lib/api";
-import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { scientificApi, Seminariste } from "@/lib/api";
 import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function SeminaristesPage() {
@@ -18,7 +18,7 @@ export default function SeminaristesPage() {
     try {
       setLoading(true);
       console.log("🔄 Fetch séminaristes...");
-      const response = await scientificApi.getSeminaristes(1, 100);
+      const response = await scientificApi.getSeminaristes(1, 10000);
       
       setSeminaristes(response.data);
       setTotal(response.total);

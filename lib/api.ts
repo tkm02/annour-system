@@ -149,17 +149,66 @@ export async function apiRequest<T>(
 // ✅ SCIENTIFIC API - UNIFIÉ
 export const scientificApi = {
   // 📊 SÉMINARISTES (CACHE 5min)
+  // 📊 SÉMINARISTES (CACHE 5min)
   getSeminaristes: async (page = 1, limit = 100, filters?: any) => {
-    if (cachedSeminaristes) {
-      console.log('✅ Cache seminaristes utilisé');
-      return cachedSeminaristes;
+    // ✅ MODE "FETCH ALL" (Si limit > 100, on charge tout)
+    if (limit > 100) {
+      if (cachedSeminaristes && cachedSeminaristes.limit >= 10000) {
+        console.log('✅ Cache seminaristes utilisé (FULL)');
+        return cachedSeminaristes;
+      }
+
+      console.log('🔄 Chargement complet des séminaristes (Batching)...');
+      
+      // 1. Première page pour avoir le total
+      const firstBatch = await apiRequest<ApiResponse<Seminariste>>(
+        `/scientific/seminaristes?page=1&limit=100${filters ? '&' + new URLSearchParams(filters) : ''}`
+      );
+      
+      let allData = [...firstBatch.data];
+      const total = firstBatch.total;
+      const totalPages = Math.ceil(total / 100);
+
+      // 2. Charger le reste en parallèle
+      if (totalPages > 1) {
+        const promises = [];
+        for (let p = 2; p <= totalPages; p++) {
+          promises.push(
+            apiRequest<ApiResponse<Seminariste>>(
+              `/scientific/seminaristes?page=${p}&limit=100${filters ? '&' + new URLSearchParams(filters) : ''}`
+            )
+          );
+        }
+        
+        const results = await Promise.all(promises);
+        results.forEach(res => {
+          allData = [...allData, ...res.data];
+        });
+      }
+
+      const result = {
+        total: total,
+        page: 1,
+        limit: total, // On indique que la limite est le total
+        data: allData,
+      };
+
+      cachedSeminaristes = result;
+      setTimeout(() => { cachedSeminaristes = null; }, 5 * 60 * 1000);
+      return result;
     }
+
+    // ✅ MODE PAGINATION SHANDARD (Max 100 par le backend)
+    // Attention: Le backend rejette > 100, donc on s'assure de ne pas dépasser
+    const safeLimit = Math.min(limit, 100);
+    
+    // Note: On ne cache PAS les pages individuelles pour éviter les bugs de pagination
+    // sauf si on implémente un cache par clé (page+limit). 
+    // Pour l'instant, on désactive le cache partiel pour la sécurité.
     
     const data = await apiRequest<ApiResponse<Seminariste>>(
-      `/scientific/seminaristes?page=${page}&limit=${limit}${filters ? '&' + new URLSearchParams(filters) : ''}`
+      `/scientific/seminaristes?page=${page}&limit=${safeLimit}${filters ? '&' + new URLSearchParams(filters) : ''}`
     );
-    cachedSeminaristes = data;
-    setTimeout(() => { cachedSeminaristes = null; }, 5 * 60 * 1000);
     return data;
   },
   // ✅ CRUD SÉMINARISTES
@@ -243,7 +292,7 @@ export const scientificApi = {
 // ✅ DASHBOARD API
 export const dashboardApi = {
   getDashboardData: async () => {
-    const seminaristesResponse = await scientificApi.getSeminaristes(1, 100);
+    const seminaristesResponse = await scientificApi.getSeminaristes(1, 10000);
     return {
       seminaristes: seminaristesResponse.data,
       total: seminaristesResponse.total,

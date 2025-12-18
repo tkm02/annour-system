@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Search, Download, Plus, Loader2, RefreshCw } from "lucide-react";
-import LevelSelectionModal from "./level-selection-modal";
 import { scientificApi, Seminariste } from "@/lib/api";
+import { Download, Loader2, Plus, RefreshCw, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import LevelSelectionModal from "./level-selection-modal";
 
 interface SeminaristeWithNotes extends Seminariste {
   notes?: Array<{
@@ -43,7 +43,7 @@ export default function NotesManagement() {
       setLoading(true);
       console.log("🔄 Fetch séminaristes avec notes...");
       
-      const response = await scientificApi.getSeminaristes(1, 500);
+      const response = await scientificApi.getSeminaristes(1, 10000);
       
       // TODO: Récupérer les notes pour chaque séminariste
       // const notesResponse = await scientificApi.getNotes();
@@ -244,6 +244,7 @@ export default function NotesManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">N°</TableHead>
                   <TableHead className="w-[120px]">MATRICULE</TableHead>
                   <TableHead>NOM & PRÉNOM</TableHead>
                   <TableHead className="w-[70px]">GENRE</TableHead>
@@ -254,8 +255,11 @@ export default function NotesManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSeminaristes.map((seminarist) => (
+                {filteredSeminaristes.map((seminarist, index) => (
                   <TableRow key={seminarist.id}>
+                    <TableCell className="font-mono text-muted-foreground w-[50px]">
+                      {index + 1}
+                    </TableCell>
                     <TableCell className="font-medium font-mono">
                       {seminarist.matricule}
                     </TableCell>

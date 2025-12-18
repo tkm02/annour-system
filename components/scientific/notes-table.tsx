@@ -1,35 +1,35 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Search, Download, Plus, Edit, RefreshCw, GraduationCap, CheckCircle2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { scientificApi, UpdateNote, CreateNote } from "@/lib/api";
+import { CreateNote, scientificApi, UpdateNote } from "@/lib/api";
+import { CheckCircle2, Download, Edit, GraduationCap, Plus, RefreshCw, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 interface Note {
@@ -377,6 +377,7 @@ export default function NotesTable({}: NotesTableProps) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">N°</TableHead>
                   <TableHead>MATRICULE</TableHead>
                   <TableHead>SÉMINARISTE</TableHead>
                   <TableHead>NOTE</TableHead>
@@ -386,8 +387,11 @@ export default function NotesTable({}: NotesTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredNotes.slice(0, 20).map((note) => (
+                {filteredNotes.slice(0, 20).map((note, index) => (
                   <TableRow key={note.id}>
+                    <TableCell className="font-mono text-muted-foreground w-[50px]">
+                      {index + 1}
+                    </TableCell>
                     <TableCell className="font-medium">{note.matricule}</TableCell>
                     <TableCell className="max-w-[200px]">
                       <div>

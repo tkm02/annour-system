@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/dashboard-layout";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,24 +21,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Search,
-  CreditCard,
-  Printer,
-  Eye,
-  Loader2,
-  Users,
-  RefreshCw,
-  FileText,
-} from "lucide-react";
 import { scientificApi, Seminariste } from "@/lib/api";
-import { toast } from "sonner";
-import jsPDF from "jspdf";
-import QRCode from "qrcode";
 import logoAnnour from "@/public/ANNOUR.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
+import jsPDF from "jspdf";
+import {
+  CreditCard,
+  Eye,
+  FileText,
+  Loader2,
+  Printer,
+  RefreshCw,
+  Search,
+  Trash2,
+  UserPlus,
+  Users
+} from "lucide-react";
+import QRCode from "qrcode";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+// ✅ INTERFACE STAFF
+interface StaffMember {
+  id: string;
+  nom: string;
+  prenom: string;
+  fonction: string; // "Formateur", "Comité d'Organisation", "Sécurité", etc.
+  telephone: string;
+  selected: boolean;
+}
 
 export default function BadgeGenerationPage() {
   const [seminaristes, setSeminaristes] = useState<Seminariste[]>([]);
@@ -46,13 +59,22 @@ export default function BadgeGenerationPage() {
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
   const [selectedSeminaristes, setSelectedSeminaristes] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
-  const [showVerso, setShowVerso] = useState(false);
   const [qrCodes, setQrCodes] = useState<{ [key: string]: string }>({});
+  const [showVerso, setShowVerso] = useState(false);
+
+  // ✅ STATE STAFF
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [newStaff, setNewStaff] = useState({
+    nom: "",
+    prenom: "",
+    fonction: "Comité d'Organisation",
+    telephone: "",
+  });
 
   const fetchSeminaristes = async () => {
     try {
       setLoading(true);
-      const response = await scientificApi.getSeminaristes(1, 100);
+      const response = await scientificApi.getSeminaristes(1, 10000);
       setSeminaristes(response.data);
     } catch (error: any) {
       toast.error(error.message || "Erreur chargement");
@@ -176,6 +198,235 @@ export default function BadgeGenerationPage() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  // ✅ GESTION STAFF
+  const handleAddStaff = () => {
+    if (!newStaff.nom || !newStaff.prenom) {
+      toast.warning("Nom et Prénom requis");
+      return;
+    }
+    const staff: StaffMember = {
+      id: Date.now().toString(),
+      nom: newStaff.nom.toUpperCase(),
+      prenom: newStaff.prenom.toUpperCase(),
+      fonction: newStaff.fonction,
+      telephone: newStaff.telephone,
+      selected: true,
+    };
+    setStaffList([...staffList, staff]);
+    setNewStaff({ nom: "", prenom: "", fonction: "Comité d'Organisation", telephone: "" });
+    toast.success("Membre ajouté");
+  };
+
+  const removeStaff = (id: string) => {
+    setStaffList(staffList.filter((s) => s.id !== id));
+  };
+
+  const toggleStaffSelection = (id: string) => {
+    setStaffList(
+      staffList.map((s) => (s.id === id ? { ...s, selected: !s.selected } : s))
+    );
+  };
+
+  // ✅ GÉNÉRATION PDF STAFF
+  const generateStaffPDF = async () => {
+    const selectedStaff = staffList.filter((s) => s.selected);
+    if (selectedStaff.length === 0) {
+      toast.warning("Sélectionnez au moins un membre");
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      toast.info("📄 Génération badges Staff...");
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const badgeWidth = 100;
+      const badgeHeight = 145;
+      const marginX = (297 - badgeWidth * 2) / 3;
+      const marginY = (210 - badgeHeight) / 2;
+
+      let isFirstPage = true;
+
+      for (const staff of selectedStaff) {
+        if (!isFirstPage) pdf.addPage();
+        isFirstPage = false;
+
+        // Position RECTO (gauche)
+        const xRecto = marginX;
+        const y = marginY;
+        // Position VERSO (droite)
+        const xVerso = marginX + badgeWidth + marginX;
+
+        // Dessiner RECTO
+        await drawStaffBadgeRecto(pdf, staff, xRecto, y, badgeWidth, badgeHeight);
+        // Dessiner VERSO
+        await drawStaffBadgeVerso(pdf, staff, xVerso, y, badgeWidth, badgeHeight);
+      }
+
+      pdf.save(`badges-staff-${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success(`✅ ${selectedStaff.length} badges staff générés`);
+    } catch (error: any) {
+      console.error("❌ Erreur PDF Staff:", error);
+      toast.error("Erreur génération PDF");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ✅ DRAW STAFF RECTO
+  const drawStaffBadgeRecto = async (
+    pdf: jsPDF,
+    staff: StaffMember,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
+     // Border vert clair
+     pdf.setDrawColor(166, 195, 60);
+     pdf.setLineWidth(1);
+     pdf.rect(x, y, w, h);
+ 
+     // Background blanc
+     pdf.setFillColor(255, 255, 255);
+     pdf.rect(x, y, w, h, "F");
+ 
+     // ✅ LOGO EN ARRIÈRE-PLAN (watermark)
+     addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+ 
+     // Logo gauche AEEMCI
+     const logoSize = 12;
+     const logoX = x + 5;
+     const logoY = y + 4;
+     try {
+       pdf.addImage(AEEMCI.src, "JPEG", logoX, logoY, logoSize, logoSize);
+     } catch (error) {}
+ 
+     // Logo droit Annour
+     const logoMaxSize = 12;
+     const aspectRatioNour = 2517 / 1467;
+     const logoHeight = logoMaxSize / aspectRatioNour;
+     const offsetYNour = (logoMaxSize - logoHeight) / 2;
+     try {
+       pdf.addImage(logoAnnour.src, "PNG", x + w - 17, y + 4 + offsetYNour, logoMaxSize, logoHeight);
+     } catch (error) {}
+ 
+     // Header
+     pdf.setFontSize(8);
+     pdf.setFont("helvetica", "bold");
+     pdf.setTextColor(166, 195, 60);
+     pdf.text("AEEMCI", x + w / 2, y + 8, { align: "center" });
+     pdf.setFontSize(9);
+     pdf.setTextColor(0, 0, 0);
+     pdf.text("SERA-EST", x + w / 2, y + 13, { align: "center" });
+     pdf.setFontSize(6);
+     pdf.setFont("helvetica", "normal");
+     pdf.setTextColor(100, 100, 100);
+     pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 17, { align: "center" });
+ 
+     // Titre
+     pdf.setFontSize(14);
+     pdf.setFont("helvetica", "bold");
+     pdf.setTextColor(166, 195, 60);
+     pdf.text("SEMINAIRE AN-NOUR 25", x + w / 2, y + 27, { align: "center" });
+ 
+     // Photo placeholder
+     const photoSize = 30;
+     const photoX = x + w / 2;
+     const photoY = y + 45;
+     pdf.setDrawColor(166, 195, 60);
+     pdf.circle(photoX, photoY, photoSize / 2);
+     pdf.setFillColor(240, 240, 240);
+     pdf.circle(photoX, photoY, photoSize / 2 - 1, "F");
+ 
+     // Badge FONCTION
+     // Code couleur selon fonction (Optionnel, ici vert défaut)
+     const badgeColor = [166, 195, 60]; 
+     
+     pdf.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
+     pdf.roundedRect(x + w / 2 - 25, y + 58, 50, 6, 3, 3, "F");
+     pdf.setFontSize(7);
+     pdf.setFont("helvetica", "bold");
+     pdf.setTextColor(255, 255, 255);
+     pdf.text(staff.fonction.toUpperCase(), x + w / 2, y + 62, { align: "center" });
+ 
+     // Nom
+     pdf.setFontSize(11);
+     pdf.setFont("helvetica", "bold");
+     pdf.setTextColor(166, 195, 60);
+     pdf.text(staff.nom, x + w / 2, y + 70, { align: "center" });
+ 
+     // Prénom
+     pdf.setFontSize(9);
+     pdf.setTextColor(0, 0, 0);
+     pdf.text(staff.prenom, x + w / 2, y + 75, { align: "center" });
+ 
+      // QR CODE (si dispo)
+      // Générer temporairement un QR pour le staff basé sur ID
+      try {
+         const qrDataUrl = await QRCode.toDataURL(`STAFF-${staff.id}-${staff.nom}`, { width: 300, margin: 1 });
+         const qrSize = 30;
+         pdf.addImage(qrDataUrl, "PNG", x + w/2 - qrSize/2, y + 90, qrSize, qrSize);
+      } catch(e) {}
+      
+     // Footer URL
+     pdf.setFontSize(6);
+     pdf.setTextColor(166, 195, 60);
+     pdf.setFont("helvetica", "bold");
+     pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+  };
+
+  // ✅ DRAW STAFF VERSO
+  const drawStaffBadgeVerso = async (
+    pdf: jsPDF,
+    staff: StaffMember,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1);
+    pdf.rect(x, y, w, h);
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, w, h, "F");
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+
+    // Header simple
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 15, { align: "center" });
+
+    let currentY = y + 40;
+    
+    // Rôle en gros
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0,0,0);
+    pdf.text(staff.fonction.toUpperCase(), x + w / 2, currentY, { align: "center" });
+
+    currentY += 20;
+
+    // Contact
+    if (staff.telephone) {
+        pdf.setFontSize(10);
+        pdf.text("Contact:", x + w/2, currentY, { align: "center" });
+        pdf.text(staff.telephone, x + w/2, currentY + 5, { align: "center" });
+    }
+
+    // Footer
+    pdf.setFontSize(6);
+    pdf.setTextColor(166, 195, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
   };
 
   // ✅ Fonction pour ajouter un logo en arrière-plan avec opacité
@@ -753,6 +1004,24 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
           </div>
         </div>
 
+        <Tabs defaultValue="seminaristes" className="w-full">
+            <TabsList className="mb-4">
+                <TabsTrigger 
+                  value="seminaristes" 
+                  className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
+                >
+                  Séminaristes
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="staff" 
+                  className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
+                >
+                  Comité & Formateurs
+                </TabsTrigger>
+            </TabsList>
+
+            {/* 🟢 TAB SÉMINARISTES */}
+            <TabsContent value="seminaristes">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* SÉLECTION */}
           <div className="lg:col-span-2 space-y-4">
@@ -965,6 +1234,131 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
             </Card>
           </div>
         </div>
+        </TabsContent>
+
+        {/* 🔵 TAB STAFF */}
+            <TabsContent value="staff">
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                     {/* INPUT STAFF */}
+                     <div className="space-y-4 col-span-2">
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>Ajouter un membre du Staff</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input 
+                                        placeholder="Nom" 
+                                        value={newStaff.nom}
+                                        onChange={(e) => setNewStaff({...newStaff, nom: e.target.value})}
+                                    />
+                                    <Input 
+                                        placeholder="Prénom"
+                                        value={newStaff.prenom}
+                                        onChange={(e) => setNewStaff({...newStaff, prenom: e.target.value})}
+                                    />
+                                    <Select 
+                                        value={newStaff.fonction} 
+                                        onValueChange={(v) => setNewStaff({...newStaff, fonction: v})}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Fonction" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Comité d'Organisation">Comité d'Organisation</SelectItem>
+                                            <SelectItem value="Formateur">Formateur</SelectItem>
+                                            <SelectItem value="Sécurité">Sécurité</SelectItem>
+                                            <SelectItem value="Cuisine">Cuisine</SelectItem>
+                                            <SelectItem value="Santé">Santé</SelectItem>
+                                            <SelectItem value="Logistique">Logistique</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Input 
+                                        placeholder="Téléphone (optionnel)" 
+                                        value={newStaff.telephone}
+                                        onChange={(e) => setNewStaff({...newStaff, telephone: e.target.value})}
+                                    />
+                                </div>
+                                <Button onClick={handleAddStaff} className="w-full bg-[#AC3] hover:bg-[#9B2]">
+                                    <UserPlus className="mr-2 h-4 w-4" /> Ajouter
+                                </Button>
+                            </CardContent>
+                         </Card>
+
+                         <Card>
+                             <CardHeader>
+                                 <CardTitle className="flex justify-between">
+                                    <span>Liste du Staff ({staffList.length})</span>
+                                    {staffList.length > 0 && (
+                                        <Badge>{staffList.filter(s=>s.selected).length} sélectionnés</Badge>
+                                    )}
+                                 </CardTitle>
+                             </CardHeader>
+                             <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-10">Select</TableHead>
+                                            <TableHead>Nom & Prénom</TableHead>
+                                            <TableHead>Fonction</TableHead>
+                                            <TableHead>Tel</TableHead>
+                                            <TableHead className="w-10">Action</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {staffList.map((staff) => (
+                                            <TableRow key={staff.id}>
+                                                <TableCell>
+                                                    <Checkbox 
+                                                        checked={staff.selected}
+                                                        onCheckedChange={() => toggleStaffSelection(staff.id)}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="font-bold">
+                                                    {staff.nom} {staff.prenom}
+                                                </TableCell>
+                                                <TableCell><Badge variant="outline">{staff.fonction}</Badge></TableCell>
+                                                <TableCell>{staff.telephone}</TableCell>
+                                                <TableCell>
+                                                    <Button variant="ghost" size="sm" onClick={() => removeStaff(staff.id)}>
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {staffList.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                                    Aucun membre ajouté.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                             </CardContent>
+                         </Card>
+                     </div>
+
+                     {/* ACTIONS */}
+                     <div className="space-y-4">
+                        <Card>
+                            <CardHeader><CardTitle>Génération</CardTitle></CardHeader>
+                            <CardContent>
+                                <Button 
+                                    className="w-full bg-[#AC3]" 
+                                    size="lg"
+                                    onClick={generateStaffPDF}
+                                    disabled={staffList.filter(s=>s.selected).length === 0 || generating}
+                                >
+                                    {generating ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
+                                    Générer Badges Staff
+                                </Button>
+                            </CardContent>
+                        </Card>
+                     </div>
+                 </div>
+            </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

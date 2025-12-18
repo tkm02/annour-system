@@ -1,8 +1,17 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,33 +27,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import {
-  Search,
-  Edit3,
-  Trash2,
-  RefreshCw,
-  Plus,
-  AlertTriangle,
-  Loader2,
-} from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  scientificApi,
-  StaticMetadata,
-  Seminariste,
   CreateSeminariste,
+  scientificApi,
+  Seminariste,
+  StaticMetadata,
 } from "@/lib/api";
+import {
+  AlertTriangle,
+  Download,
+  Edit3,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
+import QRCode from "qrcode";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/auth-context";
+import PDFGenerator, { SeminaristData } from "../../lib/pdf-generator";
 
 interface SeminaristesTableProps {
   seminaristes: Seminariste[];
@@ -214,6 +217,47 @@ export default function SeminaristesTable({
     }
   };
 
+  // ✅ TÉLÉCHARGER REÇU
+  const handleDownloadReceipt = async (seminarist: Seminariste) => {
+    try {
+      toast.info("Génération du reçu en cours...");
+      
+      const pdfData: SeminaristData = {
+        matricule: seminarist.matricule,
+        personalInfo: {
+          nom: seminarist.nom,
+          prenom: seminarist.prenom,
+          sexe: seminarist.sexe,
+          age: seminarist.age,
+          communeHabitation: seminarist.commune_habitation || "",
+          niveauAcademique: seminarist.niveau_academique,
+          contact: seminarist.contact_seminariste,
+        },
+        dormitoryInfo: {
+          dortoir: seminarist.dortoir,
+          matricule: seminarist.matricule,
+        },
+        healthInfo: {
+          allergie: seminarist.allergie || "RAS",
+          antecedentMedical: seminarist.antecedent_medical || "Néant",
+        },
+      };
+
+      const qrData = JSON.stringify({
+        id: seminarist.matricule,
+        nom: seminarist.nom,
+        prenom: seminarist.prenom,
+      });
+      const qrCodeUrl = await QRCode.toDataURL(qrData);
+
+      await PDFGenerator.generateRegistrationPDF(pdfData, qrCodeUrl);
+      toast.success("✅ Reçu téléchargé");
+    } catch (error) {
+      console.error("❌ Erreur téléchargement reçu:", error);
+      toast.error("Erreur lors du téléchargement du reçu");
+    }
+  };
+
   // ✅ FILTRER SÉMINARISTES
   const filteredSeminaristes = seminaristes.filter((seminarist) => {
     const fullName = `${seminarist.nom} ${seminarist.prenom}`.toLowerCase();
@@ -364,6 +408,7 @@ export default function SeminaristesTable({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">N°</TableHead>
                   <TableHead>MATRICULE</TableHead>
                   <TableHead>NOM & PRÉNOM</TableHead>
                   <TableHead>GENRE</TableHead>
@@ -374,8 +419,11 @@ export default function SeminaristesTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSeminaristes.map((seminarist) => (
+                {filteredSeminaristes.map((seminarist, index) => (
                   <TableRow key={seminarist.id}>
+                    <TableCell className="font-mono text-muted-foreground w-[50px]">
+                      {index + 1}
+                    </TableCell>
                     <TableCell className="font-medium">
                       {seminarist.matricule}
                     </TableCell>
@@ -422,6 +470,15 @@ export default function SeminaristesTable({
                               title="Supprimer"
                             >
                               <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-blue-600"
+                              onClick={() => handleDownloadReceipt(seminarist)}
+                              title="Télécharger Reçu"
+                            >
+                              <Download className="h-4 w-4" />
                             </Button>
                           </>
                         )}

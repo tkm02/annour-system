@@ -1,27 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/dashboard-layout";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import { Search, RefreshCw, GraduationCap, Edit3, Scale } from "lucide-react";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import { scientificApi, TestScore } from "@/lib/api";
+import { GraduationCap, RefreshCw, Scale, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 interface Seminariste {
@@ -59,7 +59,7 @@ export default function TestEntreePage() {
   const fetchSeminaristes = async () => {
     try {
       setLoading(true);
-      const data = await scientificApi.getSeminaristes(1, 100);
+      const data = await scientificApi.getSeminaristes(1, 10000);
       setResponseData(data);
       
       // ✅ Calculer répartition A/B pour Secondaire/Primaire seulement
