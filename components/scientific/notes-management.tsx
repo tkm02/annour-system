@@ -3,33 +3,51 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { scientificApi, Seminariste } from "@/lib/api";
-import { Download, Loader2, Plus, RefreshCw, Search } from "lucide-react";
+import { Note, scientificApi, Seminariste } from "@/lib/api";
+import { AlertTriangle, ChevronDown, Download, Loader2, Minus, Plus, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import LevelSelectionModal from "./level-selection-modal";
+import NotesEntryModal from "./notes-entry-modal";
 
 interface SeminaristeWithNotes extends Seminariste {
-  notes?: Array<{
-    id: string;
-    matiere: string;
-    note: number;
-    type_evaluation: string;
-  }>;
+  notesMap?: Record<string, Note>; // { "note1": Note, "note2": Note, ... }
 }
 
 export default function NotesManagement() {
   // ✅ ÉTATS
   const [seminaristes, setSeminaristes] = useState<SeminaristeWithNotes[]>([]);
+  const [allNotes, setAllNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("tous");
   const [selectedDortoir, setSelectedDortoir] = useState("tous");
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
-  const [showLevelModal, setShowLevelModal] = useState(false);
+  // ✅ MODAL ENTRÉE NOTES
+  const [showNotesEntryModal, setShowNotesEntryModal] = useState(false);
+  
+  // ✅ COLONNES DYNAMIQUES (1-4)
+  const [noteColumns, setNoteColumns] = useState(3);
+  
+  // ✅ MODAL CONFIRMATION SUPPRESSION
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // ✅ FILTRES DYNAMIQUES
   const dynamicFilters = {
@@ -37,22 +55,49 @@ export default function NotesManagement() {
     dortoirs: Array.from(new Set(seminaristes.map(s => s.dortoir).filter(Boolean))),
   };
 
-  // ✅ FETCH SÉMINARISTES
-  const fetchSeminaristes = async () => {
+  // ✅ FETCH SÉMINARISTES ET NOTES
+  const fetchData = async () => {
     try {
       setLoading(true);
-      console.log("🔄 Fetch séminaristes avec notes...");
       
-      const response = await scientificApi.getSeminaristes(1, 10000);
+      const [semResponse, notesResponse] = await Promise.all([
+        scientificApi.getSeminaristes(1, 10000),
+        scientificApi.getNotes()
+      ]);
       
-      // TODO: Récupérer les notes pour chaque séminariste
-      // const notesResponse = await scientificApi.getNotes();
+      // Grouper les notes par matricule
+      const notesByMatricule: Record<string, Record<string, Note>> = {};
       
-      setSeminaristes(response.data);
-      console.log(`✅ ${response.total} séminaristes chargés`);
+      notesResponse.forEach((note: Note) => {
+        if (!notesByMatricule[note.matricule]) {
+          notesByMatricule[note.matricule] = {};
+        }
+        notesByMatricule[note.matricule][note.libelle] = note;
+      });
+      
+      // Associer les notes aux séminaristes
+      const semWithNotes: SeminaristeWithNotes[] = semResponse.data.map((sem: Seminariste) => ({
+        ...sem,
+        notesMap: notesByMatricule[sem.matricule] || {}
+      }));
+      
+      setSeminaristes(semWithNotes);
+      setAllNotes(notesResponse);
+      
+      // Détecter le nombre max de colonnes utilisées SEULEMENT au premier chargement
+      if (noteColumns === 3 && notesResponse.length > 0) {
+        const maxColumn = Math.max(1, ...notesResponse.map((n: Note) => {
+          const num = parseInt(n.libelle.replace('note', ''));
+          return isNaN(num) ? 1 : num;
+        }));
+        // Seulement augmenter, jamais diminuer automatiquement
+        if (maxColumn > noteColumns) {
+          setNoteColumns(maxColumn);
+        }
+      }
     } catch (error: any) {
       console.error("❌ Erreur fetch:", error);
-      toast.error(error.message || "Erreur chargement séminaristes");
+      toast.error(error.message || "Erreur chargement données");
     } finally {
       setLoading(false);
     }
@@ -60,7 +105,7 @@ export default function NotesManagement() {
 
   // ✅ FETCH INITIAL
   useEffect(() => {
-    fetchSeminaristes();
+    fetchData();
   }, []);
 
   // ✅ FILTRER SÉMINARISTES
@@ -87,27 +132,87 @@ export default function NotesManagement() {
   // ✅ REFRESH
   const handleRefresh = () => {
     scientificApi.invalidateCache();
-    fetchSeminaristes();
+    fetchData();
     toast.success("🔄 Liste actualisée");
   };
 
   // ✅ EXPORTER
   const handleExport = () => {
     toast.info("📥 Export en développement...");
-    // TODO: Implémenter export CSV/Excel
   };
 
-  // ✅ HANDLE ADD NOTES
-  const handleAddNotes = async (noteData: any) => {
-    try {
-      console.log("➕ Ajout notes:", noteData);
-      // await scientificApi.createNote(noteData);
-      toast.success("✅ Notes ajoutées avec succès");
-      await fetchSeminaristes();
-    } catch (error: any) {
-      console.error("❌ Erreur ajout notes:", error);
-      toast.error(error.message || "Erreur ajout notes");
+  // ✅ AJOUTER COLONNE (NOTE 4)
+  const handleAddColumn = () => {
+    if (noteColumns >= 10) {
+      toast.warning("Maximum 10 colonnes de notes");
+      return;
     }
+    setNoteColumns(prev => prev + 1);
+    toast.success(`✅ Colonne NOTE ${noteColumns + 1} ajoutée`);
+  };
+
+  // ✅ SUPPRIMER COLONNE (avec confirmation)
+  const handleRemoveColumn = async () => {
+    if (noteColumns <= 1) {
+      toast.warning("Minimum 1 colonne de notes");
+      return;
+    }
+    setShowDeleteConfirm(true);
+  };
+
+  // ✅ CONFIRMER SUPPRESSION
+  const confirmDeleteColumn = async () => {
+    try {
+      setDeleting(true);
+      const libelleToDelete = `note${noteColumns}`;
+      
+      const deletedCount = await scientificApi.deleteNotesByLibelle(libelleToDelete);
+      
+      setNoteColumns(prev => prev - 1);
+      setShowDeleteConfirm(false);
+      
+      toast.success(`✅ ${deletedCount} note(s) "${libelleToDelete}" supprimée(s)`);
+      
+      // Rafraîchir les données
+      await fetchData();
+    } catch (error: any) {
+      console.error("❌ Erreur suppression:", error);
+      toast.error(error.message || "Erreur lors de la suppression");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // ✅ HANDLE ADD NOTES - Open modal
+  const handleOpenNotesEntry = () => {
+    setShowNotesEntryModal(true);
+  };
+
+  // ✅ GÉNÉRER LES COLONNES DE NOTES DYNAMIQUEMENT
+  const renderNoteColumns = () => {
+    const columns = [];
+    for (let i = 1; i <= noteColumns; i++) {
+      columns.push(
+        <TableHead key={`note-header-${i}`} className="w-[80px] text-center">
+          NOTE {i}
+        </TableHead>
+      );
+    }
+    return columns;
+  };
+
+  const renderNoteCells = (seminarist: SeminaristeWithNotes) => {
+    const cells = [];
+    for (let i = 1; i <= noteColumns; i++) {
+      const noteKey = `note${i}`;
+      const note = seminarist.notesMap?.[noteKey];
+      cells.push(
+        <TableCell key={`note-cell-${i}`} className="text-center font-bold font-mono">
+          {note?.note?.toFixed(0) || "—"}
+        </TableCell>
+      );
+    }
+    return cells;
   };
 
   // ✅ LOADING STATE
@@ -142,7 +247,6 @@ export default function NotesManagement() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {/* Genre */}
               <Select value={selectedGenre} onValueChange={setSelectedGenre}>
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Genre" />
@@ -154,7 +258,6 @@ export default function NotesManagement() {
                 </SelectContent>
               </Select>
 
-              {/* Dortoir */}
               <Select value={selectedDortoir} onValueChange={setSelectedDortoir}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Dortoir" />
@@ -169,7 +272,6 @@ export default function NotesManagement() {
                 </SelectContent>
               </Select>
 
-              {/* Niveau */}
               <Select value={selectedNiveau} onValueChange={setSelectedNiveau}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Niveau" />
@@ -196,7 +298,10 @@ export default function NotesManagement() {
                 FILTRES {filteredSeminaristes.length.toString().padStart(3, "0")}
               </Badge>
               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                AVEC NOTES {seminaristes.filter(s => s.notes?.length).length.toString().padStart(3, "0")}
+                NOTES {allNotes.length.toString().padStart(3, "0")}
+              </Badge>
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                COLONNES {noteColumns}
               </Badge>
             </div>
 
@@ -219,14 +324,44 @@ export default function NotesManagement() {
                 <Download className="h-4 w-4" />
                 EXPORTER
               </Button>
-              <Button
-                size="sm"
-                className="gap-2 bg-primary hover:bg-primary/90 h-9"
-                onClick={() => setShowLevelModal(true)}
-              >
-                <Plus className="h-4 w-4" />
-                AJOUTER NOTES
-              </Button>
+              
+              {/* ✅ DROPDOWN AJOUTER/SUPPRIMER NOTE */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90 h-9">
+                    <Plus className="h-4 w-4" />
+                    GÉRER NOTES
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={handleOpenNotesEntry}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Saisir des notes
+                  </DropdownMenuItem>
+                  {noteColumns < 10 && (
+                    <DropdownMenuItem 
+                      onClick={handleAddColumn}
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4 text-green-600" />
+                      Ajouter colonne NOTE {noteColumns + 1}
+                    </DropdownMenuItem>
+                  )}
+                  {noteColumns > 1 && (
+                    <DropdownMenuItem 
+                      onClick={handleRemoveColumn}
+                      className="gap-2 text-destructive focus:text-destructive"
+                    >
+                      <Minus className="h-4 w-4" />
+                      Supprimer colonne NOTE {noteColumns}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
@@ -249,9 +384,7 @@ export default function NotesManagement() {
                   <TableHead>NOM & PRÉNOM</TableHead>
                   <TableHead className="w-[70px]">GENRE</TableHead>
                   <TableHead className="w-[200px]">NIVEAU</TableHead>
-                  <TableHead className="w-[80px] text-center">NOTE 1</TableHead>
-                  <TableHead className="w-[80px] text-center">NOTE 2</TableHead>
-                  <TableHead className="w-[80px] text-center">NOTE 3</TableHead>
+                  {renderNoteColumns()}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -281,21 +414,13 @@ export default function NotesManagement() {
                         <Badge variant="destructive">Non classé</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-center font-bold font-mono">
-                      {seminarist.notes?.[0]?.note?.toString().padStart(2, "0") || "—"}
-                    </TableCell>
-                    <TableCell className="text-center font-bold font-mono">
-                      {seminarist.notes?.[1]?.note?.toString().padStart(2, "0") || "—"}
-                    </TableCell>
-                    <TableCell className="text-center font-bold font-mono">
-                      {seminarist.notes?.[2]?.note?.toString().padStart(2, "0") || "—"}
-                    </TableCell>
+                    {renderNoteCells(seminarist)}
                   </TableRow>
                 ))}
                 
                 {filteredSeminaristes.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={5 + noteColumns} className="h-24 text-center">
                       <div className="text-muted-foreground">
                         Aucun séminariste trouvé
                       </div>
@@ -322,16 +447,58 @@ export default function NotesManagement() {
         </CardContent>
       </Card>
 
-      {/* ✅ MODAL AJOUT NOTES */}
-      {showLevelModal && (
-        <LevelSelectionModal
-          onClose={() => setShowLevelModal(false)}
-          onSelectLevel={(noteData) => {
-            setShowLevelModal(false);
-            handleAddNotes(noteData);
-          }}
-        />
-      )}
+      {/* ✅ MODAL SAISIE NOTES */}
+      <NotesEntryModal
+        open={showNotesEntryModal}
+        onClose={() => setShowNotesEntryModal(false)}
+        onSuccess={() => {
+          fetchData();
+          toast.success("✅ Notes mises à jour");
+        }}
+        currentNoteColumns={noteColumns}
+      />
+
+      {/* ✅ MODAL CONFIRMATION SUPPRESSION */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Confirmer la suppression
+            </DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer <span className="font-semibold">toutes les notes de la colonne NOTE {noteColumns}</span> ? 
+              Cette action est irréversible et supprimera les données de tous les séminaristes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleting}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteColumn}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                <>
+                  <Minus className="mr-2 h-4 w-4" />
+                  Supprimer NOTE {noteColumns}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
