@@ -358,13 +358,13 @@ export default function BadgeGenerationPage() {
      pdf.text(staff.fonction.toUpperCase(), x + w / 2, y + 62, { align: "center" });
  
      // Nom
-     pdf.setFontSize(11);
+     pdf.setFontSize(14);
      pdf.setFont("helvetica", "bold");
      pdf.setTextColor(166, 195, 60);
      pdf.text(staff.nom, x + w / 2, y + 70, { align: "center" });
  
      // Prénom
-     pdf.setFontSize(9);
+     pdf.setFontSize(13);
      pdf.setTextColor(0, 0, 0);
      pdf.text(staff.prenom, x + w / 2, y + 75, { align: "center" });
  
@@ -408,7 +408,7 @@ export default function BadgeGenerationPage() {
     let currentY = y + 40;
     
     // Rôle en gros
-    pdf.setFontSize(12);
+    pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0,0,0);
     pdf.text(staff.fonction.toUpperCase(), x + w / 2, currentY, { align: "center" });
@@ -417,13 +417,13 @@ export default function BadgeGenerationPage() {
 
     // Contact
     if (staff.telephone) {
-        pdf.setFontSize(10);
+        pdf.setFontSize(12);
         pdf.text("Contact:", x + w/2, currentY, { align: "center" });
         pdf.text(staff.telephone, x + w/2, currentY + 5, { align: "center" });
     }
 
     // Footer
-    pdf.setFontSize(6);
+    pdf.setFontSize(8);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
     pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
@@ -558,13 +558,13 @@ export default function BadgeGenerationPage() {
     pdf.text("SEMINARISTE", x + w / 2, y + 62, { align: "center" });
 
     // Nom
-    pdf.setFontSize(11);
+    pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(166, 195, 60);
     pdf.text(sem.nom.toUpperCase(), x + w / 2, y + 70, { align: "center" });
 
     // Prénom
-    pdf.setFontSize(9);
+    pdf.setFontSize(13);
     pdf.setTextColor(0, 0, 0);
     pdf.text(sem.prenom.toUpperCase(), x + w / 2, y + 75, { align: "center" });
 
@@ -573,12 +573,12 @@ export default function BadgeGenerationPage() {
     pdf.setLineWidth(0.8);
     pdf.roundedRect(x + 8, y + 80, w - 16, 7, 3, 3);
 
-    pdf.setFontSize(8);
+    pdf.setFontSize(12);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(100, 100, 100);
     pdf.text("Matricule :", x + 12, y + 85);
 
-    pdf.setFontSize(8);
+    pdf.setFontSize(13);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 0, 0);
     pdf.text(sem.matricule, x + w - 12, y + 85, { align: "right" });
@@ -590,14 +590,14 @@ export default function BadgeGenerationPage() {
     pdf.roundedRect(x + 10, y + 95, w - 20, 20, 4, 4, "FD");
 
     // Niveau
-    pdf.setDrawColor(166, 195, 60);
-    pdf.setLineWidth(0.8);
+    pdf.setDrawColor(166, 200, 60);
+    pdf.setLineWidth(1);
     pdf.roundedRect(x + w / 2 - 25, y + 91, 50, 8, 4, 4);
 
     pdf.setFillColor(255, 255, 255);
     pdf.roundedRect(x + w / 2 - 25, y + 91, 50, 8, 4, 4, "F");
 
-    pdf.setFontSize(8);
+    pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 0, 0);
     pdf.text(sem.niveau || "Universitaire", x + w / 2, y + 96, {
@@ -605,7 +605,7 @@ export default function BadgeGenerationPage() {
     });
 
     // Dortoir
-    pdf.setFontSize(8);
+    pdf.setFontSize(12);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(0, 0, 0);
     pdf.text("Dortoir :", x + 15, y + 108, { align: "left" });
@@ -616,7 +616,7 @@ export default function BadgeGenerationPage() {
     });
 
     // Footer URL
-    pdf.setFontSize(6);
+    pdf.setFontSize(8);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
     pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, {
@@ -655,7 +655,7 @@ export default function BadgeGenerationPage() {
     // pdf.setTextColor(0, 0, 0);
     // pdf.text("SERA-EST", x + w / 2, y + 11, { align: "center" });
 
-    pdf.setFontSize(6);
+    pdf.setFontSize(8);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(100, 100, 100);
     pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 15, {
@@ -669,14 +669,14 @@ export default function BadgeGenerationPage() {
     pdf.setLineWidth(0.8);
     pdf.roundedRect(x + 5, currentY, w - 10, 28, 3, 3);
 
-    pdf.setFontSize(8);
+    pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 0, 0);
     pdf.text("Contacts", x + w / 2, currentY + 5, { align: "center" });
 
     currentY += 10;
 
-    pdf.setFontSize(7);
+    pdf.setFontSize(10);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(0, 0, 0);
     pdf.text("Parents :", x + 8, currentY);
@@ -696,7 +696,7 @@ export default function BadgeGenerationPage() {
     pdf.setDrawColor(166, 195, 60);
     pdf.roundedRect(x + 5, currentY, w - 10, 35, 3, 3);
 
-    pdf.setFontSize(8);
+    pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 0, 0);
     pdf.text("INFORMATIONS MÉDICALES", x + w / 2, currentY + 5, {
@@ -705,7 +705,7 @@ export default function BadgeGenerationPage() {
 
     currentY += 10;
 
-    pdf.setFontSize(7);
+    pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
     pdf.text("Allergies :", x + 8, currentY);
     currentY += 4;
@@ -749,7 +749,7 @@ export default function BadgeGenerationPage() {
     }
 
     // Footer
-    pdf.setFontSize(6);
+    pdf.setFontSize(8);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
     pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, {
