@@ -21,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${GeistSans.variable} ${GeistMono.variable} antialiased light`}>
-      <body>
+    <html lang="fr" className={`${GeistSans.variable} ${GeistMono.variable} antialiased light`} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <AuthProvider>
           <Suspense fallback={null}>
             {children}
