@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { scientificApi, Seminariste } from "@/lib/api";
+import { coApi, MembreCO, scientificApi, Seminariste } from "@/lib/api";
 import logoAnnour from "@/public/ANNOUR.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
@@ -42,13 +42,28 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-// ✅ INTERFACE STAFF
+// ✅ INTERFACE STAFF (Comité & Formateurs) - Aligné avec MembreCO
 interface StaffMember {
   id: string;
   nom: string;
+  prenoms: string;
+  contact: string;
+  commission: string; // "Formateur", "Sécurité", "Cuisine", "Santé", "Logistique", "Accueil", etc.
+  statut: string; // Optionnel: "Membre", "Responsable", "Responsable Adjoint"
+  allergies: string;
+  antecedent_medical: string;
+  selected: boolean;
+}
+
+// ✅ INTERFACE BADGE PERSONNALISÉ
+interface CustomBadgeMember {
+  id: string;
+  nom: string;
   prenom: string;
-  fonction: string; // "Formateur", "Comité d'Organisation", "Sécurité", etc.
-  telephone: string;
+  contact: string;
+  fonction: string; // Optionnel
+  statut: string;
+  photo_url: string; // Optionnel - URL ou base64 de la photo
   selected: boolean;
 }
 
@@ -62,14 +77,38 @@ export default function BadgeGenerationPage() {
   const [qrCodes, setQrCodes] = useState<{ [key: string]: string }>({});
   const [showVerso, setShowVerso] = useState(false);
 
-  // ✅ STATE STAFF
+  // ✅ STATE STAFF (Comité & Formateurs)
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [newStaff, setNewStaff] = useState({
     nom: "",
-    prenom: "",
-    fonction: "Comité d'Organisation",
-    telephone: "",
+    prenoms: "",
+    contact: "",
+    commission: "Sécurité",
+    statut: "",
+    allergies: "",
+    antecedent_medical: "",
   });
+
+  // ✅ STATE MEMBRES CO
+  const [membresCO, setMembresCO] = useState<MembreCO[]>([]);
+  const [loadingCO, setLoadingCO] = useState(false);
+  const [selectedMembresCO, setSelectedMembresCO] = useState<string[]>([]);
+  const [searchTermCO, setSearchTermCO] = useState("");
+  const [selectedCommission, setSelectedCommission] = useState("tous");
+  const [showVersoCO, setShowVersoCO] = useState(false);
+
+  // ✅ STATE BADGES PERSONNALISÉS
+  const [customBadgeList, setCustomBadgeList] = useState<CustomBadgeMember[]>([]);
+  const [newCustomBadge, setNewCustomBadge] = useState({
+    nom: "",
+    prenom: "",
+    contact: "",
+    fonction: "",
+    statut: "Visiteur",
+    photo_url: "",
+  });
+  const [showVersoCustom, setShowVersoCustom] = useState(false);
+  const [qrCodesCO, setQrCodesCO] = useState<{ [key: string]: string }>({});
 
   const fetchSeminaristes = async () => {
     try {
@@ -83,9 +122,46 @@ export default function BadgeGenerationPage() {
     }
   };
 
+  // ✅ FETCH MEMBRES CO
+  const fetchMembresCO = async () => {
+    try {
+      setLoadingCO(true);
+      const response = await coApi.getMembresCO();
+      setMembresCO(response.data);
+    } catch (error: any) {
+      toast.error(error.message || "Erreur chargement membres CO");
+    } finally {
+      setLoadingCO(false);
+    }
+  };
+
   useEffect(() => {
     fetchSeminaristes();
+    fetchMembresCO();
   }, []);
+
+  // ✅ Génération QR Code pour preview CO
+  useEffect(() => {
+    const generateQRCodesCO = async () => {
+      const codes: { [key: string]: string } = {};
+      for (const id of selectedMembresCO.slice(0, 1)) {
+        try {
+          const qrDataUrl = await QRCode.toDataURL(`CO-${id}`, {
+            width: 200,
+            margin: 1,
+          });
+          codes[id] = qrDataUrl;
+        } catch (err) {
+          console.error("QR Code error:", err);
+        }
+      }
+      setQrCodesCO(codes);
+    };
+
+    if (selectedMembresCO.length > 0) {
+      generateQRCodesCO();
+    }
+  }, [selectedMembresCO]);
 
   // ✅ Génération QR Code pour preview
   useEffect(() => {
@@ -137,7 +213,370 @@ export default function BadgeGenerationPage() {
     );
   };
 
-  // ✅ GÉNÉRATION PDF avec RECTO et VERSO côte à côte
+  // ✅ FILTRAGE MEMBRES CO
+  const filteredMembresCO = membresCO.filter((membre) => {
+    const fullName = `${membre.nom} ${membre.prenoms || ""}`.toLowerCase();
+    const matchesSearch =
+      !searchTermCO ||
+      fullName.includes(searchTermCO.toLowerCase()) ||
+      membre.commission.toLowerCase().includes(searchTermCO.toLowerCase());
+    const matchesCommission =
+      selectedCommission === "tous" || membre.commission === selectedCommission;
+    return matchesSearch && matchesCommission;
+  });
+
+  const handleSelectAllCO = () => {
+    if (selectedMembresCO.length === filteredMembresCO.length) {
+      setSelectedMembresCO([]);
+    } else {
+      setSelectedMembresCO(filteredMembresCO.map((m) => m.id));
+    }
+  };
+
+  const handleSelectOneCO = (id: string) => {
+    setSelectedMembresCO((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
+    );
+  };
+
+  // ✅ HELPER: Charger une image, corriger l'orientation et créer un cercle
+  const loadImageAsCircularBase64 = async (url: string, size: number = 200): Promise<string | null> => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        
+        img.onload = () => {
+          // Créer un canvas carré pour l'image circulaire
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+          
+          // Dessiner un cercle de masque
+          ctx.beginPath();
+          ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+          
+          // Calculer les dimensions pour centrer et remplir le cercle (cover)
+          const imgRatio = img.width / img.height;
+          let drawWidth = size;
+          let drawHeight = size;
+          let offsetX = 0;
+          let offsetY = 0;
+          
+          if (imgRatio > 1) {
+            // Image plus large que haute
+            drawWidth = size * imgRatio;
+            offsetX = -(drawWidth - size) / 2;
+          } else {
+            // Image plus haute que large
+            drawHeight = size / imgRatio;
+            offsetY = -(drawHeight - size) / 2;
+          }
+          
+          // Dessiner l'image centrée dans le cercle
+          ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+          
+          // Convertir en base64
+          const base64 = canvas.toDataURL("image/png", 0.9);
+          resolve(base64);
+        };
+        
+        img.onerror = () => {
+          console.error("Erreur chargement image");
+          resolve(null);
+        };
+        
+        // Créer URL depuis le blob
+        img.src = URL.createObjectURL(blob);
+      });
+    } catch (error) {
+      console.error("Erreur chargement image:", error);
+      return null;
+    }
+  };
+
+  // ✅ GÉNÉRATION PDF MEMBRES CO
+  const generateCOPDF = async () => {
+    if (selectedMembresCO.length === 0) {
+      toast.warning("⚠️ Sélectionnez au moins un membre CO");
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      toast.info("📄 Génération badges Membres CO...");
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const badgeWidth = 100;
+      const badgeHeight = 145;
+      const marginX = (297 - badgeWidth * 2) / 3;
+      const marginY = (210 - badgeHeight) / 2;
+
+      let isFirstPage = true;
+
+      for (const id of selectedMembresCO) {
+        const membre = membresCO.find((m) => m.id === id);
+        if (!membre) continue;
+
+        if (!isFirstPage) pdf.addPage();
+        isFirstPage = false;
+
+        const xRecto = marginX;
+        const y = marginY;
+        const xVerso = marginX + badgeWidth + marginX;
+
+        await drawCOBadgeRecto(pdf, membre, xRecto, y, badgeWidth, badgeHeight);
+        await drawCOBadgeVerso(pdf, membre, xVerso, y, badgeWidth, badgeHeight);
+      }
+
+      pdf.save(`badges-co-${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success(`✅ ${selectedMembresCO.length} badges CO générés`);
+    } catch (error: any) {
+      console.error("❌ Erreur PDF CO:", error);
+      toast.error("Erreur génération PDF");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ✅ DRAW CO BADGE RECTO
+  const drawCOBadgeRecto = async (
+    pdf: jsPDF,
+    membre: MembreCO,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
+    // Border vert clair
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1);
+    pdf.rect(x, y, w, h);
+
+    // Background blanc
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, w, h, "F");
+
+    // Watermark logo
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+
+    // Logo gauche AEEMCI
+    const logoSize = 12;
+    const logoX = x + 5;
+    const logoY = y + 4;
+    try {
+      pdf.addImage(AEEMCI.src, "JPEG", logoX, logoY, logoSize, logoSize);
+    } catch (error) {}
+
+    // Logo droit Annour
+    const logoMaxSize = 12;
+    const aspectRatioNour = 2517 / 1467;
+    const logoHeight = logoMaxSize / aspectRatioNour;
+    const offsetYNour = (logoMaxSize - logoHeight) / 2;
+    try {
+      pdf.addImage(logoAnnour.src, "PNG", x + w - 17, y + 4 + offsetYNour, logoMaxSize, logoHeight);
+    } catch (error) {}
+
+    // Header
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text("AEEMCI", x + w / 2, y + 8, { align: "center" });
+    pdf.setFontSize(9);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("SERA-EST", x + w / 2, y + 13, { align: "center" });
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 17, { align: "center" });
+
+    // Titre
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text("SEMINAIRE AN-NOUR 25", x + w / 2, y + 27, { align: "center" });
+
+    // Photo circulaire
+    const photoSize = 30;
+    const photoX = x + w / 2;
+    const photoY = y + 45;
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1.2);
+    pdf.circle(photoX, photoY, photoSize / 2);
+    pdf.setFillColor(240, 240, 240);
+    pdf.circle(photoX, photoY, photoSize / 2 - 1, "F");
+
+    // Ajouter la photo si disponible
+    if (membre.photo_url) {
+      try {
+        const photoBase64 = await loadImageAsCircularBase64(membre.photo_url, 300);
+        if (photoBase64) {
+          // L'image est déjà circulaire, on l'ajoute directement
+          pdf.addImage(
+            photoBase64,
+            "PNG",
+            photoX - photoSize / 2,
+            photoY - photoSize / 2,
+            photoSize,
+            photoSize
+          );
+        }
+      } catch (error) {
+        console.error("Erreur photo:", error);
+      }
+    }
+
+    // Badge COMMISSION
+    pdf.setFillColor(166, 195, 60);
+    pdf.roundedRect(x + w / 2 - 25, y + 58, 50, 6, 3, 3, "F");
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(membre.commission.toUpperCase(), x + w / 2, y + 62, { align: "center" });
+
+    // Nom
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text(membre.nom.toUpperCase(), x + w / 2, y + 70, { align: "center" });
+
+    // Prénoms
+    pdf.setFontSize(13);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(membre.prenoms.toUpperCase(), x + w / 2, y + 75, { align: "center" });
+
+    // Statut
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(x + 8, y + 80, w - 16, 7, 3, 3);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(membre.statut || "Membre", x + w / 2, y + 85, { align: "center" });
+
+    // QR CODE
+    try {
+      const qrDataUrl = await QRCode.toDataURL(`CO-${membre.id}`, { width: 300, margin: 1 });
+      const qrSize = 30;
+      pdf.addImage(qrDataUrl, "PNG", x + w / 2 - qrSize / 2, y + 95, qrSize, qrSize);
+    } catch (e) {}
+
+    // Footer URL
+    pdf.setFontSize(6);
+    pdf.setTextColor(166, 195, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+  };
+
+  // ✅ DRAW CO BADGE VERSO
+  const drawCOBadgeVerso = async (
+    pdf: jsPDF,
+    membre: MembreCO,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1);
+    pdf.rect(x, y, w, h);
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, w, h, "F");
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+
+    // Header simple
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 15, { align: "center" });
+
+    let currentY = y + 30;
+
+    // Commission en gros
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text(membre.commission.toUpperCase(), x + w / 2, currentY, { align: "center" });
+
+    currentY += 15;
+
+    // Section Contact
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(x + 5, currentY, w - 10, 18, 3, 3);
+
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("Contact", x + w / 2, currentY + 5, { align: "center" });
+
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(membre.contact || "Non renseigné", x + w / 2, currentY + 13, { align: "center" });
+
+    currentY += 25;
+
+    // Section Informations Médicales
+    pdf.setDrawColor(166, 195, 60);
+    pdf.roundedRect(x + 5, currentY, w - 10, 35, 3, 3);
+
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("INFORMATIONS MÉDICALES", x + w / 2, currentY + 5, { align: "center" });
+
+    currentY += 10;
+
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Allergies :", x + 8, currentY);
+    currentY += 4;
+
+    pdf.setFont("helvetica", "normal");
+    const allergieLines = pdf.splitTextToSize(membre.allergies || "RAS", w - 20);
+    pdf.text(allergieLines, x + 8, currentY);
+    currentY += allergieLines.length * 4 + 2;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Antécédents :", x + 8, currentY);
+    currentY += 4;
+
+    pdf.setFont("helvetica", "normal");
+    const antecedentLines = pdf.splitTextToSize(membre.antecedent_medical || "Néant", w - 20);
+    pdf.text(antecedentLines, x + 8, currentY);
+
+    // QR CODE
+    try {
+      const qrDataUrl = await QRCode.toDataURL(`CO-${membre.id}`, { width: 300, margin: 1 });
+      const qrSize = 25;
+      pdf.addImage(qrDataUrl, "PNG", x + w / 2 - qrSize / 2, y + h - 32, qrSize, qrSize);
+    } catch (err) {
+      pdf.setDrawColor(200, 200, 200);
+      pdf.rect(x + w / 2 - 12, y + h - 32, 24, 24);
+    }
+
+    // Footer
+    pdf.setFontSize(8);
+    pdf.setTextColor(166, 195, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+  };
   const generatePDF = async () => {
     if (selectedSeminaristes.length === 0) {
       toast.warning("⚠️ Sélectionnez au moins un séminariste");
@@ -200,22 +639,25 @@ export default function BadgeGenerationPage() {
     }
   };
 
-  // ✅ GESTION STAFF
+  // ✅ GESTION STAFF (Comité & Formateurs)
   const handleAddStaff = () => {
-    if (!newStaff.nom || !newStaff.prenom) {
-      toast.warning("Nom et Prénom requis");
+    if (!newStaff.nom || !newStaff.prenoms) {
+      toast.warning("Nom et Prénoms requis");
       return;
     }
     const staff: StaffMember = {
       id: Date.now().toString(),
       nom: newStaff.nom.toUpperCase(),
-      prenom: newStaff.prenom.toUpperCase(),
-      fonction: newStaff.fonction,
-      telephone: newStaff.telephone,
+      prenoms: newStaff.prenoms.toUpperCase(),
+      contact: newStaff.contact,
+      commission: newStaff.commission,
+      statut: newStaff.statut === "aucun" ? "" : newStaff.statut,
+      allergies: newStaff.allergies,
+      antecedent_medical: newStaff.antecedent_medical,
       selected: true,
     };
     setStaffList([...staffList, staff]);
-    setNewStaff({ nom: "", prenom: "", fonction: "Comité d'Organisation", telephone: "" });
+    setNewStaff({ nom: "", prenoms: "", contact: "", commission: "Sécurité", statut: "", allergies: "", antecedent_medical: "" });
     toast.success("Membre ajouté");
   };
 
@@ -280,7 +722,7 @@ export default function BadgeGenerationPage() {
     }
   };
 
-  // ✅ DRAW STAFF RECTO
+  // ✅ DRAW STAFF RECTO (Identique au style CO)
   const drawStaffBadgeRecto = async (
     pdf: jsPDF,
     staff: StaffMember,
@@ -289,101 +731,107 @@ export default function BadgeGenerationPage() {
     w: number,
     h: number
   ) => {
-     // Border vert clair
-     pdf.setDrawColor(166, 195, 60);
-     pdf.setLineWidth(1);
-     pdf.rect(x, y, w, h);
- 
-     // Background blanc
-     pdf.setFillColor(255, 255, 255);
-     pdf.rect(x, y, w, h, "F");
- 
-     // ✅ LOGO EN ARRIÈRE-PLAN (watermark)
-     addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
- 
-     // Logo gauche AEEMCI
-     const logoSize = 12;
-     const logoX = x + 5;
-     const logoY = y + 4;
-     try {
-       pdf.addImage(AEEMCI.src, "JPEG", logoX, logoY, logoSize, logoSize);
-     } catch (error) {}
- 
-     // Logo droit Annour
-     const logoMaxSize = 12;
-     const aspectRatioNour = 2517 / 1467;
-     const logoHeight = logoMaxSize / aspectRatioNour;
-     const offsetYNour = (logoMaxSize - logoHeight) / 2;
-     try {
-       pdf.addImage(logoAnnour.src, "PNG", x + w - 17, y + 4 + offsetYNour, logoMaxSize, logoHeight);
-     } catch (error) {}
- 
-     // Header
-     pdf.setFontSize(8);
-     pdf.setFont("helvetica", "bold");
-     pdf.setTextColor(166, 195, 60);
-     pdf.text("AEEMCI", x + w / 2, y + 8, { align: "center" });
-     pdf.setFontSize(9);
-     pdf.setTextColor(0, 0, 0);
-     pdf.text("SERA-EST", x + w / 2, y + 13, { align: "center" });
-     pdf.setFontSize(6);
-     pdf.setFont("helvetica", "normal");
-     pdf.setTextColor(100, 100, 100);
-     pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 17, { align: "center" });
- 
-     // Titre
-     pdf.setFontSize(14);
-     pdf.setFont("helvetica", "bold");
-     pdf.setTextColor(166, 195, 60);
-     pdf.text("SEMINAIRE AN-NOUR 25", x + w / 2, y + 27, { align: "center" });
- 
-     // Photo placeholder
-     const photoSize = 30;
-     const photoX = x + w / 2;
-     const photoY = y + 45;
-     pdf.setDrawColor(166, 195, 60);
-     pdf.circle(photoX, photoY, photoSize / 2);
-     pdf.setFillColor(240, 240, 240);
-     pdf.circle(photoX, photoY, photoSize / 2 - 1, "F");
- 
-     // Badge FONCTION
-     // Code couleur selon fonction (Optionnel, ici vert défaut)
-     const badgeColor = [166, 195, 60]; 
-     
-     pdf.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
-     pdf.roundedRect(x + w / 2 - 25, y + 58, 50, 6, 3, 3, "F");
-     pdf.setFontSize(7);
-     pdf.setFont("helvetica", "bold");
-     pdf.setTextColor(255, 255, 255);
-     pdf.text(staff.fonction.toUpperCase(), x + w / 2, y + 62, { align: "center" });
- 
-     // Nom
-     pdf.setFontSize(14);
-     pdf.setFont("helvetica", "bold");
-     pdf.setTextColor(166, 195, 60);
-     pdf.text(staff.nom, x + w / 2, y + 70, { align: "center" });
- 
-     // Prénom
-     pdf.setFontSize(13);
-     pdf.setTextColor(0, 0, 0);
-     pdf.text(staff.prenom, x + w / 2, y + 75, { align: "center" });
- 
-      // QR CODE (si dispo)
-      // Générer temporairement un QR pour le staff basé sur ID
-      try {
-         const qrDataUrl = await QRCode.toDataURL(`STAFF-${staff.id}-${staff.nom}`, { width: 300, margin: 1 });
-         const qrSize = 30;
-         pdf.addImage(qrDataUrl, "PNG", x + w/2 - qrSize/2, y + 90, qrSize, qrSize);
-      } catch(e) {}
-      
-     // Footer URL
-     pdf.setFontSize(6);
-     pdf.setTextColor(166, 195, 60);
-     pdf.setFont("helvetica", "bold");
-     pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+    // Border vert clair
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1);
+    pdf.rect(x, y, w, h);
+
+    // Background blanc
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, w, h, "F");
+
+    // Watermark logo
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+
+    // Logo gauche AEEMCI
+    const logoSize = 12;
+    const logoX = x + 5;
+    const logoY = y + 4;
+    try {
+      pdf.addImage(AEEMCI.src, "JPEG", logoX, logoY, logoSize, logoSize);
+    } catch (error) {}
+
+    // Logo droit Annour
+    const logoMaxSize = 12;
+    const aspectRatioNour = 2517 / 1467;
+    const logoHeight = logoMaxSize / aspectRatioNour;
+    const offsetYNour = (logoMaxSize - logoHeight) / 2;
+    try {
+      pdf.addImage(logoAnnour.src, "PNG", x + w - 17, y + 4 + offsetYNour, logoMaxSize, logoHeight);
+    } catch (error) {}
+
+    // Header
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text("AEEMCI", x + w / 2, y + 8, { align: "center" });
+    pdf.setFontSize(9);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("SERA-EST", x + w / 2, y + 13, { align: "center" });
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 17, { align: "center" });
+
+    // Titre
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text("SEMINAIRE AN-NOUR 25", x + w / 2, y + 27, { align: "center" });
+
+    // Photo circulaire (placeholder)
+    const photoSize = 30;
+    const photoX = x + w / 2;
+    const photoY = y + 45;
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1.2);
+    pdf.circle(photoX, photoY, photoSize / 2);
+    pdf.setFillColor(240, 240, 240);
+    pdf.circle(photoX, photoY, photoSize / 2 - 1, "F");
+
+    // Badge COMMISSION
+    pdf.setFillColor(166, 195, 60);
+    pdf.roundedRect(x + w / 2 - 25, y + 58, 50, 6, 3, 3, "F");
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(staff.commission.toUpperCase(), x + w / 2, y + 62, { align: "center" });
+
+    // Nom
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text(staff.nom.toUpperCase(), x + w / 2, y + 70, { align: "center" });
+
+    // Prénoms
+    pdf.setFontSize(13);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(staff.prenoms.toUpperCase(), x + w / 2, y + 75, { align: "center" });
+
+    // Statut
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(x + 8, y + 80, w - 16, 7, 3, 3);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(staff.statut || "Membre", x + w / 2, y + 85, { align: "center" });
+
+    // QR CODE
+    try {
+      const qrDataUrl = await QRCode.toDataURL(`STAFF-${staff.id}`, { width: 300, margin: 1 });
+      const qrSize = 30;
+      pdf.addImage(qrDataUrl, "PNG", x + w / 2 - qrSize / 2, y + 95, qrSize, qrSize);
+    } catch (e) {}
+
+    // Footer URL
+    pdf.setFontSize(6);
+    pdf.setTextColor(166, 195, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
   };
 
-  // ✅ DRAW STAFF VERSO
+  // ✅ DRAW STAFF VERSO (Identique au style CO)
   const drawStaffBadgeVerso = async (
     pdf: jsPDF,
     staff: StaffMember,
@@ -405,21 +853,359 @@ export default function BadgeGenerationPage() {
     pdf.setTextColor(100, 100, 100);
     pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 15, { align: "center" });
 
-    let currentY = y + 40;
-    
-    // Rôle en gros
+    let currentY = y + 30;
+
+    // Commission en gros
     pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0,0,0);
-    pdf.text(staff.fonction.toUpperCase(), x + w / 2, currentY, { align: "center" });
+    pdf.setTextColor(166, 195, 60);
+    pdf.text(staff.commission.toUpperCase(), x + w / 2, currentY, { align: "center" });
 
-    currentY += 20;
+    currentY += 15;
 
-    // Contact
-    if (staff.telephone) {
-        pdf.setFontSize(12);
-        pdf.text("Contact:", x + w/2, currentY, { align: "center" });
-        pdf.text(staff.telephone, x + w/2, currentY + 5, { align: "center" });
+    // Section Contact
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(x + 5, currentY, w - 10, 18, 3, 3);
+
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("Contact", x + w / 2, currentY + 5, { align: "center" });
+
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(staff.contact || "Non renseigné", x + w / 2, currentY + 13, { align: "center" });
+
+    currentY += 25;
+
+    // Section Informations Médicales
+    pdf.setDrawColor(166, 195, 60);
+    pdf.roundedRect(x + 5, currentY, w - 10, 35, 3, 3);
+
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("INFORMATIONS MÉDICALES", x + w / 2, currentY + 5, { align: "center" });
+
+    currentY += 10;
+
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Allergies :", x + 8, currentY);
+    currentY += 4;
+
+    pdf.setFont("helvetica", "normal");
+    const allergieLines = pdf.splitTextToSize(staff.allergies || "RAS", w - 20);
+    pdf.text(allergieLines, x + 8, currentY);
+    currentY += allergieLines.length * 4 + 2;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Antécédents :", x + 8, currentY);
+    currentY += 4;
+
+    pdf.setFont("helvetica", "normal");
+    const antecedentLines = pdf.splitTextToSize(staff.antecedent_medical || "Néant", w - 20);
+    pdf.text(antecedentLines, x + 8, currentY);
+
+    // QR CODE
+    try {
+      const qrDataUrl = await QRCode.toDataURL(`STAFF-${staff.id}`, { width: 300, margin: 1 });
+      const qrSize = 25;
+      pdf.addImage(qrDataUrl, "PNG", x + w / 2 - qrSize / 2, y + h - 32, qrSize, qrSize);
+    } catch (err) {
+      pdf.setDrawColor(200, 200, 200);
+      pdf.rect(x + w / 2 - 12, y + h - 32, 24, 24);
+    }
+
+    // Footer
+    pdf.setFontSize(8);
+    pdf.setTextColor(166, 195, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+  };
+
+  // ✅ GESTION BADGES PERSONNALISÉS
+  const handleAddCustomBadge = () => {
+    // Visiteur ne requiert pas obligatoirement nom/prénom
+    const isVisiteur = newCustomBadge.statut === "Visiteur";
+    if (!isVisiteur && (!newCustomBadge.nom || !newCustomBadge.prenom)) {
+      toast.warning("Nom et Prénom requis pour ce statut");
+      return;
+    }
+    const badge: CustomBadgeMember = {
+      id: Date.now().toString(),
+      nom: newCustomBadge.nom ? newCustomBadge.nom.toUpperCase() : "VISITEUR",
+      prenom: newCustomBadge.prenom ? newCustomBadge.prenom.toUpperCase() : "",
+      contact: newCustomBadge.contact,
+      fonction: newCustomBadge.fonction,
+      statut: newCustomBadge.statut,
+      photo_url: newCustomBadge.photo_url,
+      selected: true,
+    };
+    setCustomBadgeList([...customBadgeList, badge]);
+    setNewCustomBadge({ nom: "", prenom: "", contact: "", fonction: "", statut: "Visiteur", photo_url: "" });
+    toast.success("Badge personnalisé ajouté");
+  };
+
+  const removeCustomBadge = (id: string) => {
+    setCustomBadgeList(customBadgeList.filter((b) => b.id !== id));
+  };
+
+  const toggleCustomBadgeSelection = (id: string) => {
+    setCustomBadgeList(
+      customBadgeList.map((b) => (b.id === id ? { ...b, selected: !b.selected } : b))
+    );
+  };
+
+  // ✅ GÉNÉRATION PDF BADGES PERSONNALISÉS
+  const generateCustomBadgePDF = async () => {
+    const selectedBadges = customBadgeList.filter((b) => b.selected);
+    if (selectedBadges.length === 0) {
+      toast.warning("Sélectionnez au moins un badge");
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      toast.info("📄 Génération badges personnalisés...");
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const badgeWidth = 100;
+      const badgeHeight = 145;
+      const marginX = (297 - badgeWidth * 2) / 3;
+      const marginY = (210 - badgeHeight) / 2;
+
+      let isFirstPage = true;
+
+      for (const badge of selectedBadges) {
+        if (!isFirstPage) pdf.addPage();
+        isFirstPage = false;
+
+        const xRecto = marginX;
+        const y = marginY;
+        const xVerso = marginX + badgeWidth + marginX;
+
+        await drawCustomBadgeRecto(pdf, badge, xRecto, y, badgeWidth, badgeHeight);
+        await drawCustomBadgeVerso(pdf, badge, xVerso, y, badgeWidth, badgeHeight);
+      }
+
+      pdf.save(`badges-personnalises-${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success(`✅ ${selectedBadges.length} badges personnalisés générés`);
+    } catch (error: any) {
+      console.error("❌ Erreur PDF Custom:", error);
+      toast.error("Erreur génération PDF");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ✅ DRAW CUSTOM BADGE RECTO
+  const drawCustomBadgeRecto = async (
+    pdf: jsPDF,
+    badge: CustomBadgeMember,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
+    // Border vert clair
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1);
+    pdf.rect(x, y, w, h);
+
+    // Background blanc
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, w, h, "F");
+
+    // Logo en arrière-plan
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+
+    // Logo gauche AEEMCI
+    const logoSize = 12;
+    const logoX = x + 5;
+    const logoY = y + 4;
+    try {
+      pdf.addImage(AEEMCI.src, "JPEG", logoX, logoY, logoSize, logoSize);
+    } catch (error) {}
+
+    // Logo droit Annour
+    const logoMaxSize = 12;
+    const aspectRatioNour = 2517 / 1467;
+    const logoHeight = logoMaxSize / aspectRatioNour;
+    const offsetYNour = (logoMaxSize - logoHeight) / 2;
+    try {
+      pdf.addImage(logoAnnour.src, "PNG", x + w - 17, y + 4 + offsetYNour, logoMaxSize, logoHeight);
+    } catch (error) {}
+
+    // Header
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text("AEEMCI", x + w / 2, y + 8, { align: "center" });
+    pdf.setFontSize(9);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("SERA-EST", x + w / 2, y + 13, { align: "center" });
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 17, { align: "center" });
+
+    // Titre
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text("SEMINAIRE AN-NOUR 25", x + w / 2, y + 27, { align: "center" });
+
+    // Photo placeholder circulaire
+    const photoSize = 30;
+    const photoX = x + w / 2;
+    const photoY = y + 45;
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1.2);
+    pdf.circle(photoX, photoY, photoSize / 2);
+    pdf.setFillColor(240, 240, 240);
+    pdf.circle(photoX, photoY, photoSize / 2 - 1, "F");
+
+    // Ajouter la photo si disponible
+    if (badge.photo_url) {
+      try {
+        const photoBase64 = await loadImageAsCircularBase64(badge.photo_url, 300);
+        if (photoBase64) {
+          pdf.addImage(
+            photoBase64,
+            "PNG",
+            photoX - photoSize / 2,
+            photoY - photoSize / 2,
+            photoSize,
+            photoSize
+          );
+        }
+      } catch (error) {
+        console.error("Erreur photo:", error);
+      }
+    }
+
+    // Badge STATUT
+    pdf.setFillColor(166, 195, 60);
+    pdf.roundedRect(x + w / 2 - 25, y + 58, 50, 6, 3, 3, "F");
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(badge.statut.toUpperCase(), x + w / 2, y + 62, { align: "center" });
+
+    // Nom
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text(badge.nom, x + w / 2, y + 70, { align: "center" });
+
+    // Prénom
+    pdf.setFontSize(13);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(badge.prenom, x + w / 2, y + 75, { align: "center" });
+
+    // Fonction (si renseignée)
+    if (badge.fonction) {
+      pdf.setDrawColor(166, 195, 60);
+      pdf.setLineWidth(0.8);
+      pdf.roundedRect(x + 8, y + 80, w - 16, 7, 3, 3);
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(badge.fonction, x + w / 2, y + 85, { align: "center" });
+    }
+
+    // QR CODE
+    try {
+      const qrDataUrl = await QRCode.toDataURL(`CUSTOM-${badge.id}-${badge.nom}`, { width: 300, margin: 1 });
+      const qrSize = 30;
+      pdf.addImage(qrDataUrl, "PNG", x + w / 2 - qrSize / 2, y + 95, qrSize, qrSize);
+    } catch (e) {}
+
+    // Footer URL
+    pdf.setFontSize(6);
+    pdf.setTextColor(166, 195, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+  };
+
+  // ✅ DRAW CUSTOM BADGE VERSO
+  const drawCustomBadgeVerso = async (
+    pdf: jsPDF,
+    badge: CustomBadgeMember,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(1);
+    pdf.rect(x, y, w, h);
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, w, h, "F");
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.08);
+
+    // Header simple
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Sous-comité Cocody I & Sous-comité Bingerville", x + w / 2, y + 15, { align: "center" });
+
+    let currentY = y + 35;
+
+    // Statut en gros
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(166, 195, 60);
+    pdf.text(badge.statut.toUpperCase(), x + w / 2, currentY, { align: "center" });
+
+    currentY += 15;
+
+    // Section Contact
+    pdf.setDrawColor(166, 195, 60);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(x + 5, currentY, w - 10, 18, 3, 3);
+
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("Contact", x + w / 2, currentY + 5, { align: "center" });
+
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(badge.contact || "Non renseigné", x + w / 2, currentY + 13, { align: "center" });
+
+    currentY += 25;
+
+    // Fonction si renseignée
+    if (badge.fonction) {
+      pdf.setDrawColor(166, 195, 60);
+      pdf.roundedRect(x + 5, currentY, w - 10, 15, 3, 3);
+
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(0, 0, 0);
+      pdf.text("Fonction", x + w / 2, currentY + 5, { align: "center" });
+
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(badge.fonction, x + w / 2, currentY + 12, { align: "center" });
+    }
+
+    // QR CODE
+    try {
+      const qrDataUrl = await QRCode.toDataURL(`CUSTOM-${badge.id}-${badge.nom}`, { width: 300, margin: 1 });
+      const qrSize = 25;
+      pdf.addImage(qrDataUrl, "PNG", x + w / 2 - qrSize / 2, y + h - 32, qrSize, qrSize);
+    } catch (err) {
+      pdf.setDrawColor(200, 200, 200);
+      pdf.rect(x + w / 2 - 12, y + h - 32, 24, 24);
     }
 
     // Footer
@@ -542,8 +1328,18 @@ export default function BadgeGenerationPage() {
     // Ajouter la photo si disponible
     if (sem.photo_url) {
       try {
-        // Charger et ajouter la photo (vous devrez implémenter cette fonction)
-        // pdf.addImage(photoData, "JPEG", photoX - photoSize/2, photoY - photoSize/2, photoSize, photoSize);
+        const photoBase64 = await loadImageAsCircularBase64(sem.photo_url, 300);
+        if (photoBase64) {
+          // L'image est déjà circulaire, on l'ajoute directement
+          pdf.addImage(
+            photoBase64,
+            "PNG",
+            photoX - photoSize / 2,
+            photoY - photoSize / 2,
+            photoSize,
+            photoSize
+          );
+        }
       } catch (error) {
         console.error("Erreur photo:", error);
       }
@@ -973,6 +1769,135 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
   </div>
 );
 
+// ✅ BADGE CO RECTO React (Preview)
+const BadgeCORecto = ({ membre }: { membre: MembreCO }) => (
+  <div className="relative w-[400px] h-[630px] bg-white rounded-lg shadow-2xl border-4 border-[#A6C33C] overflow-hidden">
+    {/* Watermark logo */}
+    <div className="absolute inset-0 flex items-center justify-center opacity-[0.08] pointer-events-none">
+      <img src={logoAnnour.src} alt="Watermark" className="w-[80%] h-auto object-contain" />
+    </div>
+
+    <div className="relative z-10 p-6 flex flex-col items-center">
+      {/* Logos */}
+      <div className="absolute top-4 left-4 right-4 flex justify-between">
+        <div className="w-12 h-12 border border-gray-300 flex items-center justify-center overflow-hidden">
+          <img src={AEEMCI.src} alt="AEEMCI" className="w-full h-full object-cover" />
+        </div>
+        <div className="w-12 h-12 border border-gray-300 flex items-center justify-center overflow-hidden">
+          <img src={logoAnnour.src} alt="ANNOUR" className="w-full h-auto object-contain" />
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="text-center mt-12 space-y-0.5">
+        <div className="text-sm font-bold text-[#A6C33C]">AEEMCI</div>
+        <div className="text-base font-bold text-black">SERA-EST</div>
+        <div className="text-[10px] text-gray-500">Sous-comité Cocody I & Sous-comité Bingerville</div>
+      </div>
+
+      {/* Titre */}
+      <div className="text-center mt-3">
+        <div className="text-2xl font-bold text-[#A6C33C]">SEMINAIRE AN-NOUR 25</div>
+      </div>
+
+      {/* Photo circulaire */}
+      <div className="mt-5 relative">
+        <div className="w-[120px] h-[120px] rounded-full border-[3px] border-[#A6C33C] bg-gray-100 flex items-center justify-center overflow-hidden">
+          {membre.photo_url ? (
+            <img src={membre.photo_url} alt={membre.nom} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              <Users className="h-12 w-12 text-gray-400" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Badge COMMISSION */}
+      <div className="mt-3 bg-[#A6C33C] text-white px-7 py-1.2 mt-[-10px] z-10 rounded-full">
+        <span className="text-xs font-bold">{membre.commission.toUpperCase()}</span>
+      </div>
+
+      {/* Nom et Prénoms */}
+      <div className="text-center mt-4 space-y-0.5">
+        <div className="text-[22px] font-bold text-[#A6C33C] uppercase leading-tight">{membre.nom}</div>
+        <div className="text-lg font-bold text-black uppercase leading-tight">{membre.prenoms}</div>
+      </div>
+
+      {/* Statut */}
+      <div className="mt-3 w-[90%] border-2 border-[#A6C33C] rounded-lg px-3 py-1.5 flex justify-center items-center">
+        <span className="text-sm font-bold text-black">{membre.statut || "Membre"}</span>
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-3 left-0 right-0 text-center">
+        <span className="text-xs font-bold text-[#A6C33C]">https://an-nour25.vercel.app</span>
+      </div>
+    </div>
+  </div>
+);
+
+// ✅ BADGE CO VERSO React (Preview)
+const BadgeCOVerso = ({ membre, qrCode }: { membre: MembreCO; qrCode?: string }) => (
+  <div className="relative w-[400px] h-[630px] bg-white rounded-lg shadow-2xl border-4 border-[#A6C33C] overflow-hidden">
+    {/* Watermark logo */}
+    <div className="absolute inset-0 flex items-center justify-center opacity-[0.08] pointer-events-none">
+      <img src={logoAnnour.src} alt="Watermark" className="w-[80%] h-auto object-contain" />
+    </div>
+
+    <div className="relative z-10 p-5 flex flex-col">
+      {/* Header */}
+      <div className="text-center space-y-0.5 mb-3">
+        <div className="text-sm font-bold text-[#A6C33C]">AEEMCI</div>
+        <div className="text-base font-bold text-black">SERA-EST</div>
+        <div className="text-[10px] text-gray-500">Sous-comité Cocody I & Sous-comité Bingerville</div>
+      </div>
+
+      {/* Commission */}
+      <div className="text-center text-xl font-bold text-[#A6C33C] mt-2">
+        {membre.commission.toUpperCase()}
+      </div>
+
+      {/* Section Contact */}
+      <div className="border-2 border-[#A6C33C] rounded-xl p-4 mt-4 space-y-2.5">
+        <div className="text-center font-bold text-sm text-black">Contact</div>
+        <div className="text-center text-lg text-black">{membre.contact || "Non renseigné"}</div>
+      </div>
+
+      {/* Section Informations Médicales */}
+      <div className="border-2 border-[#A6C33C] rounded-xl p-4 mt-4 space-y-2.5">
+        <div className="text-center font-bold text-sm text-black">INFORMATIONS MÉDICALES</div>
+        <div className="space-y-2">
+          <div>
+            <div className="font-bold text-xs text-black">Allergies :</div>
+            <div className="text-xs text-black mt-0.5">{membre.allergies || "RAS"}</div>
+          </div>
+          <div>
+            <div className="font-bold text-xs text-black">Antécédents :</div>
+            <div className="text-xs text-black mt-0.5">{membre.antecedent_medical || "Néant"}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* QR Code */}
+      <div className="flex-1 flex items-center justify-center mt-4 mb-8">
+        {qrCode ? (
+          <img src={qrCode} alt="QR Code" className="w-[180px] h-[180px]" />
+        ) : (
+          <div className="w-[100px] h-[100px] border-2 border-gray-300 flex items-center justify-center">
+            <span className="text-[10px] text-gray-400">QR CODE</span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-3 left-0 right-0 text-center">
+        <span className="text-xs font-bold text-[#A6C33C]">https://an-nour25.vercel.app</span>
+      </div>
+    </div>
+  </div>
+);
+
 
   if (loading) {
     return (
@@ -1017,6 +1942,18 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
                   className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
                 >
                   Comité & Formateurs
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="membres-co" 
+                  className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
+                >
+                  Membres CO {loadingCO && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="personnalise" 
+                  className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
+                >
+                  🎨 Personnalisé
                 </TabsTrigger>
             </TabsList>
 
@@ -1236,47 +2173,78 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
         </div>
         </TabsContent>
 
-        {/* 🔵 TAB STAFF */}
+        {/* 🔵 TAB COMITÉ & FORMATEURS */}
             <TabsContent value="staff">
                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                      {/* INPUT STAFF */}
                      <div className="space-y-4 col-span-2">
                          <Card>
                             <CardHeader>
-                                <CardTitle>Ajouter un membre du Staff</CardTitle>
+                                <CardTitle>Ajouter un membre (Comité / Formateur)</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <Input 
-                                        placeholder="Nom" 
+                                        placeholder="Nom *" 
                                         value={newStaff.nom}
                                         onChange={(e) => setNewStaff({...newStaff, nom: e.target.value})}
                                     />
                                     <Input 
-                                        placeholder="Prénom"
-                                        value={newStaff.prenom}
-                                        onChange={(e) => setNewStaff({...newStaff, prenom: e.target.value})}
+                                        placeholder="Prénoms *"
+                                        value={newStaff.prenoms}
+                                        onChange={(e) => setNewStaff({...newStaff, prenoms: e.target.value})}
+                                    />
+                                    <Input 
+                                        placeholder="Contact (téléphone)"
+                                        value={newStaff.contact}
+                                        onChange={(e) => setNewStaff({...newStaff, contact: e.target.value})}
                                     />
                                     <Select 
-                                        value={newStaff.fonction} 
-                                        onValueChange={(v) => setNewStaff({...newStaff, fonction: v})}
+                                        value={newStaff.commission} 
+                                        onValueChange={(v) => setNewStaff({...newStaff, commission: v})}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Fonction" />
+                                            <SelectValue placeholder="Commission" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="Comité d'Organisation">Comité d'Organisation</SelectItem>
                                             <SelectItem value="Formateur">Formateur</SelectItem>
                                             <SelectItem value="Sécurité">Sécurité</SelectItem>
                                             <SelectItem value="Cuisine">Cuisine</SelectItem>
                                             <SelectItem value="Santé">Santé</SelectItem>
                                             <SelectItem value="Logistique">Logistique</SelectItem>
+                                            <SelectItem value="Accueil">Accueil</SelectItem>
+                                            <SelectItem value="Communication">Communication</SelectItem>
+                                            <SelectItem value="Secrétariat">Secrétariat</SelectItem>
+                        <SelectItem value="Manager Général">Manager Général</SelectItem>
+                        <SelectItem value="Manager Général Adjoint">Manager Général Adjoint</SelectItem>
+                        <SelectItem value="Superviseur Général">Superviseur Général</SelectItem>
+                        <SelectItem value="Président de Sous-comités">Président de Sous-comités</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select 
+                                        value={newStaff.statut} 
+                                        onValueChange={(v) => setNewStaff({...newStaff, statut: v})}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Statut (optionnel)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="aucun">Aucun</SelectItem>
+                                            <SelectItem value="Membre">Membre</SelectItem>
+                                            <SelectItem value="Responsable">Responsable</SelectItem>
+                                            <SelectItem value="Responsable Adjoint">Responsable Adjoint</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <Input 
-                                        placeholder="Téléphone (optionnel)" 
-                                        value={newStaff.telephone}
-                                        onChange={(e) => setNewStaff({...newStaff, telephone: e.target.value})}
+                                        placeholder="Allergies (optionnel)"
+                                        value={newStaff.allergies}
+                                        onChange={(e) => setNewStaff({...newStaff, allergies: e.target.value})}
+                                    />
+                                    <Input 
+                                        placeholder="Antécédents médicaux (optionnel)"
+                                        value={newStaff.antecedent_medical}
+                                        onChange={(e) => setNewStaff({...newStaff, antecedent_medical: e.target.value})}
+                                        className="col-span-2"
                                     />
                                 </div>
                                 <Button onClick={handleAddStaff} className="w-full bg-[#AC3] hover:bg-[#9B2]">
@@ -1295,13 +2263,15 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
                                  </CardTitle>
                              </CardHeader>
                              <CardContent>
+                                <div className="border rounded-lg max-h-[400px] overflow-y-auto">
                                 <Table>
-                                    <TableHeader>
+                                    <TableHeader className="sticky top-0 bg-background">
                                         <TableRow>
                                             <TableHead className="w-10">Select</TableHead>
-                                            <TableHead>Nom & Prénom</TableHead>
-                                            <TableHead>Fonction</TableHead>
-                                            <TableHead>Tel</TableHead>
+                                            <TableHead>Nom & Prénoms</TableHead>
+                                            <TableHead>Commission</TableHead>
+                                            <TableHead>Statut</TableHead>
+                                            <TableHead>Contact</TableHead>
                                             <TableHead className="w-10">Action</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -1310,15 +2280,17 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
                                             <TableRow key={staff.id}>
                                                 <TableCell>
                                                     <Checkbox 
+                                                        className="border-[#A6C33C]"
                                                         checked={staff.selected}
                                                         onCheckedChange={() => toggleStaffSelection(staff.id)}
                                                     />
                                                 </TableCell>
                                                 <TableCell className="font-bold">
-                                                    {staff.nom} {staff.prenom}
+                                                    {staff.nom} {staff.prenoms}
                                                 </TableCell>
-                                                <TableCell><Badge variant="outline">{staff.fonction}</Badge></TableCell>
-                                                <TableCell>{staff.telephone}</TableCell>
+                                                <TableCell><Badge variant="outline">{staff.commission}</Badge></TableCell>
+                                                <TableCell>{staff.statut || "-"}</TableCell>
+                                                <TableCell>{staff.contact || "-"}</TableCell>
                                                 <TableCell>
                                                     <Button variant="ghost" size="sm" onClick={() => removeStaff(staff.id)}>
                                                         <Trash2 className="h-4 w-4 text-red-500" />
@@ -1328,13 +2300,14 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
                                         ))}
                                         {staffList.length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                                     Aucun membre ajouté.
                                                 </TableCell>
                                             </TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
+                                </div>
                              </CardContent>
                          </Card>
                      </div>
@@ -1358,6 +2331,483 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
                      </div>
                  </div>
             </TabsContent>
+
+        {/* 🟣 TAB MEMBRES CO */}
+        <TabsContent value="membres-co">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* SÉLECTION MEMBRES CO */}
+            <div className="lg:col-span-2 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Membres du Comité d'Organisation</span>
+                    <Badge variant="outline" className="text-base">
+                      {selectedMembresCO.length} sélectionné(s)
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher par nom ou commission..."
+                        value={searchTermCO}
+                        onChange={(e) => setSearchTermCO(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <Select
+                      value={selectedCommission}
+                      onValueChange={setSelectedCommission}
+                    >
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tous">Toutes commissions</SelectItem>
+                        {Array.from(
+                          new Set(membresCO.map((m) => m.commission).filter(Boolean))
+                        ).map((commission) => (
+                          <SelectItem key={commission} value={commission}>
+                            {commission}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchMembresCO}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="border rounded-lg max-h-[500px] overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background">
+                        <TableRow>
+                          <TableHead className="w-12">
+                            <Checkbox
+                              className="border-[#A6C33C]"
+                              checked={
+                                selectedMembresCO.length === filteredMembresCO.length &&
+                                filteredMembresCO.length > 0
+                              }
+                              onCheckedChange={handleSelectAllCO}
+                            />
+                          </TableHead>
+                          <TableHead>NOM & PRÉNOMS</TableHead>
+                          <TableHead>COMMISSION</TableHead>
+                          <TableHead>STATUT</TableHead>
+                          <TableHead>CONTACT</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredMembresCO.map((membre) => (
+                          <TableRow key={membre.id}>
+                            <TableCell>
+                              <Checkbox
+                                className="border-[#A6C33C]"
+                                checked={selectedMembresCO.includes(membre.id)}
+                                onCheckedChange={() => handleSelectOneCO(membre.id)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {membre.photo_url ? (
+                                  <img
+                                    src={membre.photo_url}
+                                    alt={membre.nom}
+                                    className="w-8 h-8 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <Users className="h-4 w-4 text-gray-400" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-semibold">{membre.nom}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {membre.prenoms}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{membre.commission}</Badge>
+                            </TableCell>
+                            <TableCell>{membre.statut || "Membre"}</TableCell>
+                            <TableCell className="text-sm">{membre.contact}</TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredMembresCO.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                              {loadingCO ? "Chargement..." : "Aucun membre CO trouvé."}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* PREVIEW CO */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Aperçu Badge CO
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowVersoCO(!showVersoCO)}
+                      className="text-xs"
+                    >
+                      {showVersoCO ? "Voir Recto" : "Voir Verso"}
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  {selectedMembresCO.length > 0 ? (
+                    <div className="scale-[0.65] origin-top">
+                      {showVersoCO ? (
+                        <BadgeCOVerso
+                          membre={membresCO.find((m) => m.id === selectedMembresCO[0])!}
+                          qrCode={qrCodesCO[selectedMembresCO[0]]}
+                        />
+                      ) : (
+                        <BadgeCORecto
+                          membre={membresCO.find((m) => m.id === selectedMembresCO[0])!}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-64 h-96 border-2 border-dashed rounded-xl flex items-center justify-center">
+                      <div className="text-center space-y-2">
+                        <CreditCard className="h-12 w-12 mx-auto text-muted-foreground" />
+                        <div className="text-sm text-muted-foreground">
+                          Sélectionnez un membre CO
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Options</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2 pt-2">
+                    <Button
+                      className="w-full gap-2 bg-[#A6C33C] hover:bg-[#95B035]"
+                      size="lg"
+                      onClick={generateCOPDF}
+                      disabled={selectedMembresCO.length === 0 || generating}
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Génération PDF...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-5 w-5" />
+                          Télécharger PDF ({selectedMembresCO.length})
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg space-y-1">
+                    <div className="font-semibold mb-1">✅ Badges Membres CO :</div>
+                    <div>• Recto-verso côte à côte</div>
+                    <div>• Photo, nom, commission, statut</div>
+                    <div>• Contact et infos médicales au verso</div>
+                    <div>• QR Code avec ID</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* 🎨 TAB BADGES PERSONNALISÉS */}
+        <TabsContent value="personnalise">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* FORMULAIRE D'AJOUT */}
+            <div className="space-y-4 col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserPlus className="h-5 w-5" />
+                    Créer un Badge Personnalisé
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      placeholder="Nom *"
+                      value={newCustomBadge.nom}
+                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, nom: e.target.value })}
+                    />
+                    <Input
+                      placeholder="Prénom *"
+                      value={newCustomBadge.prenom}
+                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, prenom: e.target.value })}
+                    />
+                    <Input
+                      placeholder="Contact (téléphone)"
+                      value={newCustomBadge.contact}
+                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, contact: e.target.value })}
+                    />
+                    <Input
+                      placeholder="Fonction (optionnel)"
+                      value={newCustomBadge.fonction}
+                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, fonction: e.target.value })}
+                    />
+                    <Select
+                      value={newCustomBadge.statut}
+                      onValueChange={(v) => setNewCustomBadge({ ...newCustomBadge, statut: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Statut" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Visiteur">Visiteur (champs optionnels)</SelectItem>
+                        <SelectItem value="Manager Général">Manager Général</SelectItem>
+                        <SelectItem value="Manager Général Adjoint">Manager Général Adjoint</SelectItem>
+                        <SelectItem value="Superviseur Général">Superviseur Général</SelectItem>
+                        <SelectItem value="Président de Sous-comités">Président de Sous-comités</SelectItem>
+                        <SelectItem value="Invité">Invité</SelectItem>
+                        <SelectItem value="VIP">VIP</SelectItem>
+                        <SelectItem value="Partenaire">Partenaire</SelectItem>
+                        <SelectItem value="Sponsor">Sponsor</SelectItem>
+                        <SelectItem value="Intervenant">Intervenant</SelectItem>
+                        <SelectItem value="Presse">Presse</SelectItem>
+                        <SelectItem value="Observateur">Observateur</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="URL de la photo (optionnel)"
+                      value={newCustomBadge.photo_url}
+                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, photo_url: e.target.value })}
+                      className="col-span-2"
+                    />
+                  </div>
+                  <Button onClick={handleAddCustomBadge} className="w-full bg-[#A6C33C] hover:bg-[#95B035]">
+                    <UserPlus className="mr-2 h-4 w-4" /> Ajouter le Badge
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex justify-between items-center">
+                    <span>Liste des Badges Personnalisés ({customBadgeList.length})</span>
+                    {customBadgeList.length > 0 && (
+                      <Badge className="bg-[#A6C33C]">
+                        {customBadgeList.filter((b) => b.selected).length} sélectionné(s)
+                      </Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background">
+                        <TableRow>
+                          <TableHead className="w-10">Select</TableHead>
+                          <TableHead>Nom & Prénom</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Fonction</TableHead>
+                          <TableHead>Statut</TableHead>
+                          <TableHead className="w-10">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {customBadgeList.map((badge) => (
+                          <TableRow key={badge.id}>
+                            <TableCell>
+                              <Checkbox
+                                className="border-[#A6C33C]"
+                                checked={badge.selected}
+                                onCheckedChange={() => toggleCustomBadgeSelection(badge.id)}
+                              />
+                            </TableCell>
+                            <TableCell className="font-bold">
+                              {badge.nom} {badge.prenom}
+                            </TableCell>
+                            <TableCell>{badge.contact || "-"}</TableCell>
+                            <TableCell>{badge.fonction || "-"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="border-[#A6C33C] text-[#A6C33C]">
+                                {badge.statut}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeCustomBadge(badge.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {customBadgeList.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              Aucun badge personnalisé créé. Utilisez le formulaire ci-dessus.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* PREVIEW & ACTIONS */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Aperçu Badge
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowVersoCustom(!showVersoCustom)}
+                      className="text-xs"
+                    >
+                      {showVersoCustom ? "Voir Recto" : "Voir Verso"}
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  {customBadgeList.filter((b) => b.selected).length > 0 ? (
+                    <div className="w-[280px] h-[390px] bg-white rounded-lg shadow-xl border-4 border-[#A6C33C] p-4 flex flex-col items-center relative overflow-hidden">
+                      {/* Watermark */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-[0.08] pointer-events-none">
+                        <img src={logoAnnour.src} alt="Watermark" className="w-[80%] h-auto object-contain" />
+                      </div>
+                      
+                      <div className="relative z-10 flex flex-col items-center w-full">
+                        {!showVersoCustom ? (
+                          <>
+                            {/* RECTO Preview */}
+                            <div className="text-center mb-2">
+                              <div className="text-xs font-bold text-[#A6C33C]">AEEMCI</div>
+                              <div className="text-xs font-bold">SERA-EST</div>
+                              <div className="text-[8px] text-gray-500">Sous-comité Cocody I & Bingerville</div>
+                            </div>
+                            <div className="text-sm font-bold text-[#A6C33C] mb-3">SEMINAIRE AN-NOUR 25</div>
+                            <div className="w-16 h-16 rounded-full border-2 border-[#A6C33C] bg-gray-100 mb-2" />
+                            <div className="bg-[#A6C33C] text-white text-xs px-4 py-1 rounded-full mb-2">
+                              {customBadgeList.find((b) => b.selected)?.statut.toUpperCase()}
+                            </div>
+                            <div className="text-lg font-bold text-[#A6C33C]">
+                              {customBadgeList.find((b) => b.selected)?.nom}
+                            </div>
+                            <div className="text-base font-semibold">
+                              {customBadgeList.find((b) => b.selected)?.prenom}
+                            </div>
+                            {customBadgeList.find((b) => b.selected)?.fonction && (
+                              <div className="border border-[#A6C33C] rounded px-3 py-1 mt-2 text-sm">
+                                {customBadgeList.find((b) => b.selected)?.fonction}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {/* VERSO Preview */}
+                            <div className="text-[8px] text-gray-500 mb-4">Sous-comité Cocody I & Bingerville</div>
+                            <div className="text-lg font-bold text-[#A6C33C] mb-4">
+                              {customBadgeList.find((b) => b.selected)?.statut.toUpperCase()}
+                            </div>
+                            <div className="border border-[#A6C33C] rounded-lg p-3 w-full text-center mb-3">
+                              <div className="text-xs font-bold">Contact</div>
+                              <div className="text-sm">
+                                {customBadgeList.find((b) => b.selected)?.contact || "Non renseigné"}
+                              </div>
+                            </div>
+                            {customBadgeList.find((b) => b.selected)?.fonction && (
+                              <div className="border border-[#A6C33C] rounded-lg p-3 w-full text-center">
+                                <div className="text-xs font-bold">Fonction</div>
+                                <div className="text-sm">
+                                  {customBadgeList.find((b) => b.selected)?.fonction}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-64 h-96 border-2 border-dashed rounded-xl flex items-center justify-center">
+                      <div className="text-center space-y-2">
+                        <CreditCard className="h-12 w-12 mx-auto text-muted-foreground" />
+                        <div className="text-sm text-muted-foreground">
+                          Sélectionnez un badge à prévisualiser
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Génération</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button
+                    className="w-full gap-2 bg-[#A6C33C] hover:bg-[#95B035]"
+                    size="lg"
+                    onClick={generateCustomBadgePDF}
+                    disabled={customBadgeList.filter((b) => b.selected).length === 0 || generating}
+                  >
+                    {generating ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Génération PDF...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-5 w-5" />
+                        Télécharger PDF ({customBadgeList.filter((b) => b.selected).length})
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg space-y-1">
+                    <div className="font-semibold mb-1">🎨 Badges Personnalisés :</div>
+                    <div>• Nom, Prénom, Contact</div>
+                    <div>• Fonction optionnelle</div>
+                    <div>• Statut personnalisable</div>
+                    <div>• Recto-verso côte à côte</div>
+                    <div>• QR Code unique</div>
+                    <div>• Format A4 paysage</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>

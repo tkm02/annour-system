@@ -1,1 +1,18 @@
-{}
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/acces/page": "app/acces/page.js",
+  "/attributions/page": "app/attributions/page.js",
+  "/badges/page": "app/badges/page.js",
+  "/bulletins/page": "app/bulletins/page.js",
+  "/certificats/page": "app/certificats/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/notes/page": "app/notes/page.js",
+  "/page": "app/page.js",
+  "/sante/consultations/page": "app/sante/consultations/page.js",
+  "/sante/page": "app/sante/page.js",
+  "/sante/seminaristes/page": "app/sante/seminaristes/page.js",
+  "/scientifique/page": "app/scientifique/page.js",
+  "/seminaristes/ajouter/page": "app/seminaristes/ajouter/page.js",
+  "/seminaristes/page": "app/seminaristes/page.js"
+}

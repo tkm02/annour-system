@@ -1,6 +1,6 @@
 // lib/api.ts - VERSION UNIFIÉE MAMADOU 2025
 
-const API_BASE_URL = "https://an-nour-backend-5mf0.onrender.com/api/v1";
+const API_BASE_URL = "http://localhost:8000/api/v1";
 
 let cachedSeminaristes: any = null;
 
@@ -157,6 +157,20 @@ export interface CreateUserPayload {
   nom: string;
   prenom: string;
   role: string;
+}
+
+// ✅ MEMBRE CO (Comité d'Organisation)
+export interface MembreCO {
+  id: string;
+  nom: string;
+  prenoms: string;
+  contact: string;
+  commission: string;
+  statut: string;
+  photo_url: string;
+  allergies: string;
+  antecedent_medical: string;
+  created_at: string;
 }
 
 export interface LoginResponse {
@@ -447,6 +461,13 @@ export const usersApi = {
   },
 };
 
+// ✅ CO API (Comité d'Organisation)
+export const coApi = {
+  getMembresCO: async () => {
+    return apiRequest<{ total: number; data: MembreCO[] }>('/admin/membres-co');
+  },
+};
+
 // ✅ EXPORTS
 
 
@@ -455,4 +476,5 @@ export default {
   dashboardApi,
   authApi,
   usersApi,
+  coApi,
 };
