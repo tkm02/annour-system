@@ -7,19 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 import { scientificApi, Seminariste } from "@/lib/api";
 import logoAnnour from "@/public/ANNOUR.png";
@@ -29,14 +29,14 @@ import seminaireLogo from "@/public/seminaire-logo.png";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import jsPDF from "jspdf";
 import {
-  Award,
-  Download,
-  Eye,
-  Loader2,
-  Printer,
-  Search,
-  Trash2,
-  UserPlus,
+    Award,
+    Download,
+    Eye,
+    Loader2,
+    Printer,
+    Search,
+    Trash2,
+    UserPlus,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -153,7 +153,7 @@ function addWatermarkLogo(
     if (anyPdf.GState) {
       pdf.setGState(new anyPdf.GState({ opacity }));
     }
-    const logoWidth = w * 0.55;
+    const logoWidth = w * 0.8;
     const aspectRatio = 2517 / 1467;
     const logoHeight = logoWidth / aspectRatio;
 
@@ -280,7 +280,7 @@ export default function CertificatePage() {
     drawCertificateFrameSimple(pdf, x, y, w, h);
 
     // Watermark (logo An-Nour)
-    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.05);
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.10);
 
     // Header logos
     const logoSize = 24;
@@ -318,21 +318,21 @@ export default function CertificatePage() {
     pdf.text("Secrétariat Régional Abidjan Est", centerX, y + 35, { align: "center" });
     pdf.text("Sous-comité de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
 
-    // Seminaire logo block (gauche)
+    // Seminaire logo block (centré)
     try {
-      const semLogoW = 58;
-      const semLogoH = 22;
-      pdf.addImage(seminaireLogo.src, "PNG", x + 22, y + 52, semLogoW, semLogoH);
+      const semLogoW = 60;
+      const semLogoH = 23;
+      pdf.addImage(seminaireLogo.src, "PNG", centerX - semLogoW / 2, y + 50, semLogoW, semLogoH);
     } catch {}
 
     // Title
-    const titleY = y + 78;
+    const titleY = y + 90;
     pdf.setTextColor(BRAND_BLUE.r, BRAND_BLUE.g, BRAND_BLUE.b);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(30);
+    pdf.setFontSize(24);
     pdf.text("ATTESTATION", centerX, titleY, { align: "center" });
 
-    pdf.setFontSize(20);
+    pdf.setFontSize(16);
     pdf.text("DE PARTICIPATION", centerX, titleY + 10, { align: "center" });
 
     // Décerné à
@@ -389,9 +389,9 @@ export default function CertificatePage() {
       {/* Watermark */}
       <div
         className="absolute inset-0 flex items-center justify-center"
-        style={{ opacity: 0.08, transform: "rotate(-18deg)" }}
+        style={{ opacity: 0.12, transform: "rotate(-18deg)" }}
       >
-        <img src={logoAnnour.src} className="w-[55%] h-auto object-contain" alt="" />
+        <img src={logoAnnour.src} className="w-[80%] h-auto object-contain" alt="" />
       </div>
 
       {/* Content */}
@@ -422,16 +422,16 @@ export default function CertificatePage() {
         </div>
 
         {/* Seminaire logo */}
-        <div className="w-full mt-2 relative h-12">
-          <div className="absolute left-0 top-0 w-44">
+        <div className="w-full mt-4 mb-2 flex justify-center items-center">
+          <div className="w-48">
             <img src={seminaireLogo.src} className="w-full h-auto" alt="Seminaire An Nour" />
           </div>
         </div>
 
         {/* Title */}
-        <div className="text-center mt-1">
-          <h1 className="text-5xl font-extrabold text-[#143264] tracking-wide">ATTESTATION</h1>
-          <h2 className="text-xl font-bold text-[#143264] uppercase tracking-widest mt-1">
+        <div className="text-center mt-4">
+          <h1 className="text-4xl font-extrabold text-[#143264] tracking-wide">ATTESTATION</h1>
+          <h2 className="text-lg font-bold text-[#143264] uppercase tracking-widest mt-1">
             DE PARTICIPATION
           </h2>
         </div>
@@ -547,17 +547,17 @@ export default function CertificatePage() {
         pdf.text("Secrétariat Régional Abidjan Est", centerX, y + 27, { align: "center" });
         pdf.text("Sous-comité de Bingerville et de Cocody 1", centerX, y + 31, { align: "center" });
 
-        // SEMINAIRE LOGO (Gauche)
-        // D'après l'image, il est assez gros à gauche.
+        // SEMINAIRE LOGO (Centré)
         try {
-            const semLogoW = 50; 
-            const semLogoH = 20;
-            pdf.addImage(seminaireLogo.src, "PNG", x + 25, y + 45, semLogoW, semLogoH);
+            const semLogoW = 60; 
+            const semLogoH = 23;
+            // Centre par rapport à la page, ajustement Y
+            pdf.addImage(seminaireLogo.src, "PNG", centerX - semLogoW / 2, y + 45, semLogoW, semLogoH);
         } catch {}
 
         // TITRE
         // Centré
-        const titleY = y + 70;
+        const titleY = y + 85;
         pdf.setTextColor(20, 50, 100); // Bleu foncé
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(28);
@@ -733,8 +733,8 @@ export default function CertificatePage() {
                     </div>
 
                     {/* Seminaire logo */}
-                    <div className="w-full mt-2 relative h-12">
-                         <div className="absolute left-0 top-0 w-44">
+                    <div className="w-full mt-4 mb-2 flex justify-center items-center">
+                         <div className="w-48">
                               <img src={seminaireLogo.src} className="w-full h-auto" alt="Seminaire An Nour" />
                          </div>
                     </div>
@@ -780,7 +780,14 @@ export default function CertificatePage() {
           Sous-comité de Bingerville et de Cocody 1
         </div>
 
-        <div className="mt-8">
+        {/* Seminaire logo (for default design) */}
+        <div className="w-full mt-4 mb-2 flex justify-center items-center">
+          <div className="w-48">
+             <img src={seminaireLogo.src} className="w-full h-auto" alt="Seminaire An Nour" />
+          </div>
+        </div>
+
+        <div className="mt-4">
           <h1 className="text-5xl font-extrabold text-[#143264] tracking-wide">ATTESTATION</h1>
           <h2 className="text-xl font-bold text-[#143264] uppercase tracking-widest mt-1">
             DE REMERCIEMENT
