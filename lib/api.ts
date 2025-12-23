@@ -1,6 +1,6 @@
 // lib/api.ts - VERSION UNIFIÉE MAMADOU 2025
 
-const API_BASE_URL = "http://localhost:8000/api/v1";
+const API_BASE_URL = "https://an-nour-backend-5mf0.onrender.com";
 
 let cachedSeminaristes: any = null;
 
