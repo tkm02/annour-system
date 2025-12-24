@@ -326,36 +326,51 @@ export default function CertificatePage() {
     } catch {}
     */
 
-    // Title
-    const titleY = y + 90;
+    // Title - Tailles agrandies
+    const titleY = y + 65;
     pdf.setTextColor(BRAND_BLUE.r, BRAND_BLUE.g, BRAND_BLUE.b);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(24);
+    pdf.setFontSize(28); // Agrandi de 24 à 28
     pdf.text("ATTESTATION", centerX, titleY, { align: "center" });
 
-    pdf.setFontSize(16);
-    pdf.text("DE PARTICIPATION", centerX, titleY + 10, { align: "center" });
+    pdf.setFontSize(20); // Agrandi de 16 à 20
+    pdf.text("DE PARTICIPATION", centerX, titleY + 12, { align: "center" });
 
-    // Décerné à
+    // Décernée à - Agrandi
     pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
-    pdf.text("Décernée à", centerX, titleY + 25, { align: "center" });
+    pdf.setFont("helvetica", "italic");
+    pdf.setFontSize(13); // Agrandi de 11 à 13
+    pdf.text("Décernée à", centerX, titleY + 26, { align: "center" });
 
     // Name
     pdf.setTextColor(BRAND_BLUE.r, BRAND_BLUE.g, BRAND_BLUE.b);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(26);
-    pdf.text(`${(sem.prenom || "").toUpperCase()} ${sem.nom.toUpperCase()}`, centerX, titleY + 40, {
+    pdf.text(`${(sem.prenom || "").toUpperCase()} ${sem.nom.toUpperCase()}`, centerX, titleY + 42, {
       align: "center",
     });
+
+    // Motif décoratif sous le nom (ligne ornementale avec losanges)
+    const ornamentY = titleY + 47;
+    const ornamentWidth = 80;
+    pdf.setDrawColor(BRAND_GREEN.r, BRAND_GREEN.g, BRAND_GREEN.b);
+    pdf.setLineWidth(0.8);
+    // Ligne gauche
+    pdf.line(centerX - ornamentWidth, ornamentY, centerX - 8, ornamentY);
+    // Losange central
+    pdf.setFillColor(BRAND_GREEN.r, BRAND_GREEN.g, BRAND_GREEN.b);
+    const diamondSize = 3;
+    pdf.triangle(centerX, ornamentY - diamondSize, centerX - diamondSize, ornamentY, centerX, ornamentY + diamondSize, "F");
+    pdf.triangle(centerX, ornamentY - diamondSize, centerX + diamondSize, ornamentY, centerX, ornamentY + diamondSize, "F");
+    // Ligne droite
+    pdf.line(centerX + 8, ornamentY, centerX + ornamentWidth, ornamentY);
 
     // Helper pour dessiner une ligne de texte centré avec des segments en gras
     const drawCenteredLineSegments = (
       segments: { text: string; bold?: boolean }[],
       yLine: number
     ) => {
-      pdf.setFontSize(11.5);
+      pdf.setFontSize(12.5); // Agrandi de 11.5 à 12.5
       
       // Calculer la largeur totale
       let totalWidth = 0;
@@ -375,9 +390,9 @@ export default function CertificatePage() {
       });
     };
 
-    // Body Lines
+    // Body Lines - Après le nom et le motif
     pdf.setTextColor(0, 0, 0);
-    const bodyY = titleY + 55;
+    const bodyY = titleY + 60; // Ajusté pour laisser place au motif
     
     // Ligne 1
     drawCenteredLineSegments([
@@ -390,45 +405,39 @@ export default function CertificatePage() {
     drawCenteredLineSegments([
       { text: "islamique et managériale AN NOUR qui s'est tenu du " },
       { text: "20 au 25 décembre 2025" , bold: true }
-    ], bodyY + 6); // +6 espacement interligne
+    ], bodyY + 8);
     
     // Ligne 3
     drawCenteredLineSegments([
         { text: "au " },
         { text: "Lycée Moderne de Cocody", bold: true },
-        { text: " ." }
-    ], bodyY + 12);
+        { text: "." }
+    ], bodyY + 16);
 
 
-    // Footer (date)
+    // Signature - Remonté et avec espace pour signature/cachet
+    const sigY = y + h - 55; // Remonté significativement
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("PRÉSIDENT DE SOUS COMITÉ DE COCODY", x + w - 70, sigY, { align: "center" });
+    
+    // Espace pour signature et cachet (20mm d'espace)
+    // Trait de signature
+    pdf.setLineWidth(0.5);
+    pdf.setDrawColor(0, 0, 0);
+    pdf.line(x + w - 100, sigY + 18, x + w - 40, sigY + 18); 
+    
+    // Nom du signataire (après l'espace signature)
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("M. Ouattara El Hadj Bachirou", x + w - 70, sigY + 24, { align: "center" });
+
+    // Footer (date) - Repositionné à gauche en bas, aligné avec la zone de signature
     pdf.setFontSize(10);
     pdf.setTextColor(80, 80, 80);
     pdf.setFont("helvetica", "normal");
-    pdf.text("Fait à Bingerville, le 25 décembre 2025", x + 22, y + h - 22);
-
-    // Signature
-    const sigY = y + h - 35;
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(10); // Un peu plus petit pour le titre long ?
-    pdf.setFont("helvetica", "bold");
-    pdf.text("PRÉSIDENT DE SOUS COMITÉ DE COCODY", x + w - 70, sigY, { align: "center" }); // Ajusté X pour centrer titre long
-    // trait
-    pdf.setLineWidth(0.5);
-    pdf.setDrawColor(0, 0, 0);
-    pdf.line(x + w - 100, sigY + 2, x + w - 40, sigY + 2); 
-    //line proprieté
-    //pdf.line(?,?...)   pdf.setFont("helvetica", "normal");
-    
-    pdf.setFontSize(11);
-    pdf.text("M. Ouattara El Hadj Bachirou", x + w - 70, sigY + 7, { align: "center" });
-
-    pdf.setLineWidth(0.5);
-    pdf.setDrawColor(0, 0, 0);
-    // Ligne sous le nom ? ou au dessus ? "retire manager generale et met ... et son nom en bas ..."
-    // Je mets la ligne de signature habituelle entre le titre et le nom pour signer
-    // pdf.line(x + w - 85, sigY + 2, x + w - 35, sigY + 2); 
-    // Wait, usually line is for manual signature space.
-    // I'll leave a space for manual signature ABOVE the name.
+    pdf.text("Fait à Bingerville, le 25 décembre 2025", x + 22, sigY + 10);
 
   };
 
@@ -467,9 +476,9 @@ export default function CertificatePage() {
               Musulmans de Côte d'Ivoire
             </div>
             <div className="text-[9px] text-gray-700 mt-1">
-              Secrétariat Régional Abidjan Est
+              Secrétariat Régional Abidjan-Est
               <br />
-              Sous-comité de Bingerville et de Cocody 1
+              Sous-comités de Bingerville et de Cocody 1
             </div>
           </div>
 
@@ -508,16 +517,18 @@ export default function CertificatePage() {
           </p>
         </div>
 
-        {/* Footer */}
-        <div className="absolute bottom-4 left-2 text-[11px] text-gray-600">
-          Fait à Bingerville, le 25 décembre 2025
-        </div>
-
-        {/* Signature */}
-        <div className="absolute bottom-4 right-2 flex flex-col items-center min-w-[200px]">
-          <div className="text-[10px] font-bold text-black mb-1 uppercase">PRÉSIDENT DE SOUS COMITÉ DE COCODY</div>
+        {/* Signature Section - Remontée avec espace pour signature/cachet */}
+        <div className="absolute bottom-12 right-2 flex flex-col items-center min-w-[200px]">
+          <div className="text-[10px] font-bold text-black uppercase">PRÉSIDENT DE SOUS COMITÉ DE COCODY</div>
+          {/* Espace pour signature et cachet */}
+          <div className="h-10"></div>
           <div className="w-48 h-[0.5px] bg-black mb-1"></div>
           <div className="text-sm font-medium text-black">M. Ouattara El Hadj Bachirou</div>
+        </div>
+
+        {/* Footer (date) - Positionnée à gauche, alignée avec la zone de signature */}
+        <div className="absolute bottom-16 left-2 text-[11px] text-gray-600">
+          Fait à Bingerville, le 25 décembre 2025
         </div>
       </div>
     </div>
