@@ -437,7 +437,7 @@ export default function CertificatePage() {
     pdf.setFontSize(10);
     pdf.setTextColor(80, 80, 80);
     pdf.setFont("helvetica", "normal");
-    pdf.text("Fait à Bingerville, le 25 décembre 2025", x + 22, sigY + 10);
+    pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, sigY + 10);
 
   };
 
@@ -528,7 +528,7 @@ export default function CertificatePage() {
 
         {/* Footer (date) - Positionnée à gauche, alignée avec la zone de signature */}
         <div className="absolute bottom-16 left-2 text-[11px] text-gray-600">
-          Fait à Bingerville, le 25 décembre 2025
+          Fait à Cocody, le 25 décembre 2025
         </div>
       </div>
     </div>
@@ -631,8 +631,8 @@ export default function CertificatePage() {
         pdf.setFontSize(8);
         pdf.text("Association des Elèves et Etudiants Musulmans de Côte d'Ivoire", centerX, y + 23, { align: "center" });
         pdf.setFont("helvetica", "normal");
-        pdf.text("Secrétariat Régional Abidjan Est", centerX, y + 27, { align: "center" });
-        pdf.text("Sous-comité de Bingerville et de Cocody 1", centerX, y + 31, { align: "center" });
+        pdf.text("Secrétariat Régional Abidjan-Est", centerX, y + 27, { align: "center" });
+        pdf.text("Sous-comités de Bingerville et de Cocody 1", centerX, y + 31, { align: "center" });
 
         // SEMINAIRE LOGO (Centré) - SUPPRIMÉ
         /*
@@ -793,8 +793,8 @@ export default function CertificatePage() {
 
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(8.5);
-        pdf.text("Secrétariat Régional Abidjan Est", centerX, y + 35, { align: "center" });
-        pdf.text("Sous-comité de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
+        pdf.text("Secrétariat Régional Abidjan-Est", centerX, y + 35, { align: "center" });
+        pdf.text("Sous-comités de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
 
         // Title
         pdf.setTextColor(BRAND_BLUE.r, BRAND_BLUE.g, BRAND_BLUE.b);
@@ -887,12 +887,12 @@ export default function CertificatePage() {
         // Footer (date)
         pdf.setFontSize(10);
         pdf.setTextColor(80, 80, 80);
-        pdf.text("Fait à Bingerville, le 25 décembre 2025", x + 22, y + h - 22);
+        pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, y + h - 22);
 
         // Footer (date)
         pdf.setFontSize(10);
         pdf.setTextColor(80, 80, 80);
-        pdf.text("Fait à Bingerville, le 25 décembre 2025", x + 22, y + h - 22);
+        pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, y + h - 22);
 
         // Signature
         const sigY = y + h - 35;
@@ -937,8 +937,8 @@ export default function CertificatePage() {
                         Association des Elèves et Etudiants Musulmans de Côte d&apos;Ivoire
                     </div>
                     <div className="text-[9px] text-gray-700 mt-1">
-                        Secrétariat Régional Abidjan Est <br />
-                        Sous-comité de Bingerville et de Cocody 1
+                        Secrétariat Régional Abidjan-Est <br />
+                        Sous-comités de Bingerville et de Cocody 1
                     </div>
 
                     {/* Seminaire logo - SUPPRIMÉ */}
@@ -993,8 +993,8 @@ export default function CertificatePage() {
           Association des Elèves et Etudiants Musulmans de Côte d&apos;Ivoire
         </div>
         <div className="text-[9px] text-gray-700 mt-1">
-          Secrétariat Régional Abidjan Est <br />
-          Sous-comité de Bingerville et de Cocody 1
+          Secrétariat Régional Abidjan-Est <br />
+          Sous-comités de Bingerville et de Cocody 1
         </div>
 
         {/* Seminaire logo (for default design) - SUPPRIMÉ */}
@@ -1026,7 +1026,7 @@ export default function CertificatePage() {
         </div>
 
         <div className="absolute bottom-4 left-2 text-[11px] text-gray-600">
-          Fait à Bingerville, le 25 décembre 2025
+          Fait à Cocody, le 25 décembre 2025
         </div>
 
         <div className="absolute bottom-6 right-32">
