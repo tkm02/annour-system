@@ -314,8 +314,8 @@ export default function CertificatePage() {
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8.5);
-    pdf.text("Secrétariat Régional Abidjan Est", centerX, y + 35, { align: "center" });
-    pdf.text("Sous-comité de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
+    pdf.text("Secrétariat Régional Abidjan-Est", centerX, y + 35, { align: "center" });
+    pdf.text("Sous-comités de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
 
     // Seminaire logo block (centré) - SUPPRIMÉ
     /*
