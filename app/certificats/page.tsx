@@ -420,7 +420,7 @@ export default function CertificatePage() {
     pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
-    pdf.text("PRÉSIDENT DE SOUS COMITÉ DE COCODY", x + w - 70, sigY, { align: "center" });
+    pdf.text("PRÉSIDENT DU SOUS COMITÉ DE COCODY", x + w - 70, sigY, { align: "center" });
     
     // Espace pour signature et cachet (20mm d'espace)
     // Trait de signature
@@ -519,7 +519,7 @@ export default function CertificatePage() {
 
         {/* Signature Section - Remontée avec espace pour signature/cachet */}
         <div className="absolute bottom-12 right-2 flex flex-col items-center min-w-[200px]">
-          <div className="text-[10px] font-bold text-black uppercase">PRÉSIDENT DE SOUS COMITÉ DE COCODY</div>
+          <div className="text-[10px] font-bold text-black uppercase">PRÉSIDENT DU SOUS COMITÉ DE COCODY</div>
           {/* Espace pour signature et cachet */}
           <div className="h-10"></div>
           <div className="w-48 h-[0.5px] bg-black mb-1"></div>
@@ -721,7 +721,7 @@ export default function CertificatePage() {
         pdf.setTextColor(0, 0, 0);
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "bold");
-        pdf.text("PRÉSIDENT DE SOUS COMITÉ DE COCODY", x + w - 80, sigY, { align: "center" });
+        pdf.text("PRÉSIDENT DU SOUS COMITÉ DE COCODY", x + w - 80, sigY, { align: "center" });
         
         // trait
         pdf.setLineWidth(0.5);
@@ -899,7 +899,7 @@ export default function CertificatePage() {
         pdf.setTextColor(0, 0, 0);
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "bold");
-        pdf.text("PRÉSIDENT DE SOUS COMITÉ DE COCODY", x + w - 92, sigY, { align: "center" });
+        pdf.text("PRÉSIDENT DU SOUS COMITÉ DE COCODY", x + w - 92, sigY, { align: "center" });
         
         // trait
         pdf.setLineWidth(0.5);
@@ -972,7 +972,7 @@ export default function CertificatePage() {
                     </p>
 
                     <div className="absolute bottom-6 right-16 flex flex-col items-center">
-                        <div className="text-[10px] font-bold uppercase mb-1">PRÉSIDENT DE SOUS COMITÉ DE COCODY</div>
+                        <div className="text-[10px] font-bold uppercase mb-1">PRÉSIDENT DU SOUS COMITÉ DE COCODY</div>
                         <div className="w-48 h-[0.5px] bg-black mb-1"></div>
                         <div className="text-sm">M. Ouattara El Hadj Bachirou</div>
                     </div>
