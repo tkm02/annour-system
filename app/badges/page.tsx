@@ -2209,16 +2209,18 @@ const BadgeCOVerso = ({ membre, qrCode }: { membre: MembreCO; qrCode?: string })
                                         <SelectContent>
                                             <SelectItem value="Formateur">Formateur</SelectItem>
                                             <SelectItem value="Sécurité">Sécurité</SelectItem>
-                                            <SelectItem value="Cuisine">Cuisine</SelectItem>
+                                            <SelectItem value="Restauration">Restauration</SelectItem>
                                             <SelectItem value="Santé">Santé</SelectItem>
                                             <SelectItem value="Logistique">Logistique</SelectItem>
-                                            <SelectItem value="Accueil">Accueil</SelectItem>
+                                            <SelectItem value="Protocole">Protocole</SelectItem>
                                             <SelectItem value="Communication">Communication</SelectItem>
-                                            <SelectItem value="Secrétariat">Secrétariat</SelectItem>
-                        <SelectItem value="Manager Général">Manager Général</SelectItem>
-                        <SelectItem value="Manager Général Adjoint">Manager Général Adjoint</SelectItem>
-                        <SelectItem value="Superviseur Général">Superviseur Général</SelectItem>
-                        <SelectItem value="Président de Sous-comités">Président de Sous-comités</SelectItem>
+                                            <SelectItem value="Scientifique">Scientifique</SelectItem>
+                                            <SelectItem value="Hygiène">Hygiène</SelectItem>
+                                            <SelectItem value="Pepinière">Pepinière</SelectItem>
+                                            <SelectItem value="Manager Général">Manager Général</SelectItem>
+                                            <SelectItem value="Manager Général Adjoint">Manager Général Adjoint</SelectItem>
+                                            <SelectItem value="Superviseur Général">Superviseur Général</SelectItem>
+                                            <SelectItem value="Président de Sous-comités">Président de Sous-comités</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <Select 
