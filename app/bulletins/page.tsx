@@ -24,6 +24,7 @@ import {
 import { Bulletin, Note, scientificApi, Seminariste } from "@/lib/api";
 import logoAnnour from "@/public/ANNOUR.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
+import { de, et, se } from "date-fns/locale";
 import jsPDF from "jspdf";
 import {
   Download,
@@ -198,7 +199,7 @@ export default function BulletinGenerationPage() {
     }
   };
 
-  // ✅ DESSINER BULLETIN FORMAT PAYSAGE A4 (297 x 210 mm)
+  // ✅ DESSINER BULLETIN FORMAT PAYSAGE A4 (297 x 210 mm) - NOUVEAU DESIGN 3 BLOCS
   const drawBulletinLandscape = async (
     pdf: jsPDF,
     bulletin: Bulletin,
@@ -206,292 +207,426 @@ export default function BulletinGenerationPage() {
   ) => {
     const pageWidth = 297;
     const pageHeight = 210;
-    const margin = 8;
+    const margin = 12;
+    const contentWidth = pageWidth - margin * 2;
+    const borderRadius = 5;
 
-    // ✅ Background lime green pale
-    pdf.setFillColor(230, 240, 200);
+    // ✅ Fonction pour calculer la mention selon la note
+    const getMentionForNote = (note: number): string => {
+      if (note >= 18) return "Excellent";
+      if (note >= 16) return "Très Bien";
+      if (note >= 14) return "Bien";
+      if (note >= 12) return "Assez Bien";
+      if (note >= 10) return "Passable";
+      return "Insuffisant";
+    };
+
+    // ✅ Background blanc
+    pdf.setFillColor(255, 255, 255);
     pdf.rect(0, 0, pageWidth, pageHeight, "F");
+
+    // ✅ Watermark Logo An-Nour (centre, faible opacité)
+    try {
+      pdf.saveGraphicsState();
+      pdf.setGState(new (pdf as any).GState({ opacity: 0.06 }));
+      const watermarkW = 140;
+      const watermarkH = 80;
+      pdf.addImage(logoAnnour.src, "PNG", (pageWidth - watermarkW) / 2, (pageHeight - watermarkH) / 2, watermarkW, watermarkH);
+      pdf.restoreGraphicsState();
+    } catch (e) {}
 
     // ═══════════════════════════════════════════════════════════════
     // HEADER - Logos + Titre
     // ═══════════════════════════════════════════════════════════════
-    const logoSize = 22;
+    const logoSize = 20;
     
     // Logo AEEMCI (gauche)
     try {
-      pdf.addImage(AEEMCI.src, "JPEG", margin, margin, logoSize, logoSize);
+      pdf.addImage(AEEMCI.src, "JPEG", margin, margin - 2, logoSize, logoSize);
     } catch (e) {}
 
     // Logo An-Nour (droite)
     try {
-      const annourWidth = 22;
-      const annourHeight = 13;
+      const annourWidth = 20;
+      const annourHeight = 12;
       pdf.addImage(logoAnnour.src, "PNG", pageWidth - margin - annourWidth, margin, annourWidth, annourHeight);
     } catch (e) {}
 
     // Texte header central
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 128, 128);
+    pdf.text("AEEMCI", pageWidth / 2, 12, { align: "center" });
+
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(60, 60, 60);
+    pdf.text("Association des Elèves et Etudiants Musulmans de Côte d'Ivoire", pageWidth / 2, 17, { align: "center" });
+    pdf.text("Secrétariat Régional Abidjan-Est", pageWidth / 2, 21, { align: "center" });
+    pdf.text("Sous-comités de Bingerville et de Cocody 1", pageWidth / 2, 25, { align: "center" });
+
+    // Titre principal
     pdf.setFontSize(16);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 128, 128);
-    pdf.text("AEEMCI", pageWidth / 2, 14, { align: "center" });
+    pdf.text("BULLETIN DE SÉMINARISTE", pageWidth / 2, 32, { align: "center" });
 
-    pdf.setFontSize(8);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("Association des Elèves et Etudiants Musulmans de Côte d'Ivoire", pageWidth / 2, 20, { align: "center" });
-    pdf.text("Secrétariat Régional Abidjan Est • Sous-comité de Bingerville et de Cocody 1", pageWidth / 2, 25, { align: "center" });
-
-    // Titre principal
-    pdf.setFontSize(20);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 128, 128);
-    pdf.text("BULLETIN DE SEMINARISTE", pageWidth / 2, 38, { align: "center" });
-
-    let currentY = 48;
+    let currentY = 38;
 
     // ═══════════════════════════════════════════════════════════════
-    // SECTION PRINCIPALE - 3 colonnes
+    // BLOC 1 - INFORMATIONS SÉMINARISTE (Horizontal, pleine largeur)
     // ═══════════════════════════════════════════════════════════════
-    const sectionHeight = 50;
-    const col1Width = 100;  // Photo + Nom
-    const col2Width = 65;   // Niveau/Année
-    const col3Width = 110;  // Moyenne/Rang + Signature
-
-    // ───────────────────────────────────────────────────────────────
-    // COLONNE 1: Photo + Nom & Prénom + Matricule
-    // ───────────────────────────────────────────────────────────────
+    const bloc1Height = 52;
+    
     pdf.setDrawColor(0, 128, 128);
     pdf.setLineWidth(0.8);
-    pdf.roundedRect(margin, currentY, col1Width, sectionHeight, 3, 3);
+    pdf.roundedRect(margin, currentY, contentWidth, bloc1Height, borderRadius, borderRadius);
 
-    // Photo (avec image si disponible)
-    const photoW = 35;
+    // Photo (avec correction orientation via Canvas)
+    const photoW = 34;
     const photoH = 42;
-    const photoX = margin + 5;
-    const photoY = currentY + 4;
+    const photoX = margin + 6;
+    const photoY = currentY + 5;
     
-    pdf.setFillColor(220, 220, 220);
-    pdf.rect(photoX, photoY, photoW, photoH, "F");
+    pdf.setFillColor(240, 240, 240);
+    pdf.roundedRect(photoX, photoY, photoW, photoH, 2, 2, "F");
     pdf.setDrawColor(0, 128, 128);
-    pdf.rect(photoX, photoY, photoW, photoH);
+    pdf.roundedRect(photoX, photoY, photoW, photoH, 2, 2);
     
-    // Essayer de charger la photo du séminariste
     if (sem.photo_url) {
       try {
-        pdf.addImage(sem.photo_url, "JPEG", photoX, photoY, photoW, photoH);
+        // ✅ Correction de l'orientation avec Canvas
+        const loadAndOrientImage = (): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+              // Créer un canvas pour redessiner l'image (auto-orientation)
+              const canvas = document.createElement("canvas");
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL("image/jpeg", 0.9));
+              } else {
+                reject(new Error("Canvas context null"));
+              }
+            };
+            img.onerror = () => reject(new Error("Image load failed"));
+            img.src = sem.photo_url!;
+          });
+        };
+        
+        const orientedImageData = await loadAndOrientImage();
+        pdf.addImage(orientedImageData, "JPEG", photoX, photoY, photoW, photoH);
       } catch (e) {
-        // Photo placeholder text
-        pdf.setFontSize(8);
+        console.error("Photo load error:", e);
+        pdf.setFontSize(7);
         pdf.setTextColor(150, 150, 150);
         pdf.text("Photo", photoX + photoW / 2, photoY + photoH / 2, { align: "center" });
       }
     } else {
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setTextColor(150, 150, 150);
       pdf.text("Photo", photoX + photoW / 2, photoY + photoH / 2, { align: "center" });
     }
 
-    // Nom et Prénom
-    const textX = margin + 42;
-    const fullName = `${bulletin.nom_seminariste || sem.nom} ${bulletin.prenom_seminariste || sem.prenom}`.toUpperCase();
+    // Colonne 2: Matricule, Nom, Prénoms (séparés), Contact Parent - Aligné à gauche
+    const col2X = margin + 48;
+    const labelWidth = 24; // Largeur réduite pour les labels
     
-    pdf.setFontSize(13);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 128, 128);
-    
-    // Séparer si trop long
-    const nameParts = fullName.split(" ");
-    if (nameParts.length > 2 && fullName.length > 20) {
-      pdf.text(nameParts.slice(0, 2).join(" "), textX, currentY + 15);
-      pdf.text(nameParts.slice(2).join(" "), textX, currentY + 22);
-    } else {
-      pdf.text(fullName, textX, currentY + 18);
-    }
-
     // Matricule
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(60, 60, 60);
-    pdf.text(bulletin.matricule || sem.matricule, textX, currentY + 35);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Matricule :", col2X, currentY + 12);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 128, 128);
+    pdf.text(bulletin.matricule || sem.matricule, col2X + labelWidth, currentY + 12);
 
-    // ───────────────────────────────────────────────────────────────
-    // COLONNE 2: Niveau + Année
-    // ───────────────────────────────────────────────────────────────
-    const col2X = margin + col1Width + 5;
-    pdf.setDrawColor(0, 128, 128);
-    pdf.roundedRect(col2X, currentY, col2Width, sectionHeight, 3, 3);
-
-    // Niveau label
+    // Nom (séparé)
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(100, 100, 100);
-    pdf.text("Niveau :", col2X + 5, currentY + 10);
+    pdf.text("Nom :", col2X, currentY + 22);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text((bulletin.nom_seminariste || sem.nom || "").toUpperCase(), col2X + labelWidth, currentY + 22);
+
+    // Prénoms (séparé)
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Prénoms :", col2X, currentY + 32);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text((bulletin.prenom_seminariste || sem.prenom || "").toUpperCase(), col2X + labelWidth, currentY + 32);
+
+    // Contact Parent
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Contact :", col2X, currentY + 44);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(sem.contact_parent || "Non renseigné", col2X + labelWidth, currentY + 44);
+
+    // Colonne 3: Niveau, Année (aligné à gauche)
+    const col3X = margin + 175;
+    const label3Width = 24;
     
-    // Niveau value (avec cadre)
+    // Niveau
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Niveau :", col3X, currentY + 12);
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 128, 128);
+    pdf.text(bulletin.niveau || sem.niveau || "N/A", col3X + label3Width, currentY + 12);
+
+    // Année séminaire
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Année :", col3X, currentY + 24);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 128, 128);
+    pdf.text("AnNour 2025", col3X + label3Width, currentY + 24);
+
+    // Année scolaire
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Année scolaire :", col3X, currentY + 36);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("2024-2025", col3X + label3Width, currentY + 36);
+
+    currentY += bloc1Height + 6;
+
+    // ═══════════════════════════════════════════════════════════════
+    // BLOC 2 - NOTES (Tableau avec mentions) - Gauche
+    // ═══════════════════════════════════════════════════════════════
+    const bloc2Width = (contentWidth - 6) * 0.55;
+    const bloc2Height = 95;
+    
     pdf.setDrawColor(0, 128, 128);
-    // pdf.roundedRect(col2X + 5, currentY + 13, col2Width - 10, 12, 2, 2);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(margin, currentY, bloc2Width, bloc2Height, borderRadius, borderRadius);
+
+    // Titre NOTES
+    pdf.setFillColor(255, 255, 255);
+    pdf.roundedRect(margin + 30, currentY - 4, 50, 8, 2, 2, "F");
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 128, 128);
-    const niveauText = bulletin.niveau || sem.niveau || "N/A";
-    pdf.text(niveauText, col2X + 35, currentY + 15, { align: "center" });
+    pdf.text("ÉVALUATIONS", margin + 55, currentY + 2, { align: "center" });
 
-    // Année label + value
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(100, 100, 100);
-    pdf.text("Année :", col2X + 5, currentY + 34);
+    // Tableau des notes
+    const tableStartY = currentY + 12;
+    const tableX = margin + 4;
+    const colEval = 55;
+    const colNote = 25;
+    const colMention = 55;
+    const rowHeight = 14;
+
+    // En-tête du tableau
+    pdf.setFillColor(0, 128, 128);
+    pdf.rect(tableX, tableStartY, colEval + colNote + colMention, rowHeight, "F");
     
-    pdf.setDrawColor(0, 128, 128);
-    // pdf.roundedRect(col2X + 25, currentY + 28, 30, 12, 2, 2);
-    pdf.setFontSize(14);
+    pdf.setFontSize(8);
     pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 128, 128);
-    pdf.text("Annour2025", col2X + 32, currentY + 34, { align: "center" });
+    pdf.setTextColor(255, 255, 255);
+    pdf.text("Évaluation", tableX + colEval / 2, tableStartY + 9, { align: "center" });
+    pdf.text("Note", tableX + colEval + colNote / 2, tableStartY + 9, { align: "center" });
+    pdf.text("Mention", tableX + colEval + colNote + colMention / 2, tableStartY + 9, { align: "center" });
 
-    // ───────────────────────────────────────────────────────────────
-    // COLONNE 3: Moyenne + Rang + Signature
-    // ───────────────────────────────────────────────────────────────
-    const col3X = col2X + col2Width + 5;
-    pdf.setDrawColor(0, 128, 128);
-    pdf.roundedRect(col3X, currentY, col3Width, sectionHeight, 3, 3);
-
-    // Moyenne
-    pdf.setFontSize(9);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text("Moyenne :", col3X + 8, currentY + 12);
-    
-    pdf.setDrawColor(0, 128, 128);
-    // pdf.roundedRect(col3X + 30, currentY + 5, 25, 15, 3, 3);
-    pdf.setFontSize(18);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 128, 128);
-    pdf.text(bulletin.moyenne_generale?.toFixed(2) || "—", col3X + 32, currentY + 12, { align: "center" });
-
-    // Rang
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(100, 100, 100);
-    pdf.text("Rang :", col3X + 8, currentY + 35);
-    
-    pdf.setDrawColor(0, 128, 128);
-    // pdf.roundedRect(col3X + 25, currentY + 25, 22, 12, 2, 2);
-    pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 128, 128);
-    pdf.text(bulletin.rang ? `${bulletin.rang}e` : "—", col3X + 22, currentY + 35, { align: "center" });
-
-    // Cachet/Signature zone
-    pdf.setFontSize(7);
-    pdf.setFont("helvetica", "italic");
-    pdf.setTextColor(100, 100, 100);
-    pdf.text("OUATTARA EL HADJI BACHIROU", col3X + 60   , currentY + 28);
-    pdf.text("Président du sous-comité de Cocody 1", col3X + 60, currentY + 33);
-
-    currentY += sectionHeight + 8;
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION NOTES + OBSERVATIONS (2 colonnes)
-    // ═══════════════════════════════════════════════════════════════
-    const notesWidth = 130;
-    const obsWidth = pageWidth - margin * 2 - notesWidth - 5;
-    const notesHeight = 85;
-
-    // ───────────────────────────────────────────────────────────────
-    // NOTES
-    // ───────────────────────────────────────────────────────────────
-    pdf.setDrawColor(0, 128, 128);
-    pdf.setLineWidth(0.8);
-    pdf.roundedRect(margin, currentY, notesWidth, notesHeight, 4, 4);
-
-    // Titre NOTES
-    pdf.setFillColor(230, 240, 200);
-    pdf.roundedRect(margin + 45, currentY - 4, 40, 8, 2, 2, "F");
-    pdf.setFontSize(11);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("NOTES", margin + 65, currentY + 2, { align: "center" });
-
-    // Liste des notes
+    // Données des notes (note_entree depuis sem, note1=Eval1, note2=Eval2, note3=Conduite)
     const notes = sem.notes || {};
-    let noteY = currentY + 18;
-    const noteColWidth = 60; // Approximate width for columns if we have many
+    const evaluations = [
+      { label: "Test d'entrée", key: "note_entree", isFromSem: true },
+      { label: "Évaluation 1", key: "note1", isFromSem: false },
+      { label: "Évaluation 2", key: "note2", isFromSem: false },
+      { label: "Conduite", key: "note3", isFromSem: false }
+    ];
 
-    // Dynamic grid for notes: 2 columns if straightforward
-    for (let i = 1; i <= numberOfNotes; i++) {
-        const noteKey = `note${i}`;
-        const noteValue = notes[noteKey]; // number | undefined
-        // If undefined, we display "0,00"
-        const displayValue = (noteValue !== undefined) 
-           ? noteValue.toFixed(2).replace(".", ",") 
-           : "0,00";
-
-        // Layout logic: 2 columns
-        // 1, 3, 5... -> Left column
-        // 2, 4, 6... -> Right column
-        const isRightCol = (i % 2 === 0);
-        
-        // Calculate Row Index (0-based) = floor((i-1)/2)
-        const rowIndex = Math.floor((i - 1) / 2);
-
-        const colOffset = isRightCol ? noteColWidth + 10 : 0;
-        const rowOffset = rowIndex * 10; // slightly tighter spacing to fit more
-        const baseY = noteY;
-
-        pdf.setFontSize(12); // Slightly smaller to fit potentially more notes
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(0, 0, 0);
-        pdf.text(`Note ${i} :`, margin + 10 + colOffset, baseY + rowOffset);
-
-        pdf.setFontSize(12);
-        pdf.setTextColor(0, 128, 128);
-        pdf.text(displayValue, margin + 30 + colOffset, baseY + rowOffset);
-    }
-
-    // ───────────────────────────────────────────────────────────────
-    // OBSERVATIONS
-    // ───────────────────────────────────────────────────────────────
-    const obsX = margin + notesWidth + 5;
-    pdf.setDrawColor(0, 128, 128);
-    pdf.roundedRect(obsX, currentY, obsWidth, notesHeight, 4, 4);
-
-    // Titre OBSERVATIONS
-    pdf.setFillColor(230, 240, 200);
-    pdf.roundedRect(obsX + 40, currentY - 4, 60, 8, 2, 2, "F");
-    pdf.setFontSize(11);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("OBSERVATIONS", obsX + 70, currentY + 2, { align: "center" });
-
-    // Logo watermark
-    try {
-      pdf.saveGraphicsState();
-      pdf.setGState(new (pdf as any).GState({ opacity: 0.12 }));
-      pdf.addImage(logoAnnour.src, "PNG", obsX + 25, currentY + 15, 90, 55);
-      pdf.restoreGraphicsState();
-    } catch (e) {}
-
-    // Mention
-    if (bulletin.mention) {
-      pdf.setFontSize(18);
+    let tableY = tableStartY + rowHeight;
+    evaluations.forEach((evaluation, index) => {
+      // Pour note_entree, récupérer depuis sem directement, sinon depuis notes
+      const noteValue = evaluation.isFromSem 
+        ? (sem as any).note_entree 
+        : notes[evaluation.key];
+      const noteDisplay = noteValue !== undefined && noteValue !== null ? noteValue.toFixed(2) : "—";
+      const mention = noteValue !== undefined && noteValue !== null ? getMentionForNote(noteValue) : "—";
+      
+      // Alternating row colors
+      if (index % 2 === 0) {
+        pdf.setFillColor(248, 248, 248);
+        pdf.rect(tableX, tableY, colEval + colNote + colMention, rowHeight, "F");
+      }
+      
+      // Borders
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.3);
+      pdf.rect(tableX, tableY, colEval, rowHeight);
+      pdf.rect(tableX + colEval, tableY, colNote, rowHeight);
+      pdf.rect(tableX + colEval + colNote, tableY, colMention, rowHeight);
+      
+      // Text
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(60, 60, 60);
+      pdf.text(evaluation.label, tableX + 3, tableY + 9);
+      
       pdf.setFont("helvetica", "bold");
       pdf.setTextColor(0, 128, 128);
-      pdf.text(bulletin.mention, obsX + obsWidth / 2, currentY + 50, { align: "center" });
-    }
+      pdf.text(noteDisplay, tableX + colEval + colNote / 2, tableY + 9, { align: "center" });
+      
+      // Mention avec couleur selon niveau
+      let mentionColor: [number, number, number] = [100, 100, 100];
+      if (noteValue !== undefined) {
+        if (noteValue >= 16) mentionColor = [0, 150, 0];
+        else if (noteValue >= 12) mentionColor = [0, 128, 128];
+        else if (noteValue >= 10) mentionColor = [200, 150, 0];
+        else mentionColor = [200, 50, 50];
+      }
+      pdf.setFont("helvetica", "italic");
+      pdf.setTextColor(...mentionColor);
+      pdf.text(mention, tableX + colEval + colNote + colMention / 2, tableY + 9, { align: "center" });
+      
+      tableY += rowHeight;
+    });
 
-    currentY += notesHeight + 10;
+    // ═══════════════════════════════════════════════════════════════
+    // BLOC 3 - RÉSULTATS & CONSEIL (Droite)
+    // ═══════════════════════════════════════════════════════════════
+    const bloc3X = margin + bloc2Width + 6;
+    const bloc3Width = contentWidth - bloc2Width - 6;
+    
+    pdf.setDrawColor(0, 128, 128);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(bloc3X, currentY, bloc3Width, bloc2Height, borderRadius, borderRadius);
+
+    // Titre
+    pdf.setFillColor(255, 255, 255);
+    pdf.roundedRect(bloc3X + 25, currentY - 4, 60, 8, 2, 2, "F");
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 128, 128);
+    pdf.text("RÉSULTATS & CONSEIL", bloc3X + 55, currentY + 2, { align: "center" });
+
+    // Moyenne et Rang côte à côte
+    const statsY = currentY + 14;
+    const statsBoxWidth = (bloc3Width - 16) / 2;
+    
+    // Box Moyenne
+    pdf.setFillColor(245, 245, 245);
+    pdf.roundedRect(bloc3X + 6, statsY, statsBoxWidth, 22, 3, 3, "F");
+    pdf.setDrawColor(0, 128, 128);
+    pdf.roundedRect(bloc3X + 6, statsY, statsBoxWidth, 22, 3, 3);
+    
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Moyenne", bloc3X + 6 + statsBoxWidth / 2, statsY + 7, { align: "center" });
+    
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 128, 128);
+    pdf.text(bulletin.moyenne_generale?.toFixed(2) || "—", bloc3X + 6 + statsBoxWidth / 2, statsY + 17, { align: "center" });
+
+    // Box Rang
+    pdf.setFillColor(245, 245, 245);
+    pdf.roundedRect(bloc3X + 10 + statsBoxWidth, statsY, statsBoxWidth, 22, 3, 3, "F");
+    pdf.setDrawColor(0, 128, 128);
+    pdf.roundedRect(bloc3X + 10 + statsBoxWidth, statsY, statsBoxWidth, 22, 3, 3);
+    
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Rang", bloc3X + 10 + statsBoxWidth + statsBoxWidth / 2, statsY + 7, { align: "center" });
+    
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 128, 128);
+    pdf.text(bulletin.rang ? `${bulletin.rang}e` : "—", bloc3X + 10 + statsBoxWidth + statsBoxWidth / 2, statsY + 17, { align: "center" });
+
+    // Mention globale (calculée localement avec getMentionForNote)
+    const mentionY = statsY + 28;
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("Mention :", bloc3X + 8, mentionY);
+    
+    // ✅ Calcul local de la mention basé sur la moyenne générale
+    const mentionGenerale = bulletin.moyenne_generale !== undefined && bulletin.moyenne_generale !== null
+      ? getMentionForNote(bulletin.moyenne_generale)
+      : "—";
+    
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 128, 128);
+    pdf.text(mentionGenerale, bloc3X + 30, mentionY);
+
+    // Citation islamique
+    const quoteY = mentionY + 8;
+    pdf.setDrawColor(0, 128, 128);
+    pdf.setLineWidth(1.2);
+    pdf.line(bloc3X + 6, quoteY - 2, bloc3X + 6, quoteY + 18);
+    
+    // Première citation
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "italic");
+    pdf.setTextColor(60, 60, 60);
+    pdf.text("« Mon Seigneur ! Accroît mon savoir ! »", bloc3X + 10, quoteY + 2);
+    // Référence légère
+    pdf.setFontSize(5);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text("Sourate Ta-Ha, v.114", bloc3X + 10, quoteY + 6);
+    
+    // Deuxième citation
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "italic");
+    pdf.setTextColor(60, 60, 60);
+    pdf.text("« Sont-ils égaux, ceux qui savent et ceux qui ne savent pas ? »", bloc3X + 10, quoteY + 12);
+    // Référence légère
+    pdf.setFontSize(5);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text("Sourate Az-Zumar, v.9", bloc3X + 10, quoteY + 16);
+
+    // Signature du président
+    const signY = currentY + bloc2Height - 16;
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("OUATTARA EL HADJI BACHIROU", bloc3X + bloc3Width / 2, signY, { align: "center" });
+    
+    pdf.setFontSize(6);
+    pdf.setFont("helvetica", "italic");
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Président du Sous-comité Cocody 1", bloc3X + bloc3Width / 2, signY + 5, { align: "center" });
+
+    currentY += bloc2Height + 8;
 
     // ═══════════════════════════════════════════════════════════════
     // FOOTER
     // ═══════════════════════════════════════════════════════════════
     pdf.setDrawColor(0, 128, 128);
-    pdf.setLineWidth(1);
-    pdf.line(margin + 60, pageHeight - 15, pageWidth - margin - 60, pageHeight - 15);
+    pdf.setLineWidth(0.8);
+    pdf.line(margin + 50, pageHeight - 12, pageWidth - margin - 50, pageHeight - 12);
 
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "italic");
     pdf.setTextColor(0, 128, 128);
-    pdf.text("AEEMCI, pour une identité islamique !", pageWidth / 2, pageHeight - 8, { align: "center" });
+    pdf.text("AnNour, pour une spiritualité étincelante...", pageWidth / 2, pageHeight - 6, { align: "center" });
   };
 
   // ✅ Fallback sans API
@@ -547,137 +682,201 @@ export default function BulletinGenerationPage() {
     pdf.text("AEEMCI, pour une identité islamique !", pageWidth / 2, pageHeight - 10, { align: "center" });
   };
 
-  // ✅ BULLETIN PREVIEW COMPONENT
+  // ✅ BULLETIN PREVIEW COMPONENT - NOUVEAU DESIGN 3 BLOCS
   const BulletinPreview = ({ seminariste, bulletin, numberOfNotes }: { seminariste: SeminaristeWithNotes; bulletin: Bulletin | null; numberOfNotes: number }) => {
-     // Dimensions mimicking A4 Landscape
-     // We'll use a fixed width scale for the preview, e.g. 800px width, and calculate height based on A4 ratio (297/210 = ~1.414)
-     // Height = 800 / 1.414 = ~565px
+     // Helper function for mention
+     const getMentionForNote = (note: number): string => {
+       if (note >= 18) return "Excellent";
+       if (note >= 16) return "Très Bien";
+       if (note >= 14) return "Bien";
+       if (note >= 12) return "Assez Bien";
+       if (note >= 10) return "Passable";
+       return "Insuffisant";
+     };
+
+     const getMentionColor = (note: number): string => {
+       if (note >= 16) return "text-green-600";
+       if (note >= 12) return "text-teal-600";
+       if (note >= 10) return "text-yellow-600";
+       return "text-red-500";
+     };
+
+     const evaluationLabels = [
+       { label: "Test d'entrée", key: "note_entree", isFromSem: true },
+       { label: "Évaluation 1", key: "note1", isFromSem: false },
+       { label: "Évaluation 2", key: "note2", isFromSem: false },
+       { label: "Conduite", key: "note3", isFromSem: false }
+     ];
      
      return (
-    <div className="w-[840px] h-[594px] bg-[#E6F0C8] text-[#008080] font-sans relative shadow-2xl overflow-hidden p-[20px] mx-auto text-xs">
+    <div className="w-[840px] h-[594px] bg-white text-[#008080] font-sans relative shadow-2xl overflow-hidden p-[28px] mx-auto text-xs">
       
+      {/* WATERMARK (Logo An-Nour en arrière-plan) */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.05]">
+        <img src={logoAnnour.src} alt="" className="w-[350px] h-auto" />
+      </div>
+
       {/* HEADER */}
-      <div className="flex justify-between items-start mb-2">
+      <div className="flex justify-between items-start mb-2 relative z-10">
         {/* Left Logo */}
-        <img src={AEEMCI.src} alt="AEEMCI" className="w-16 h-16 object-contain" />
+        <img src={AEEMCI.src} alt="AEEMCI" className="w-14 h-14 object-contain" />
         
         {/* Center Text */}
         <div className="text-center">
-            <h1 className="text-xl font-bold">AEEMCI</h1>
-            <p className="text-[10px] text-black">Association des Elèves et Etudiants Musulmans de Côte d'Ivoire</p>
-            <p className="text-[10px] text-black">Secrétariat Régional Abidjan Est • Sous-comité de Bingerville et de Cocody 1</p>
-            <h2 className="text-2xl font-bold mt-3">BULLETIN DE SEMINARISTE</h2>
+            <h1 className="text-lg font-bold">AEEMCI</h1>
+            <p className="text-[9px] text-gray-600">Association des Elèves et Etudiants Musulmans de Côte d'Ivoire</p>
+            <p className="text-[9px] text-gray-600">Secrétariat Régional Abidjan-Est</p>
+            <p className="text-[9px] text-gray-600">Sous-comités de Bingerville et de Cocody 1</p>
+            <h2 className="text-xl font-bold mt-2">BULLETIN DE SÉMINARISTE</h2>
         </div>
 
         {/* Right Logo */}
-        <img src={logoAnnour.src} alt="ANNOUR" className="w-16 h-10 object-contain" />
+        <img src={logoAnnour.src} alt="ANNOUR" className="w-14 h-9 object-contain" />
       </div>
 
-      {/* MAIN CONTENT GRID (3 Columns) */}
-      <div className="grid grid-cols-[300px_180px_300px] gap-4 mb-4 justify-center">
+      {/* BLOC 1: Info Séminariste (Horizontal, pleine largeur) */}
+      <div className="border-2 border-[#008080] rounded-lg p-3 mb-3 flex gap-4 relative z-10">
+        {/* Photo */}
+        <div className="w-[90px] h-[110px] bg-gray-100 border border-[#008080] rounded flex items-center justify-center shrink-0 overflow-hidden">
+          {seminariste.photo_url ? (
+            <img src={seminariste.photo_url} alt="Photo" className="w-full h-full object-cover rounded" style={{ imageOrientation: 'from-image' }} />
+          ) : (
+            <Users className="text-gray-400 w-8 h-8" />
+          )}
+        </div>
         
-        {/* COL 1: Photo + Identité */}
-        <div className="border border-[#008080] rounded pt-2 pb-2 px-2 flex gap-3 items-center">
-             {/* Photo Placeholder/Image */}
-             <div className="w-[100px] h-[120px] bg-gray-200 border border-[#008080] flex items-center justify-center shrink-0">
-                 {seminariste.photo_url ? (
-                     <img src={seminariste.photo_url} alt="Photo" className="w-full h-full object-cover" />
-                 ) : (
-                    <Users className="text-gray-400 w-8 h-8" />
-                 )}
-             </div>
-             
-             {/* Text Info */}
-             <div className="flex flex-col justify-center w-full">
-                 <div className="font-bold text-lg leading-tight uppercase">
-                    {bulletin?.nom_seminariste || seminariste.nom} {bulletin?.prenom_seminariste || seminariste.prenom}
-                 </div>
-                 <div className="text-gray-600 mt-2 text-sm">{bulletin?.matricule || seminariste.matricule}</div>
-             </div>
+        {/* Info Column - Espacement réduit */}
+        <div className="flex-1 flex flex-col justify-center text-sm">
+          <div className="flex mb-1">
+            <span className="text-gray-500 text-xs w-16">Matricule :</span>
+            <span className="font-bold text-[#008080]">{bulletin?.matricule || seminariste.matricule}</span>
+          </div>
+          <div className="flex mb-1">
+            <span className="text-gray-500 text-xs w-16">Nom :</span>
+            <span className="font-bold text-black uppercase">
+              {(bulletin?.nom_seminariste || seminariste.nom || "").toUpperCase()}
+            </span>
+          </div>
+          <div className="flex mb-1">
+            <span className="text-gray-500 text-xs w-16">Prénoms :</span>
+            <span className="font-bold text-black uppercase">
+              {(bulletin?.prenom_seminariste || seminariste.prenom || "").toUpperCase()}
+            </span>
+          </div>
+          <div className="flex">
+            <span className="text-gray-500 text-xs w-16">Contact Parent :</span>
+            <span className="font-bold text-black">{seminariste.contact_parent || "Non renseigné"}</span>
+          </div>
         </div>
 
-        {/* COL 2: Niveau + Année */}
-        <div className="border border-[#008080] rounded p-2 flex flex-col justify-between text-center">
-            <div>
-                <span className="text-gray-500 block text-[10px]">Niveau :</span>
-                {/* <div className="border border-[#008080] rounded px-2 py-1 inline-block mt-1 font-bold"> */}
-                   <span className="text-lg font-bold">{bulletin?.niveau || seminariste.niveau || "N/A"}</span>
-                {/* </div> */}
-            </div>
-            <div>
-                <span className="text-gray-500 block text-[10px]">Année :</span>
-                {/* <div className="border border-[#008080] rounded px-2 py-1 inline-block mt-1 font-bold"> */}
-                    <span className="text-xl font-bold">Annour2025</span>
-                {/* </div> */}
-            </div>
-        </div>
-
-        {/* COL 3: Moyenne + Rang + Signature */}
-        <div className="border border-[#008080] rounded p-2 flex flex-col justify-between text-center relative">
-             <div className="flex justify-around items-start">
-                 <div>
-                    <span className="text-gray-500 block text-[10px]">Moyenne :</span>
-                    {/* <div className="border border-[#008080] rounded p-1 font-bold text-xl mt-1 min-w-[60px]"> */}
-                       <span className="text-3xl font-bold">{bulletin?.moyenne_generale?.toFixed(2) || "—"}</span>
-                    {/* </div> */}
-                 </div>
-                 <div>
-                    <span className="text-gray-500 block text-[10px]">Rang :</span>
-                    {/* <div className="border border-[#008080] rounded p-1 font-bold text-lg mt-1 min-w-[50px]"> */}
-                        <span className="text-2xl font-bold">{bulletin?.rang ? `${bulletin.rang}e` : "—"}</span>
-                    {/* </div> */}
-                 </div>
-             </div>
-             
-             <div className="text-right text-[10px] text-gray-500 italic mt-auto">
-                 <p>OUATTARA EL HADJI BACHIROU</p>
-                 <p>Président du sous-comité de Cocody 1</p>
-             </div>
+        {/* Niveau & Année (espacement réduit) */}
+        <div className="flex flex-col gap-2 justify-center text-sm">
+          <div className="flex">
+            <span className="text-gray-500 text-xs w-20">Niveau :</span>
+            <span className="font-bold text-[#008080]">{bulletin?.niveau || seminariste.niveau || "N/A"}</span>
+          </div>
+          <div className="flex">
+            <span className="text-gray-500 text-xs w-20">Année :</span>
+            <span className="font-bold text-[#008080]">An-Nour 2025</span>
+          </div>
+          <div className="flex">
+            <span className="text-gray-500 text-xs w-20">Années Scolaire :</span>
+            <span className="font-bold text-black">2024-2025</span>
+          </div>
         </div>
       </div>
 
-      {/* NOTES & OBSERVATIONS GRID */}
-      <div className="grid grid-cols-[380px_1fr] gap-4 h-[240px]">
+      {/* BLOC 2 & 3: Notes & Résultats */}
+      <div className="grid grid-cols-[55%_1fr] gap-3 relative z-10" style={{ height: "260px" }}>
+        
+        {/* BLOC 2: Notes Table */}
+        <div className="border-2 border-[#008080] rounded-lg p-2 relative pt-5">
+          <div className="absolute -top-3 left-8 bg-white px-3 font-bold text-[#008080] text-sm">ÉVALUATIONS</div>
           
-          {/* NOTES */}
-          <div className="border border-[#008080] rounded p-2 relative pt-6">
-              <div className="absolute -top-3 left-16 bg-[#E6F0C8] px-4 font-bold text-black border border-[#E6F0C8]">NOTES</div>
-              
-              <div className="grid grid-cols-2 gap-x-8 gap-y-3 px-4">
-                  {Array.from({ length: numberOfNotes }, (_, i) => i + 1).map((i) => (
-                    <div key={i} className="flex justify-between items-center text-sm">
-                      <span className="font-bold text-black">Note {i} :</span>
-                      <span className="font-bold text-[#008080]">
-                        {seminariste.notes?.[`note${i}`] !== undefined 
-                          ? seminariste.notes[`note${i}`].toFixed(2).replace(".", ",") 
-                          : "0,00"}
-                      </span>
-                    </div>
-                  ))}
-              </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#008080] text-white">
+                <th className="py-2 px-2 text-left rounded-tl">Évaluation</th>
+                <th className="py-2 px-2 text-center">Note</th>
+                <th className="py-2 px-2 text-center rounded-tr">Mention</th>
+              </tr>
+            </thead>
+            <tbody>
+              {evaluationLabels.map((ev, idx) => {
+                // Pour note_entree, récupérer depuis seminariste directement
+                const noteValue = ev.isFromSem 
+                  ? (seminariste as any).note_entree 
+                  : seminariste.notes?.[ev.key];
+                const noteDisplay = noteValue !== undefined && noteValue !== null ? noteValue.toFixed(2) : "—";
+                const mention = noteValue !== undefined && noteValue !== null ? getMentionForNote(noteValue) : "—";
+                const mentionColor = noteValue !== undefined && noteValue !== null ? getMentionColor(noteValue) : "text-gray-400";
+                
+                return (
+                  <tr key={ev.key} className={idx % 2 === 0 ? "bg-gray-50" : ""}>
+                    <td className="py-2 px-2 border-b border-gray-200">{ev.label}</td>
+                    <td className="py-2 px-2 text-center font-bold text-[#008080] border-b border-gray-200">{noteDisplay}</td>
+                    <td className={`py-2 px-2 text-center italic border-b border-gray-200 ${mentionColor}`}>{mention}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* BLOC 3: Résultats & Conseil (avec Moyenne et Rang) */}
+        <div className="border-2 border-[#008080] rounded-lg p-3 relative pt-5 flex flex-col">
+          <div className="absolute -top-3 left-6 bg-white px-3 font-bold text-[#008080] text-sm">RÉSULTATS & CONSEIL</div>
+          
+          {/* Moyenne et Rang */}
+          <div className="flex gap-2 mb-3">
+            <div className="flex-1 bg-gray-100 border border-[#008080] rounded-md p-2 text-center">
+              <div className="text-gray-500 text-[9px]">Moyenne</div>
+              <div className="text-xl font-bold text-[#008080]">{bulletin?.moyenne_generale?.toFixed(2) || "—"}</div>
+            </div>
+            <div className="flex-1 bg-gray-100 border border-[#008080] rounded-md p-2 text-center">
+              <div className="text-gray-500 text-[9px]">Rang</div>
+              <div className="text-xl font-bold text-[#008080]">{bulletin?.rang ? `${bulletin.rang}e` : "—"}</div>
+            </div>
           </div>
 
-          {/* OBSERVATIONS */}
-          <div className="border border-[#008080] rounded p-2 relative pt-6 flex flex-col items-center justify-center text-center">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#E6F0C8] px-4 font-bold text-black">OBSERVATIONS</div>
-              
-               {/* Watermark in background */}
-               <div className="absolute inset-0 flex items-center justify-center opacity-[0.12] pointer-events-none">
-                    <img src={logoAnnour.src} alt="" className="w-40 h-auto" />
-               </div>
-
-               {bulletin?.mention && (
-                 <div className="text-3xl font-bold relative z-10">
-                     {bulletin.mention}
-                 </div>
-               )}
+          {/* Mention (calculée localement) */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-gray-500 text-xs">Mention :</span>
+            <span className="font-bold text-[#008080]">
+              {bulletin?.moyenne_generale !== undefined && bulletin?.moyenne_generale !== null
+                ? getMentionForNote(bulletin.moyenne_generale)
+                : "—"}
+            </span>
           </div>
+
+          {/* Citation Islamique */}
+          <div className="border-l-4 border-[#008080] pl-3 py-1 bg-gray-50 rounded-r mb-auto">
+            <div className="mb-2">
+              <p className="text-[9px] italic text-gray-700">
+                « Mon Seigneur ! Accroît mon savoir ! »
+              </p>
+              <p className="text-[7px] text-gray-400">Sourate Ta-Ha, v.114</p>
+            </div>
+            <div>
+              <p className="text-[9px] italic text-gray-700">
+                « Sont-ils égaux, ceux qui savent et ceux qui ne savent pas ? »
+              </p>
+              <p className="text-[7px] text-gray-400">Sourate Az-Zumar, v.9</p>
+            </div>
+          </div>
+
+          {/* Signature */}
+          <div className="text-center mt-2 pt-1 border-t border-gray-200">
+            <p className="font-bold text-black text-[10px]">OUATTARA EL HADJI BACHIROU</p>
+            <p className="text-[9px] italic text-gray-500">Président du Sous-comité Cocody 1</p>
+          </div>
+        </div>
       </div>
 
       {/* FOOTER */}
-      <div className="absolute bottom-4 left-0 right-0 text-center">
-          <div className="w-[80%] h-px bg-[#008080] mx-auto mb-2"></div>
-          <p className="font-bold text-sm">AEEMCI, pour une identité islamique !</p>
+      <div className="absolute bottom-3 left-0 right-0 text-center z-10">
+          <div className="w-[70%] h-px bg-[#008080] mx-auto mb-1"></div>
+          <p className="font-bold text-xs">AEEMCI, pour une identité islamique !</p>
       </div>
 
     </div>

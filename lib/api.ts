@@ -36,6 +36,7 @@ export interface Seminariste {
   allergie?: string;
   antecedent_medical?: string;
   dortoir_code?: string;
+  note_entree?: number | null;        // ✅ NOTE DU TEST D'ENTRÉE
 }
 
 // ✅ CREATE SEMINARISTE
