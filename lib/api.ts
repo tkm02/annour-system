@@ -462,6 +462,65 @@ export const usersApi = {
   },
 };
 
+// ✅ FEEDBACK API
+export interface Feedback {
+  id: string;
+  sexe: string;
+  nom: string;
+  note_globale: number;
+  qualite_nourriture: number;
+  confort_dortoirs: number;
+  qualite_formations: number;
+  qualite_contenu: number;
+  note_organisation: number;
+  duree_appropriee: boolean;
+  recommande: boolean;
+  points_apprecies: string;
+  suggestions: string;
+  created_at: string;
+}
+
+export interface FeedbackAnalytics {
+  total_responses: number;
+  moyenne_globale: number;
+  moyenne_organisation: number;
+  moyenne_nourriture: number;
+  moyenne_dortoirs: number;
+  moyenne_formations: number;
+  moyenne_contenu: number;
+  repartition_sexe: Record<string, number>;
+  repartition_note_globale: Record<string, number>;
+  pourcentage_duree_ok: number;
+  pourcentage_recommande: number;
+  derniers_points_apprecies: string[];
+  dernieres_suggestions: string[];
+}
+
+export const feedbackApi = {
+  getAnalytics: async () => {
+    return apiRequest<FeedbackAnalytics>("/admin/feedback/analytics");
+  },
+
+  getAll: async (page = 1, limit = 50, filters?: { sexe?: string; recommande?: boolean }) => {
+    const queryParams = new URLSearchParams({
+      skip: ((page - 1) * limit).toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters?.sexe) queryParams.append("sexe", filters.sexe);
+    if (filters?.recommande !== undefined) queryParams.append("recommande", filters.recommande.toString());
+
+    return apiRequest<{ total: number; data: Feedback[] }>(`/admin/feedback?${queryParams.toString()}`);
+  },
+
+  getOne: async (id: string) => {
+    return apiRequest<Feedback>(`/admin/feedback/${id}`);
+  },
+
+  delete: async (id: string) => {
+    return apiRequest(`/admin/feedback/${id}`, {
+      method: "DELETE",
+    });
 // ✅ CO API (Comité d'Organisation)
 export const coApi = {
   getMembresCO: async () => {
@@ -477,5 +536,6 @@ export default {
   dashboardApi,
   authApi,
   usersApi,
+  feedbackApi,
   coApi,
 };
