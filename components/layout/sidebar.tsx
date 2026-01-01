@@ -48,6 +48,7 @@ const getNavigationByRole = (role: UserRole) => {
         { name: "Séminaristes", href: "/seminaristes", icon: Users },
         { name: "Scientifique", href: "/scientifique", icon: GraduationCap },
         { name: "Attributions", href: "/attributions", icon: Settings },
+        { name: "Bulletins", href: "/bulletins", icon: FileText },
         { name: "Notes", href: "/notes", icon: FileText },
         // { name: "Communication", href: "/communication", icon: MessageSquare },
       ];

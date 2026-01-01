@@ -36,6 +36,7 @@ export interface Seminariste {
   allergie?: string;
   antecedent_medical?: string;
   dortoir_code?: string;
+  note_entree?: number | null;        // ✅ NOTE DU TEST D'ENTRÉE
 }
 
 // ✅ CREATE SEMINARISTE
@@ -78,6 +79,19 @@ export interface TestScore {
 }
 
 // ✅ NOTES
+export interface Note {
+  id: string;
+  matricule: string;
+  seminariste: string | null;
+  note: number;
+  observation: string | null;
+  type: string;
+  libelle: string; // "note1", "note2", "note3", "note4"
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+}
+
 export interface UpdateNote {
   note: number;
   observation: string;
@@ -85,10 +99,42 @@ export interface UpdateNote {
 
 export interface CreateNote {
   matricule: string;
-  matiere_code: string;
   note: number;
   type_evaluation: string;
-  observation: string;
+  libelle: string;
+  observation?: string;
+}
+
+// ✅ BULLETINS
+export interface Bulletin {
+  id: string;
+  numero: string;
+  matricule: string;
+  nom_seminariste: string | null;
+  prenom_seminariste: string | null;
+  niveau: string | null;
+  niveau_academique: string | null;
+  annee_scolaire: string;
+  moyenne_generale: number;
+  total_coefficient: number;
+  rang: number | null;
+  effectif_classe: number | null;
+  mention: string | null;
+  observations: string | null;
+  generated_at: string;
+  generated_by: string;
+}
+
+export interface BulletinGenerate {
+  matricule: string;
+  annee_scolaire?: string;
+  observations?: string;
+}
+
+export interface BulletinDetail {
+  bulletin: Bulletin;
+  notes: Note[];
+  seminariste: Seminariste;
 }
 
 // ✅ USERS & AUTH
@@ -114,6 +160,20 @@ export interface CreateUserPayload {
   role: string;
 }
 
+// ✅ MEMBRE CO (Comité d'Organisation)
+export interface MembreCO {
+  id: string;
+  nom: string;
+  prenoms: string;
+  contact: string;
+  commission: string;
+  statut: string;
+  photo_url: string;
+  allergies: string;
+  antecedent_medical: string;
+  created_at: string;
+}
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
@@ -136,7 +196,6 @@ export async function apiRequest<T>(
   };
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-  console.log(`🌐 API ${endpoint}: ${response.status}`);
   
   if (!response.ok) {
     const errorText = await response.text();
@@ -154,11 +213,8 @@ export const scientificApi = {
     // ✅ MODE "FETCH ALL" (Si limit > 100, on charge tout)
     if (limit > 100) {
       if (cachedSeminaristes && cachedSeminaristes.limit >= 10000) {
-        console.log('✅ Cache seminaristes utilisé (FULL)');
         return cachedSeminaristes;
       }
-
-      console.log('🔄 Chargement complet des séminaristes (Batching)...');
       
       // 1. Première page pour avoir le total
       const firstBatch = await apiRequest<ApiResponse<Seminariste>>(
@@ -213,28 +269,24 @@ export const scientificApi = {
   },
   // ✅ CRUD SÉMINARISTES
   createSeminariste: async (data: CreateSeminariste) => {
-    console.log('➕ [CREATE] Séminariste:', data);
     return apiRequest<Seminariste>('/admin/seminaristes', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
   updateSeminariste: async (matricule: string, data: Partial<UpdateSeminariste>) => {
-    console.log('✏️ [UPDATE] Séminariste:', matricule, data);
     return apiRequest<Seminariste>(`/admin/seminaristes/${matricule}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
   deleteSeminariste: async (matricule: string) => {
-    console.log('🗑️ [DELETE] Séminariste:', matricule);
     return apiRequest(`/admin/seminaristes/${matricule}`, {
       method: 'DELETE',
     });
   },
   // ✅ TEST D'ENTRÉE
    saveTestEntree: async (data: TestScore) => {
-    console.log('💾 [TEST] Sauvegarde:', data);
     
     // ✅ CONSTRUIRE URL AVEC QUERY PARAMS
     const params = new URLSearchParams({
@@ -251,7 +303,6 @@ export const scientificApi = {
   },
 
   updateSeminaristeNiveau: async (matricule: string, niveau: string) => {
-    console.log('🎓 [NIVEAU] Update:', matricule, '→', niveau);
     return apiRequest(`/seminaristes/${matricule}/niveau`, {
       method: 'PATCH',
       body: JSON.stringify({ niveau }),
@@ -259,23 +310,67 @@ export const scientificApi = {
   },
 
   // 📝 NOTES
-  getNotes: async () => apiRequest('/scientific/notes'),
+  getNotes: async () => apiRequest<Note[]>('/scientific/notes'),
+  
+  getNotesByLibelle: async (libelle: string) => {
+    const allNotes = await apiRequest<Note[]>('/scientific/notes');
+    return allNotes.filter(n => n.libelle === libelle);
+  },
+  
   createNote: async (data: CreateNote) => {
-    return apiRequest('/scientific/notes', {
+    // ✅ FastAPI expects query params, not JSON body
+    const params = new URLSearchParams({
+      matricule: data.matricule,
+      note: data.note.toString(),
+      libelle: data.libelle || 'note1',
+      created_by: 'admin'
+    });
+    
+    return apiRequest<Note>(`/scientific/notes?${params.toString()}`, {
       method: 'POST',
-      body: JSON.stringify(data),
     });
   },
+  
   updateNote: async (id: string, data: UpdateNote) => {
-    return apiRequest(`/scientific/notes/${id}`, {
+    return apiRequest<Note>(`/scientific/notes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  },
+  
+  deleteNote: async (id: string) => {
+    return apiRequest(`/scientific/notes/${id}`, {
+      method: 'DELETE',
+    });
+  },
+  
+  deleteNotesByLibelle: async (libelle: string) => {
+    const notesToDelete = await scientificApi.getNotesByLibelle(libelle);
+    const deletePromises = notesToDelete.map(note => scientificApi.deleteNote(note.id));
+    await Promise.all(deletePromises);
+    return notesToDelete.length;
   },
 
   // 📈 STATS
   getStats: () => apiRequest<any>("/scientific/stats"),
   getScientificStats: () => apiRequest('/scientific/stats/scientifiques'),
+
+  // 📜 BULLETINS
+  generateBulletin: async (data: BulletinGenerate) => {
+    return apiRequest<Bulletin>('/scientific/bulletins/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  getBulletins: async (matricule?: string) => {
+    const params = matricule ? `?matricule=${matricule}` : '';
+    return apiRequest<Bulletin[]>(`/scientific/bulletins${params}`);
+  },
+  
+  getBulletinByNumero: async (numero: string) => {
+    return apiRequest<BulletinDetail>(`/scientific/bulletins/${numero}`);
+  },
 
   // 📋 MÉTADONNÉES
   getStaticMetadata: async () => {
@@ -284,7 +379,6 @@ export const scientificApi = {
 
   // 🔄 CACHE
   invalidateCache: () => {
-    console.log('🗑️ Cache seminaristes invalidé');
     cachedSeminaristes = null;
   },
 };
@@ -303,7 +397,6 @@ export const dashboardApi = {
 // ✅ AUTH API
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
-    console.log("🔐 [AUTH] Login:", credentials.identifier);
     const response = await apiRequest<LoginResponse>("/admin/auth/login", {
       method: "POST",
       body: JSON.stringify({
@@ -326,7 +419,6 @@ export const authApi = {
       localStorage.removeItem("tokenType");
       localStorage.removeItem("user");
     }
-    console.log("✅ Déconnexion");
   },
 
   getCurrentUser: (): User | null => {
@@ -363,7 +455,6 @@ export const usersApi = {
   },
   
   toggleUserStatus: async (id: string, isActive: boolean) => {
-    console.log("🔄 [TOGGLE] User:", id, "→", isActive);
     return apiRequest<User>(`/admin/users/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ is_active: isActive }),
@@ -430,6 +521,10 @@ export const feedbackApi = {
     return apiRequest(`/admin/feedback/${id}`, {
       method: "DELETE",
     });
+// ✅ CO API (Comité d'Organisation)
+export const coApi = {
+  getMembresCO: async () => {
+    return apiRequest<{ total: number; data: MembreCO[] }>('/admin/membres-co');
   },
 };
 
@@ -442,4 +537,5 @@ export default {
   authApi,
   usersApi,
   feedbackApi,
+  coApi,
 };

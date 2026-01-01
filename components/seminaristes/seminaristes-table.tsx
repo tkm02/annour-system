@@ -243,11 +243,7 @@ export default function SeminaristesTable({
         },
       };
 
-      const qrData = JSON.stringify({
-        id: seminarist.matricule,
-        nom: seminarist.nom,
-        prenom: seminarist.prenom,
-      });
+      const qrData = seminarist.matricule;
       const qrCodeUrl = await QRCode.toDataURL(qrData);
 
       await PDFGenerator.generateRegistrationPDF(pdfData, qrCodeUrl);

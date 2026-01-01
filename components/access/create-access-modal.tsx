@@ -185,8 +185,8 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               disabled={loading || success}
             >
-              <option value="admin">ADMINISTRATION</option>
-              <option value="scientific">SCIENTIFIQUE</option>
+              <option value="ADMINISTRATION">ADMINISTRATION</option>
+              <option value="scientifique">SCIENTIFIQUE</option>
               <option value="finance">FINANCE</option>
             </select>
           </div>
