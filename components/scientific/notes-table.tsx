@@ -27,8 +27,8 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { CreateNote, scientificApi, UpdateNote } from "@/lib/api";
-import { CheckCircle2, Download, Edit, GraduationCap, Plus, RefreshCw, Search } from "lucide-react";
+import { scientificApi, UpdateNote } from "@/lib/api";
+import { Download, Edit, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -46,18 +46,7 @@ interface Note {
   created_at: string;
 }
 
-interface Seminariste {
-  matricule: string;
-  nom: string;
-  prenom: string;
-  niveau_academique: string;
-}
 
-interface Matiere {
-  code: string;
-  nom: string;
-  coefficient: number;
-}
 
 interface NotesTableProps {}
 
@@ -77,23 +66,7 @@ export default function NotesTable({}: NotesTableProps) {
   });
   const [updating, setUpdating] = useState(false);
 
-  // ✅ AJOUT NOTE - ÉTAPE 1: SÉLECTION NIVEAU
-  const [showLevelModal, setShowLevelModal] = useState(false);
-  const [selectedLevelForAdd, setSelectedLevelForAdd] = useState("");
-  const [availableLevels, setAvailableLevels] = useState<string[]>([]);
 
-  // ✅ AJOUT NOTE - ÉTAPE 2: FORMULAIRE
-  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
-  const [seminaristesOfLevel, setSeminaristesOfLevel] = useState<Seminariste[]>([]);
-  const [availableMatieres, setAvailableMatieres] = useState<Matiere[]>([]);
-  const [createData, setCreateData] = useState<CreateNote>({
-    matricule: "",
-    matiere_code: "",
-    note: 0,
-    type: "",
-    observation: "",
-  });
-  const [creating, setCreating] = useState(false);
 
   // ✅ FILTRES DYNAMIQUES
   const dynamicFilters = useMemo(() => {
@@ -111,7 +84,6 @@ export default function NotesTable({}: NotesTableProps) {
   // Fetch notes
   useEffect(() => {
     fetchNotes();
-    fetchMetadata();
   }, []);
 
   const fetchNotes = async () => {
@@ -127,104 +99,7 @@ export default function NotesTable({}: NotesTableProps) {
     }
   };
 
-  const fetchMetadata = async () => {
-    try {
-      const metadata = await scientificApi.getStaticMetadata();
-      
-      // Extraire niveaux
-      const levels = Object.values(metadata.niveaux_academiques || {}).flat();
-      setAvailableLevels(levels);
 
-      // Mock matières (à adapter selon votre API)
-      setAvailableMatieres([
-        { code: "MATH", nom: "Mathématiques", coefficient: 3 },
-        { code: "FR", nom: "Français", coefficient: 3 },
-        { code: "ANG", nom: "Anglais", coefficient: 2 },
-        { code: "HIS", nom: "Histoire", coefficient: 2 },
-        { code: "SVT", nom: "SVT", coefficient: 2 },
-      ]);
-    } catch (error) {
-      console.error("Erreur metadata:", error);
-    }
-  };
-
-  // ✅ ÉTAPE 1: OUVRIR MODAL NIVEAU
-  const openLevelSelectionModal = () => {
-    setSelectedLevelForAdd("");
-    setShowLevelModal(true);
-  };
-
-  // ✅ ÉTAPE 2: CHARGER SÉMINARISTES DU NIVEAU
-  const handleLevelSelected = async () => {
-    if (!selectedLevelForAdd) {
-      toast.error("Veuillez sélectionner un niveau");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const allSeminaristes = await scientificApi.getSeminaristes();
-      
-      // Filtrer par niveau
-      const filtered = allSeminaristes.filter(
-        (s: Seminariste) => s.niveau_academique === selectedLevelForAdd
-      );
-
-      setSeminaristesOfLevel(filtered);
-      setShowLevelModal(false);
-      setShowAddNoteModal(true);
-      setCreateData({
-        matricule: "",
-        matiere_code: "",
-        note: 0,
-        type: "Devoir",
-        observation: "",
-      });
-    } catch (error) {
-      console.error("Erreur séminaristes:", error);
-      toast.error("Erreur chargement séminaristes");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ FERMER MODAL AJOUT
-  const closeAddNoteModal = () => {
-    setShowAddNoteModal(false);
-    setSeminaristesOfLevel([]);
-    setCreateData({
-      matricule: "",
-      matiere_code: "",
-      note: 0,
-      type: "",
-      observation: "",
-    });
-  };
-
-  // ✅ CREATE NOTE
-  const handleCreateNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!createData.matricule || !createData.matiere_code) {
-      toast.error("Veuillez remplir tous les champs obligatoires");
-      return;
-    }
-
-    try {
-      setCreating(true);
-      await scientificApi.createNote(createData);
-      toast.success("Note ajoutée avec succès!");
-
-      // Refresh
-      await fetchNotes();
-      closeAddNoteModal();
-    } catch (error: any) {
-      console.error("Erreur création:", error);
-      toast.error(error.message || "Erreur ajout note");
-    } finally {
-      setCreating(false);
-    }
-  };
 
   // ✅ OUVRIR MODAL ÉDITION
   const openEditModal = (note: Note) => {
@@ -359,15 +234,7 @@ export default function NotesTable({}: NotesTableProps) {
                 <Download className="h-4 w-4" />
                 Exporter
               </Button>
-              {/* ✅ BOUTON AJOUTER NOTE */}
-              <Button 
-                size="sm" 
-                className="gap-2 bg-primary hover:bg-primary/90"
-                onClick={openLevelSelectionModal}
-              >
-                <Plus className="h-4 w-4" />
-                Ajouter Note
-              </Button>
+
             </div>
           </div>
         </CardHeader>
@@ -450,181 +317,7 @@ export default function NotesTable({}: NotesTableProps) {
         </CardContent>
       </Card>
 
-      {/* ✅ MODAL ÉTAPE 1: SÉLECTION NIVEAU */}
-      <Dialog open={showLevelModal} onOpenChange={setShowLevelModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-primary" />
-              Sélectionner le Niveau Académique
-            </DialogTitle>
-            <DialogDescription>
-              Choisissez le niveau académique des séminaristes pour lesquels vous souhaitez ajouter des notes
-            </DialogDescription>
-          </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Niveau *</label>
-              <Select value={selectedLevelForAdd} onValueChange={setSelectedLevelForAdd}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionnez un niveau" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableLevels.map((level) => (
-                    <SelectItem key={level} value={level}>
-                      {level}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowLevelModal(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={handleLevelSelected}
-              disabled={!selectedLevelForAdd}
-              className="bg-primary hover:bg-primary/90"
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Continuer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ✅ MODAL ÉTAPE 2: FORMULAIRE AJOUT NOTE */}
-      <Dialog open={showAddNoteModal} onOpenChange={setShowAddNoteModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Ajouter une Note - {selectedLevelForAdd}</DialogTitle>
-            <DialogDescription>
-              Remplissez les informations pour ajouter une nouvelle note
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateNote} className="space-y-4">
-            {/* Séminariste */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Séminariste *</label>
-              <Select 
-                value={createData.matricule} 
-                onValueChange={(value) => setCreateData(prev => ({ ...prev, matricule: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez un séminariste" />
-                </SelectTrigger>
-                <SelectContent>
-                  {seminaristesOfLevel.map((sem) => (
-                    <SelectItem key={sem.matricule} value={sem.matricule}>
-                      {sem.nom} {sem.prenom} ({sem.matricule})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Matière */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Matière *</label>
-              <Select 
-                value={createData.matiere_code} 
-                onValueChange={(value) => setCreateData(prev => ({ ...prev, matiere_code: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez une matière" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableMatieres.map((mat) => (
-                    <SelectItem key={mat.code} value={mat.code}>
-                      {mat.nom} (Coeff: {mat.coefficient})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Type évaluation + Note */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Type d'évaluation *</label>
-                <Select 
-                  value={createData.type} 
-                  onValueChange={(value) => setCreateData(prev => ({ ...prev, type: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Devoir">Devoir</SelectItem>
-                    <SelectItem value="Composition">Composition</SelectItem>
-                    <SelectItem value="Interrogation">Interrogation</SelectItem>
-                    <SelectItem value="Examen">Examen</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Note *</label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={20}
-                  step={0.5}
-                  required
-                  value={createData.note}
-                  onChange={(e) => setCreateData(prev => ({ 
-                    ...prev, 
-                    note: parseFloat(e.target.value) || 0 
-                  }))}
-                  placeholder="15.5"
-                />
-              </div>
-            </div>
-
-            {/* Observation */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Observation</label>
-              <Input
-                value={createData.observation}
-                onChange={(e) => setCreateData(prev => ({ ...prev, observation: e.target.value }))}
-                placeholder="Bonne prestation, à encourager..."
-              />
-            </div>
-
-            <DialogFooter className="gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeAddNoteModal}
-                disabled={creating}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                disabled={creating || !createData.matricule || !createData.matiere_code}
-                className="bg-primary hover:bg-primary/90"
-              >
-                {creating ? "Ajout..." : (
-                  <>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Ajouter la Note
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* ✅ MODAL MODIFICATION NOTE */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>

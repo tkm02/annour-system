@@ -4,17 +4,17 @@ import { Button } from "@/components/ui/button";
 import { useAuth, type UserRole } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import {
-  CreditCard,
-  FileText,
-  GraduationCap,
-  Heart,
-  LayoutDashboard,
-  LogOut,
-  MessageSquare,
-  Settings,
-  UserPlus,
-  Users,
-  X,
+    CreditCard,
+    FileText,
+    GraduationCap,
+    Heart,
+    LayoutDashboard,
+    LogOut,
+    MessageSquare,
+    Settings,
+    UserPlus,
+    Users,
+    X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -38,6 +38,7 @@ const getNavigationByRole = (role: UserRole) => {
         { name: "Badges", href: "/badges", icon: UserPlus },
         { name: "Certificats", href: "/certificats", icon: GraduationCap },
         // { name: "Mini-Admins", href: "/mini-admins", icon: UserPlus },
+        { name: "Avis", href: "/feedback", icon: MessageSquare },
         { name: "Gérer les accès", href: "/acces", icon: Settings },
       ];
 
@@ -47,6 +48,7 @@ const getNavigationByRole = (role: UserRole) => {
         { name: "Séminaristes", href: "/seminaristes", icon: Users },
         { name: "Scientifique", href: "/scientifique", icon: GraduationCap },
         { name: "Attributions", href: "/attributions", icon: Settings },
+        { name: "Bulletins", href: "/bulletins", icon: FileText },
         { name: "Notes", href: "/notes", icon: FileText },
         // { name: "Communication", href: "/communication", icon: MessageSquare },
       ];

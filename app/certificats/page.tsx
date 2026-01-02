@@ -25,7 +25,6 @@ import { scientificApi, Seminariste } from "@/lib/api";
 import logoAnnour from "@/public/ANNOUR.png";
 import certBgDonateur from "@/public/cert-bg-donateur.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
-import seminaireLogo from "@/public/seminaire-logo.png";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import jsPDF from "jspdf";
 import {
@@ -153,7 +152,7 @@ function addWatermarkLogo(
     if (anyPdf.GState) {
       pdf.setGState(new anyPdf.GState({ opacity }));
     }
-    const logoWidth = w * 0.55;
+    const logoWidth = w * 0.8;
     const aspectRatio = 2517 / 1467;
     const logoHeight = logoWidth / aspectRatio;
 
@@ -280,7 +279,7 @@ export default function CertificatePage() {
     drawCertificateFrameSimple(pdf, x, y, w, h);
 
     // Watermark (logo An-Nour)
-    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.05);
+    addWatermarkLogo(pdf, logoAnnour.src, x, y, w, h, 0.10);
 
     // Header logos
     const logoSize = 24;
@@ -315,64 +314,131 @@ export default function CertificatePage() {
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8.5);
-    pdf.text("Secrétariat Régional Abidjan Est", centerX, y + 35, { align: "center" });
-    pdf.text("Sous-comité de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
+    pdf.text("Secrétariat Régional Abidjan-Est", centerX, y + 35, { align: "center" });
+    pdf.text("Sous-comités de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
 
-    // Seminaire logo block (gauche)
+    // Seminaire logo block (centré) - SUPPRIMÉ
+    /*
     try {
-      const semLogoW = 58;
-      const semLogoH = 22;
-      pdf.addImage(seminaireLogo.src, "PNG", x + 22, y + 52, semLogoW, semLogoH);
+      const semLogoW = 60;
+      const semLogoH = 23;
+      pdf.addImage(seminaireLogo.src, "PNG", centerX - semLogoW / 2, y + 50, semLogoW, semLogoH);
     } catch {}
+    */
 
-    // Title
-    const titleY = y + 78;
+    // Title - Tailles agrandies
+    const titleY = y + 65;
     pdf.setTextColor(BRAND_BLUE.r, BRAND_BLUE.g, BRAND_BLUE.b);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(30);
+    pdf.setFontSize(28); // Agrandi de 24 à 28
     pdf.text("ATTESTATION", centerX, titleY, { align: "center" });
 
-    pdf.setFontSize(20);
-    pdf.text("DE PARTICIPATION", centerX, titleY + 10, { align: "center" });
+    pdf.setFontSize(20); // Agrandi de 16 à 20
+    pdf.text("DE PARTICIPATION", centerX, titleY + 12, { align: "center" });
 
-    // Décerné à
+    // Décernée à - Agrandi
     pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
-    pdf.text("Décernée à", centerX, titleY + 25, { align: "center" });
+    pdf.setFont("helvetica", "italic");
+    pdf.setFontSize(13); // Agrandi de 11 à 13
+    pdf.text("Décernée à", centerX, titleY + 26, { align: "center" });
 
     // Name
     pdf.setTextColor(BRAND_BLUE.r, BRAND_BLUE.g, BRAND_BLUE.b);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(26);
-    pdf.text(`${(sem.prenom || "").toUpperCase()} ${sem.nom.toUpperCase()}`, centerX, titleY + 40, {
+    pdf.text(`${(sem.prenom || "").toUpperCase()} ${sem.nom.toUpperCase()}`, centerX, titleY + 42, {
       align: "center",
     });
 
-    // Body
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11.5);
-    const bodyText =
-      "Pour sa participation exemplaire, assidue et empreinte d'un esprit de fraternité au Séminaire de Formation Islamique et Managériale (An-Nour), organisé du 20 au 25 décembre 2025 au Lycée scientifique de Bingerville, en reconnaissance de son engagement dans la quête du savoir et du perfectionnement personnel au service de la communauté.";
-    const splitBody = pdf.splitTextToSize(bodyText, w - 90);
-    pdf.text(splitBody, centerX, titleY + 55, { align: "center" });
+    // Motif décoratif sous le nom (ligne ornementale avec losanges)
+    const ornamentY = titleY + 47;
+    const ornamentWidth = 80;
+    pdf.setDrawColor(BRAND_GREEN.r, BRAND_GREEN.g, BRAND_GREEN.b);
+    pdf.setLineWidth(0.8);
+    // Ligne gauche
+    pdf.line(centerX - ornamentWidth, ornamentY, centerX - 8, ornamentY);
+    // Losange central
+    pdf.setFillColor(BRAND_GREEN.r, BRAND_GREEN.g, BRAND_GREEN.b);
+    const diamondSize = 3;
+    pdf.triangle(centerX, ornamentY - diamondSize, centerX - diamondSize, ornamentY, centerX, ornamentY + diamondSize, "F");
+    pdf.triangle(centerX, ornamentY - diamondSize, centerX + diamondSize, ornamentY, centerX, ornamentY + diamondSize, "F");
+    // Ligne droite
+    pdf.line(centerX + 8, ornamentY, centerX + ornamentWidth, ornamentY);
 
-    // Footer (date)
+    // Helper pour dessiner une ligne de texte centré avec des segments en gras
+    const drawCenteredLineSegments = (
+      segments: { text: string; bold?: boolean }[],
+      yLine: number
+    ) => {
+      pdf.setFontSize(12.5); // Agrandi de 11.5 à 12.5
+      
+      // Calculer la largeur totale
+      let totalWidth = 0;
+      const segmentWidths = segments.map(seg => {
+        pdf.setFont("helvetica", seg.bold ? "bold" : "normal");
+        const w = pdf.getTextWidth(seg.text);
+        totalWidth += w;
+        return w;
+      });
+
+      let currentX = centerX - totalWidth / 2;
+
+      segments.forEach((seg, i) => {
+        pdf.setFont("helvetica", seg.bold ? "bold" : "normal");
+        pdf.text(seg.text, currentX, yLine);
+        currentX += segmentWidths[i];
+      });
+    };
+
+    // Body Lines - Après le nom et le motif
+    pdf.setTextColor(0, 0, 0);
+    const bodyY = titleY + 60; // Ajusté pour laisser place au motif
+    
+    // Ligne 1
+    drawCenteredLineSegments([
+      { text: "Pour sa participation effective à la " },
+      { text: "7ème édition", bold: true },
+      { text: " du séminaire de formation" }
+    ], bodyY);
+
+    // Ligne 2 (suite)
+    drawCenteredLineSegments([
+      { text: "islamique et managériale AN NOUR qui s'est tenu du " },
+      { text: "20 au 25 décembre 2025" , bold: true }
+    ], bodyY + 8);
+    
+    // Ligne 3
+    drawCenteredLineSegments([
+        { text: "au " },
+        { text: "Lycée Moderne de Cocody", bold: true },
+        { text: "." }
+    ], bodyY + 16);
+
+
+    // Signature - Remonté et avec espace pour signature/cachet
+    const sigY = y + h - 55; // Remonté significativement
+    pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(10);
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Fait à Bingerville, le 25 décembre 2025", x + 22, y + h - 22);
-
-    // Signature
-    const sigY = y + h - 35;
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "normal");
-    pdf.text("Manager Général", x + w - 60, sigY, { align: "center" });
-
+    pdf.setFont("helvetica", "bold");
+    pdf.text("PRÉSIDENT DU SOUS COMITÉ DE COCODY", x + w - 70, sigY, { align: "center" });
+    
+    // Espace pour signature et cachet (20mm d'espace)
+    // Trait de signature
     pdf.setLineWidth(0.5);
     pdf.setDrawColor(0, 0, 0);
-    pdf.line(x + w - 85, sigY + 2, x + w - 35, sigY + 2);
+    pdf.line(x + w - 100, sigY + 18, x + w - 40, sigY + 18); 
+    
+    // Nom du signataire (après l'espace signature)
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("M. Ouattara El Hadj Bachirou", x + w - 70, sigY + 24, { align: "center" });
+
+    // Footer (date) - Repositionné à gauche en bas, aligné avec la zone de signature
+    pdf.setFontSize(10);
+    pdf.setTextColor(80, 80, 80);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, sigY + 10);
+
   };
 
   // React Preview Participation (NOUVEAU CADRE)
@@ -389,9 +455,9 @@ export default function CertificatePage() {
       {/* Watermark */}
       <div
         className="absolute inset-0 flex items-center justify-center"
-        style={{ opacity: 0.08, transform: "rotate(-18deg)" }}
+        style={{ opacity: 0.12, transform: "rotate(-18deg)" }}
       >
-        <img src={logoAnnour.src} className="w-[55%] h-auto object-contain" alt="" />
+        <img src={logoAnnour.src} className="w-[80%] h-auto object-contain" alt="" />
       </div>
 
       {/* Content */}
@@ -410,9 +476,9 @@ export default function CertificatePage() {
               Musulmans de Côte d'Ivoire
             </div>
             <div className="text-[9px] text-gray-700 mt-1">
-              Secrétariat Régional Abidjan Est
+              Secrétariat Régional Abidjan-Est
               <br />
-              Sous-comité de Bingerville et de Cocody 1
+              Sous-comités de Bingerville et de Cocody 1
             </div>
           </div>
 
@@ -421,17 +487,17 @@ export default function CertificatePage() {
           </div>
         </div>
 
-        {/* Seminaire logo */}
-        <div className="w-full mt-2 relative h-12">
-          <div className="absolute left-0 top-0 w-44">
+        {/* Seminaire logo - SUPPRIMÉ */ }
+        {/* <div className="w-full mt-4 mb-2 flex justify-center items-center">
+          <div className="w-48">
             <img src={seminaireLogo.src} className="w-full h-auto" alt="Seminaire An Nour" />
           </div>
-        </div>
+        </div> */}   
 
         {/* Title */}
-        <div className="text-center mt-1">
-          <h1 className="text-5xl font-extrabold text-[#143264] tracking-wide">ATTESTATION</h1>
-          <h2 className="text-xl font-bold text-[#143264] uppercase tracking-widest mt-1">
+        <div className="text-center mt-24">
+          <h1 className="text-4xl font-extrabold text-[#143264] tracking-wide">ATTESTATION</h1>
+          <h2 className="text-lg font-bold text-[#143264] uppercase tracking-widest mt-1">
             DE PARTICIPATION
           </h2>
         </div>
@@ -447,22 +513,22 @@ export default function CertificatePage() {
         {/* Body */}
         <div className="text-center mt-6 px-8 max-w-[88%]">
           <p className="text-[13px] leading-relaxed font-medium text-gray-900">
-            Pour sa participation exemplaire, assidue et empreinte d&apos;un esprit de fraternité au
-            Séminaire de Formation Islamique et Managériale (An-Nour), organisé du 20 au 25 décembre
-            2025 au Lycée scientifique de Bingerville, en reconnaissance de son engagement dans la
-            quête du savoir et du perfectionnement personnel au service de la communauté.
+            Pour sa participation effective à la <span className="font-bold">7ème édition</span> du séminaire de formation islamique et managériale AN NOUR qui s&apos;est tenu du <span className="font-bold">20 au 25 décembre 2025</span> au <span className="font-bold">Lycée Moderne de Cocody</span> .
           </p>
         </div>
 
-        {/* Footer */}
-        <div className="absolute bottom-4 left-2 text-[11px] text-gray-600">
-          Fait à Bingerville, le 25 décembre 2025
+        {/* Signature Section - Remontée avec espace pour signature/cachet */}
+        <div className="absolute bottom-12 right-2 flex flex-col items-center min-w-[200px]">
+          <div className="text-[10px] font-bold text-black uppercase">PRÉSIDENT DU SOUS COMITÉ DE COCODY</div>
+          {/* Espace pour signature et cachet */}
+          <div className="h-10"></div>
+          <div className="w-48 h-[0.5px] bg-black mb-1"></div>
+          <div className="text-sm font-medium text-black">M. Ouattara El Hadj Bachirou</div>
         </div>
 
-        {/* Signature */}
-        <div className="absolute bottom-4 right-2 flex flex-col items-center">
-          <div className="text-base font-medium text-black mb-1">Manager Général</div>
-          <div className="w-40 h-[1px] bg-black"></div>
+        {/* Footer (date) - Positionnée à gauche, alignée avec la zone de signature */}
+        <div className="absolute bottom-16 left-2 text-[11px] text-gray-600">
+          Fait à Cocody, le 25 décembre 2025
         </div>
       </div>
     </div>
@@ -471,14 +537,35 @@ export default function CertificatePage() {
   // =================================================================================================
   // 🟡 REMERCIEMENT DESIGN (CADRE SIMPLE + RUBAN + SCEAU + LOGOS)
   // =================================================================================================
-  const getRemerciementText = (fonction: string) => {
+  const getRemerciementRichText = (fonction: string) => {
+    const common = [
+      { text: "au " },
+      { text: "Séminaire de Formation Islamique et Managériale (An-Nour)", bold: true },
+      { text: ", organisé du " },
+      { text: "20 au 25 décembre 2025", bold: true },
+      { text: " au " },
+      { text: "Lycée Moderne de Cocody", bold: true },
+    ];
+
     switch (fonction) {
       case "Formateur":
-        return "Pour sa remarquable contribution pédagogique et son dévouement dans l'encadrement des participants au Séminaire de Formation Islamique et Managériale (An-Nour), organisé du 20 au 25 décembre 2025 au Lycée scientifique de Bingerville, en reconnaissance de son apport scientifique et de son engagement au service de la transmission du savoir islamique et managérial.";
+        return [
+          { text: "Pour sa remarquable contribution pédagogique et son dévouement dans l'encadrement des participants " },
+          ...common,
+          { text: ", en reconnaissance de son apport scientifique et de son engagement au service de la transmission du savoir islamique et managérial." }
+        ];
       case "Donateur":
-        return "En reconnaissance de son généreux soutien et de sa précieuse contribution à la réussite du Séminaire de Formation Islamique et Managériale (An-Nour), organisé du 20 au 25 décembre 2025 au Lycée scientifique de Bingerville, témoignage de son engagement constant au service du savoir, du développement et du rayonnement de la communauté.";
+        return [
+          { text: "En reconnaissance de son généreux soutien et de sa précieuse contribution à la réussite du " },
+          ...common,
+          { text: ", témoignage de son engagement constant au service du savoir, du développement et du rayonnement de la communauté." }
+        ];
       default:
-        return "En reconnaissance de son engagement constant, de son sens de l'organisation et de son dévouement exemplaire ayant largement contribué à la réussite du Séminaire de Formation Islamique et Managériale (An-Nour), organisé du 20 au 25 décembre 2025 au Lycée scientifique de Bingerville. Témoignage de son esprit d'équipe, de sa rigueur et de son service désintéressé au profit de la communauté.";
+        return [
+          { text: "En reconnaissance de son engagement constant, de son sens de l'organisation et de son dévouement exemplaire ayant largement contribué à la réussite du " },
+          ...common,
+          { text: ". Témoignage de son esprit d'équipe, de sa rigueur et de son service désintéressé au profit de la communauté." }
+        ];
     }
   };
 
@@ -544,20 +631,22 @@ export default function CertificatePage() {
         pdf.setFontSize(8);
         pdf.text("Association des Elèves et Etudiants Musulmans de Côte d'Ivoire", centerX, y + 23, { align: "center" });
         pdf.setFont("helvetica", "normal");
-        pdf.text("Secrétariat Régional Abidjan Est", centerX, y + 27, { align: "center" });
-        pdf.text("Sous-comité de Bingerville et de Cocody 1", centerX, y + 31, { align: "center" });
+        pdf.text("Secrétariat Régional Abidjan-Est", centerX, y + 27, { align: "center" });
+        pdf.text("Sous-comités de Bingerville et de Cocody 1", centerX, y + 31, { align: "center" });
 
-        // SEMINAIRE LOGO (Gauche)
-        // D'après l'image, il est assez gros à gauche.
+        // SEMINAIRE LOGO (Centré) - SUPPRIMÉ
+        /*
         try {
-            const semLogoW = 50; 
-            const semLogoH = 20;
-            pdf.addImage(seminaireLogo.src, "PNG", x + 25, y + 45, semLogoW, semLogoH);
+            const semLogoW = 60; 
+            const semLogoH = 23;
+            // Centre par rapport à la page, ajustement Y
+            pdf.addImage(seminaireLogo.src, "PNG", centerX - semLogoW / 2, y + 45, semLogoW, semLogoH);
         } catch {}
+        */
 
         // TITRE
         // Centré
-        const titleY = y + 70;
+        const titleY = y + 85;
         pdf.setTextColor(20, 50, 100); // Bleu foncé
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(28);
@@ -577,24 +666,71 @@ export default function CertificatePage() {
         pdf.setFontSize(24);
         pdf.text(`${staff.prenom.toUpperCase()} ${staff.nom.toUpperCase()}`, centerX, titleY + 35, { align: "center" });
 
-        // Corps du texte
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(11);
-        const textBody = getRemerciementText(staff.fonction);
-        // On laisse de la marge pour le ruban à droite
-        const splitBody = pdf.splitTextToSize(textBody, w - 100); 
-        pdf.text(splitBody, centerX, titleY + 50, { align: "center" });
+        // Corps du texte HTML-like manual break logic would be complex. 
+        // We will use the Helper drawCenteredLineSegments you added earlier (need to make sure it's accessible here)
+        // Accessing the helper defined in drawCertificateParticipation is not possible directly if it's inside that function.
+        // CHECK: drawCenteredLineSegments was defined INSIDE drawCertificateParticipation in previous step.
+        // We need to move it OUT or redefine it. 
+        // Since I cannot easily move it out in this chunk without viewing more, I will redefine a local simpler version/
+        
+        const drawRichLine = (segments: { text: string; bold?: boolean }[], yLine: number) => {
+           pdf.setFontSize(11);
+           let totalWidth = 0;
+           const widths = segments.map(s => {
+               pdf.setFont("helvetica", s.bold ? "bold" : "normal");
+               const w = pdf.getTextWidth(s.text);
+               totalWidth += w;
+               return w;
+           });
+           let cx = centerX - totalWidth / 2;
+           segments.forEach((s, i) => {
+               pdf.setFont("helvetica", s.bold ? "bold" : "normal");
+               pdf.text(s.text, cx, yLine);
+               cx += widths[i];
+           });
+        };
+
+        const bodyY = titleY + 50;
+        const spacing = 6;
+
+        // Manually breaking lines for Donateur (approx)
+        // "En reconnaissance de son généreux soutien et de sa précieuse contribution à la réussite du"
+        drawRichLine([{ text: "En reconnaissance de son généreux soutien et de sa précieuse contribution à la réussite du" }], bodyY);
+        
+        // "Séminaire de Formation Islamique et Managériale (An-Nour), organisé du 20 au 25 décembre 2025"
+        drawRichLine([
+            { text: "Séminaire de Formation Islamique et Managériale (An-Nour)", bold: true },
+            { text: ", organisé du " },
+            { text: "20 au 25 décembre 2025", bold: true }
+        ], bodyY + spacing);
+
+        // "au Lycée Moderne de Cocody, témoignage de son engagement constant au service du"
+        drawRichLine([
+             { text: "au " },
+             { text: "Lycée Moderne de Cocody", bold: true },
+             { text: ", témoignage de son engagement constant au service du" }
+        ], bodyY + spacing * 2);
+
+        // "savoir, du développement et du rayonnement de la communauté."
+        drawRichLine([{ text: "savoir, du développement et du rayonnement de la communauté." }], bodyY + spacing * 3);
 
         // Signature Manager Général (droite, bas)
         // Attention au ruban/sceau
+        // Signature Manager Général (droite, bas)
         const sigY = y + h - 30;
-        pdf.setFontSize(12);
-        // Un peu à gauche du ruban
-        pdf.text("Manager Général", x + w - 80, sigY, { align: "center" });
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("PRÉSIDENT DU SOUS COMITÉ DE COCODY", x + w - 80, sigY, { align: "center" });
+        
+        // trait
         pdf.setLineWidth(0.5);
-        pdf.setDrawColor(0,0,0);
-        pdf.line(x + w - 100, sigY + 2, x + w - 60, sigY + 2);
+        pdf.setDrawColor(0, 0, 0);
+        pdf.line(x + w - 110, sigY + 2, x + w - 50, sigY + 2);
+
+        pdf.setFontSize(11);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("M. Ouattara El Hadj Bachirou", x + w - 80, sigY + 7, { align: "center" });
 
     } else {
         // --- DESIGN AUTRES (Comité, Formateur) -> Reprise ancien design "Cadre Simple" ---
@@ -657,8 +793,8 @@ export default function CertificatePage() {
 
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(8.5);
-        pdf.text("Secrétariat Régional Abidjan Est", centerX, y + 35, { align: "center" });
-        pdf.text("Sous-comité de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
+        pdf.text("Secrétariat Régional Abidjan-Est", centerX, y + 35, { align: "center" });
+        pdf.text("Sous-comités de Bingerville et de Cocody 1", centerX, y + 40, { align: "center" });
 
         // Title
         pdf.setTextColor(BRAND_BLUE.r, BRAND_BLUE.g, BRAND_BLUE.b);
@@ -681,25 +817,98 @@ export default function CertificatePage() {
         pdf.text(`${staff.prenom.toUpperCase()} ${staff.nom.toUpperCase()}`, centerX, y + 120, { align: "center" });
 
         // Body
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(11.2);
-        const textBody = getRemerciementText(staff.fonction);
-        const splitBody = pdf.splitTextToSize(textBody, w - 95); 
-        pdf.text(splitBody, centerX, y + 135, { align: "center" });
+        // Redefine helper locally as well
+        const drawRichLine = (segments: { text: string; bold?: boolean }[], yLine: number) => {
+           pdf.setFontSize(11.2);
+           let totalWidth = 0;
+           const widths = segments.map(s => {
+               pdf.setFont("helvetica", s.bold ? "bold" : "normal");
+               const w = pdf.getTextWidth(s.text);
+               totalWidth += w;
+               return w;
+           });
+           let cx = centerX - totalWidth / 2;
+           segments.forEach((s, i) => {
+               pdf.setFont("helvetica", s.bold ? "bold" : "normal");
+               pdf.text(s.text, cx, yLine);
+               cx += widths[i];
+           });
+        };
+
+        const bodyY = y + 135;
+        const spacing = 6;
+
+        if (staff.fonction === "Formateur") {
+            // Formateur text split
+             drawRichLine([{ text: "Pour sa remarquable contribution pédagogique et son dévouement dans l'encadrement des" }], bodyY);
+             drawRichLine([
+                 { text: "participants au " },
+                 { text: "Séminaire de Formation Islamique et Managériale (An-Nour)", bold: true },
+                 { text: "," }
+             ], bodyY + spacing);
+             
+             drawRichLine([
+                 { text: "organisé du " },
+                 { text: "20 au 25 décembre 2025", bold: true },
+                 { text: " au " },
+                 { text: "Lycée Moderne de Cocody", bold: true },
+                 { text: ", en reconnaissance de son" } 
+             ], bodyY + spacing * 2);
+
+             drawRichLine([{ text: "apport scientifique et de son engagement au service de la transmission du savoir" }], bodyY + spacing * 3);
+             drawRichLine([{ text: "islamique et managérial." }], bodyY + spacing * 4);
+
+        } else {
+             // Default (Comité/Autre) text split
+             // "En reconnaissance de son engagement constant, de son sens de l'organisation et de son dévouement"
+             drawRichLine([{ text: "En reconnaissance de son engagement constant, de son sens de l'organisation et de son" }], bodyY);
+             drawRichLine([
+                 { text: "dévouement exemplaire ayant largement contribué à la réussite du " },
+                 { text: "Séminaire de" } // cut for length?
+             ], bodyY + spacing);
+             
+             // "Formation Islamique et Managériale (An-Nour), organisé du 20 au 25 décembre 2025"
+             drawRichLine([
+                 { text: "Formation Islamique et Managériale (An-Nour)", bold: true },
+                 { text: ", organisé du " },
+                 { text: "20 au 25 décembre 2025", bold: true }
+             ], bodyY + spacing * 2);
+
+             // "au Lycée Moderne de Cocody. Témoignage de son esprit d'équipe, de sa rigueur et"
+             drawRichLine([
+                 { text: "au " },
+                 { text: "Lycée Moderne de Cocody", bold: true },
+                 { text: ". Témoignage de son esprit d'équipe, de sa rigueur et" }
+             ], bodyY + spacing * 3);
+
+             drawRichLine([{ text: "de son service désintéressé au profit de la communauté." }], bodyY + spacing * 4);
+        }
 
         // Footer (date)
         pdf.setFontSize(10);
         pdf.setTextColor(80, 80, 80);
-        pdf.text("Fait à Bingerville, le 25 décembre 2025", x + 22, y + h - 22);
+        pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, y + h - 22);
+
+        // Footer (date)
+        pdf.setFontSize(10);
+        pdf.setTextColor(80, 80, 80);
+        pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, y + h - 22);
 
         // Signature
         const sigY = y + h - 35;
         pdf.setTextColor(0, 0, 0);
-        pdf.setFontSize(12);
-        pdf.text("Manager Général", x + w - 92, sigY, { align: "center" });
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("PRÉSIDENT DU SOUS COMITÉ DE COCODY", x + w - 92, sigY, { align: "center" });
+        
+        // trait
         pdf.setLineWidth(0.5);
-        pdf.line(x + w - 115, sigY + 2, x + w - 69, sigY + 2);
+        pdf.setDrawColor(0, 0, 0);
+        pdf.line(x + w - 122, sigY + 2, x + w - 62, sigY + 2);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(11);
+        pdf.text("M. Ouattara El Hadj Bachirou", x + w - 92, sigY + 7, { align: "center" });
     }
   };
 
@@ -728,18 +937,18 @@ export default function CertificatePage() {
                         Association des Elèves et Etudiants Musulmans de Côte d&apos;Ivoire
                     </div>
                     <div className="text-[9px] text-gray-700 mt-1">
-                        Secrétariat Régional Abidjan Est <br />
-                        Sous-comité de Bingerville et de Cocody 1
+                        Secrétariat Régional Abidjan-Est <br />
+                        Sous-comités de Bingerville et de Cocody 1
                     </div>
 
-                    {/* Seminaire logo */}
-                    <div className="w-full mt-2 relative h-12">
-                         <div className="absolute left-0 top-0 w-44">
+                    {/* Seminaire logo - SUPPRIMÉ */}
+                    {/* <div className="w-full mt-4 mb-2 flex justify-center items-center">
+                         <div className="w-48">
                               <img src={seminaireLogo.src} className="w-full h-auto" alt="Seminaire An Nour" />
                          </div>
-                    </div>
+                    </div> */}
 
-                    <div className="mt-4">
+                    <div className="mt-20">
                         <h1 className="text-5xl font-extrabold text-[#143264] tracking-wide">ATTESTATION</h1>
                         <h2 className="text-xl font-bold text-[#143264] uppercase tracking-widest mt-1">
                             DE REMERCIEMENT
@@ -753,11 +962,19 @@ export default function CertificatePage() {
                     </div>
 
                     <p className="text-[12.5px] mt-4 leading-relaxed max-w-[92%] text-gray-900">
-                        {getRemerciementText(data.fonction)}
+                    <div className="text-[12.5px] mt-4 leading-relaxed max-w-[92%] text-gray-900">
+                        {getRemerciementRichText(data.fonction).map((part, i) => (
+                          <span key={i} className={part.bold ? "font-bold" : ""}>
+                            {part.text}
+                          </span>
+                        ))}
+                    </div>
                     </p>
 
-                    <div className="absolute bottom-6 right-32">
-                        <div className="text-sm border-b border-black pb-1">Manager Général</div>
+                    <div className="absolute bottom-6 right-16 flex flex-col items-center">
+                        <div className="text-[10px] font-bold uppercase mb-1">PRÉSIDENT DU SOUS COMITÉ DE COCODY</div>
+                        <div className="w-48 h-[0.5px] bg-black mb-1"></div>
+                        <div className="text-sm">M. Ouattara El Hadj Bachirou</div>
                     </div>
                 </div>
             </div>
@@ -776,11 +993,18 @@ export default function CertificatePage() {
           Association des Elèves et Etudiants Musulmans de Côte d&apos;Ivoire
         </div>
         <div className="text-[9px] text-gray-700 mt-1">
-          Secrétariat Régional Abidjan Est <br />
-          Sous-comité de Bingerville et de Cocody 1
+          Secrétariat Régional Abidjan-Est <br />
+          Sous-comités de Bingerville et de Cocody 1
         </div>
 
-        <div className="mt-8">
+        {/* Seminaire logo (for default design) - SUPPRIMÉ */}
+        {/* <div className="w-full mt-4 mb-2 flex justify-center items-center">
+          <div className="w-48">
+             <img src={seminaireLogo.src} className="w-full h-auto" alt="Seminaire An Nour" />
+          </div>
+        </div> */}
+
+        <div className="mt-24">
           <h1 className="text-5xl font-extrabold text-[#143264] tracking-wide">ATTESTATION</h1>
           <h2 className="text-xl font-bold text-[#143264] uppercase tracking-widest mt-1">
             DE REMERCIEMENT
@@ -793,12 +1017,16 @@ export default function CertificatePage() {
           {data.prenom} {data.nom}
         </div>
 
-        <p className="text-[12.5px] mt-6 leading-relaxed max-w-[92%] text-gray-900">
-          {getRemerciementText(data.fonction)}
-        </p>
+        <div className="text-[12.5px] mt-6 leading-relaxed max-w-[92%] text-gray-900">
+            {getRemerciementRichText(data.fonction).map((part, i) => (
+                <span key={i} className={part.bold ? "font-bold" : ""}>
+                {part.text}
+                </span>
+            ))}
+        </div>
 
         <div className="absolute bottom-4 left-2 text-[11px] text-gray-600">
-          Fait à Bingerville, le 25 décembre 2025
+          Fait à Cocody, le 25 décembre 2025
         </div>
 
         <div className="absolute bottom-6 right-32">
