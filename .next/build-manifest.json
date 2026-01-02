@@ -7,8 +7,13 @@
     "static/chunks/a6dad97d9634a72d.js"
   ],
   "lowPriorityFiles": [
+<<<<<<< HEAD
     "static/2MNezgPN9qaOqLtn0qYmH/_ssgManifest.js",
     "static/2MNezgPN9qaOqLtn0qYmH/_buildManifest.js"
+=======
+    "static/onoyq_zPmtZ9JYpMnqEC5/_ssgManifest.js",
+    "static/onoyq_zPmtZ9JYpMnqEC5/_buildManifest.js"
+>>>>>>> 6ecc229 (add feedback2)
   ],
   "rootMainFiles": [
     "static/chunks/d54eee2d5e340951.js",

@@ -16,10 +16,13 @@
       "static/media/Geist_Variable-s.p.f19e4721.woff2",
       "static/media/GeistMono_Variable.p.73882635.woff2"
     ],
+<<<<<<< HEAD
     "[project]/app/bulletins/page": [
       "static/media/Geist_Variable-s.p.f19e4721.woff2",
       "static/media/GeistMono_Variable.p.73882635.woff2"
     ],
+=======
+>>>>>>> 6ecc229 (add feedback2)
     "[project]/app/certificats/page": [
       "static/media/Geist_Variable-s.p.f19e4721.woff2",
       "static/media/GeistMono_Variable.p.73882635.woff2"
