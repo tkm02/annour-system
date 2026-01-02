@@ -4,12 +4,10 @@
   "/acces/page": "app/acces/page.js",
   "/attributions/page": "app/attributions/page.js",
   "/badges/page": "app/badges/page.js",
-<<<<<<< HEAD
   "/bulletins/page": "app/bulletins/page.js",
-=======
->>>>>>> 6ecc229 (add feedback2)
   "/certificats/page": "app/certificats/page.js",
   "/dashboard/page": "app/dashboard/page.js",
+  "/feedback/page": "app/feedback/page.js",
   "/notes/page": "app/notes/page.js",
   "/page": "app/page.js",
   "/sante/consultations/page": "app/sante/consultations/page.js",

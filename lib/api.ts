@@ -521,6 +521,9 @@ export const feedbackApi = {
     return apiRequest(`/admin/feedback/${id}`, {
       method: "DELETE",
     });
+  },
+};
+
 // ✅ CO API (Comité d'Organisation)
 export const coApi = {
   getMembresCO: async () => {
