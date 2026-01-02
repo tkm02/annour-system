@@ -243,6 +243,20 @@ export default function FeedbackPage() {
           </div>
         </div>
 
+        {/* Légende */}
+        <div className="flex flex-wrap items-center gap-4 text-sm bg-card p-3 rounded-lg border">
+          <span className="font-semibold text-muted-foreground">Légende Notes :</span>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Excellent (≥ 4/5)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Correct (≥ 3/5)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Insuffisant (&lt; 3/5)</span>
+          </div>
+        </div>
+
         {/* Table */}
         <div className="rounded-md border bg-card">
           <Table>
@@ -251,11 +265,11 @@ export default function FeedbackPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Sexe</TableHead>
-                <TableHead className="text-center">Note</TableHead>
-                <TableHead className="text-center">Org.</TableHead>
-                <TableHead className="text-center">Kiam</TableHead>
-                <TableHead className="text-center">Dortoir</TableHead>
-                <TableHead className="text-center">Repas</TableHead>
+                <TableHead className="text-center">Note Globale</TableHead>
+                <TableHead className="text-center">Organisation</TableHead>
+                <TableHead className="text-center">Contenu</TableHead>
+                <TableHead className="text-center">Confort Dortoir</TableHead>
+                <TableHead className="text-center">Qualité Repas</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
