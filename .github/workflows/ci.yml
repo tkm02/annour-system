@@ -1,0 +1,79 @@
+name: Frontend CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  GITLEAKS_VERSION: "8.21.2"
+
+jobs:
+  # Typage, tests et build de production
+  build:
+    name: Typecheck, Tests & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies (lockfile strict)
+        run: npm ci
+
+      - name: 🔎 Typecheck
+        run: npm run typecheck
+
+      - name: 🧪 Unit tests
+        run: npm test
+
+      - name: 🔨 Build
+        run: npm run build
+
+      - name: 🛡️ Dependency audit (report only)
+        continue-on-error: true
+        run: npm audit --omit=dev
+
+  # Secrets
+  security:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔐 Install gitleaks (checksum verified)
+        run: |
+          V="${GITLEAKS_VERSION}"
+          BASE="https://github.com/gitleaks/gitleaks/releases/download/v${V}"
+          curl -sSfL -o gitleaks.tar.gz "${BASE}/gitleaks_${V}_linux_x64.tar.gz"
+          curl -sSfL -o checksums.txt "${BASE}/gitleaks_${V}_checksums.txt"
+          grep " gitleaks_${V}_linux_x64.tar.gz$" checksums.txt | sed "s/gitleaks_${V}_linux_x64.tar.gz/gitleaks.tar.gz/" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+
+      - name: 🔐 Secrets introduced by this push / PR (blocking)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
+          else
+            RANGE="${{ github.sha }}~1..${{ github.sha }}"
+          fi
+          ./gitleaks git --config .gitleaks.toml --redact --no-banner --log-opts="${RANGE}" .
+
+      - name: 🔐 Full history scan (report only)
+        continue-on-error: true
+        run: ./gitleaks git --config .gitleaks.toml --redact --no-banner .

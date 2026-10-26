@@ -11,24 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
+import { roleLabel } from "@/lib/roles"
 
 interface HeaderProps {
   onMenuClick: () => void
 }
 
-const getRoleDisplayName = (role: string) => {
-  console.log("🔍 Rôle utilisateur pour affichage:", role)
-  switch (role.toLocaleUpperCase()) {
-    case "ADMINISTRATION":
-      return "Administration"
-    case "SCIENTIFIQUE":
-      return "Scientifique"
-    case "FINANCE":
-      return "Finance"
-    default:
-      return "Utilisa"
-  }
-}
+const getRoleDisplayName = (role: string) => roleLabel(role)
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth()

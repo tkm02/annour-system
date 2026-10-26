@@ -537,7 +537,7 @@ export default function CertificatePage() {
   // =================================================================================================
   // 🟡 REMERCIEMENT DESIGN (CADRE SIMPLE + RUBAN + SCEAU + LOGOS)
   // =================================================================================================
-  const getRemerciementRichText = (fonction: string) => {
+  const getRemerciementRichText = (fonction: string): { text: string; bold?: boolean }[] => {
     const common = [
       { text: "au " },
       { text: "Séminaire de Formation Islamique et Managériale (An-Nour)", bold: true },
