@@ -47,6 +47,7 @@ import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/auth-context";
+import { normalizeRole } from "@/lib/roles";
 import PDFGenerator, { SeminaristData } from "../../lib/pdf-generator";
 
 interface SeminaristesTableProps {
@@ -67,7 +68,7 @@ export default function SeminaristesTable({
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
 
   const {user} = useAuth();
-  const isAdmin = user?.role.toUpperCase() === "ADMINISTRATION";
+  const isAdmin = normalizeRole(user?.role) === "admin";
 
   // ✅ FILTRES DYNAMIQUES
   const dynamicFilters = useMemo(() => {

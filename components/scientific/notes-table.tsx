@@ -90,7 +90,9 @@ export default function NotesTable({}: NotesTableProps) {
     try {
       setLoading(true);
       const data = await scientificApi.getNotes();
-      setNotes(data as Note[]);
+      // TODO Partie 7 : ce tableau attend matiere_code, nom_matiere et coefficient, que l'API
+      // ne renvoie pas (contrat Note de lib/api.ts) ; conversion explicite en attendant le modèle Matière
+      setNotes(data as unknown as Note[]);
     } catch (error) {
       console.error("Erreur notes:", error);
       toast.error("Erreur chargement notes");

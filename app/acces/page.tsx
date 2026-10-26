@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Search, Download, Plus, Edit, Loader2, AlertCircle } from "lucide-react"
 import dynamic from "next/dynamic"
 import { usersApi } from "@/lib/api"
+import { normalizeRole, roleLabel } from "@/lib/roles"
 
 // Importer les modals dynamiquement
 const CreateAccessModal = dynamic(
@@ -163,13 +164,15 @@ const formatFullName = (nom: string, prenom: string) => {
   const getCommissionColor = (role: string) => {
     if (!role) return "bg-gray-500 text-white"
     
-    switch (role.toUpperCase()) {
-      case "ADMINISTRATION":
+    switch (normalizeRole(role)) {
+      case "admin":
         return "bg-secondary text-white"
-      case "SCIENTIFIQUE":
+      case "scientifique":
         return "bg-primary text-white"
-      case "FINANCE":
+      case "finances":
         return "bg-green-600 text-white"
+      case "sante":
+        return "bg-red-600 text-white"
       default:
         return "bg-gray-500 text-white"
     }
@@ -331,7 +334,7 @@ const formatFullName = (nom: string, prenom: string) => {
                           <tr key={user.id} className="border-b hover:bg-muted/50 transition-colors">
                             <td className="py-3 px-4">
                               <Badge className={getCommissionColor(user.role)}>
-                                {user.role?.toUpperCase() || "N/A"}
+                                {user.role ? roleLabel(user.role).toUpperCase() : "N/A"}
                               </Badge>
                             </td>
                             <td className="py-3 px-4 text-foreground font-medium">

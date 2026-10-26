@@ -1,6 +1,9 @@
 // lib/api.ts - VERSION UNIFIÉE MAMADOU 2025
 
-const API_BASE_URL = "https://an-nour-backend-5mf0.onrender.com/api/v1";
+// URL de l'API configurable par environnement (voir .env.example) ; repli sur l'API de production
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "https://an-nour-backend-5mf0.onrender.com/api/v1"
+).replace(/\/+$/, "");
 
 let cachedSeminaristes: any = null;
 
@@ -190,13 +193,28 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const config: RequestInit = {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  };
+  const headers = new Headers(options.headers);
+  if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const token = authApi.getToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const config: RequestInit = { ...options, headers };
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-  
+
+  // Token expiré, invalide ou compte supprimé : fermer la session et revenir à la connexion
+  if (response.status === 401 && token) {
+    authApi.logout();
+    if (typeof window !== 'undefined' && window.location.pathname !== "/") {
+      window.location.href = "/";
+    }
+  }
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`❌ API ${response.status}: ${errorText}`);
@@ -293,7 +311,6 @@ export const scientificApi = {
       matricule: data.matricule,
       note: data.note.toString(),
       niveau: data.niveau,
-      created_by: data.created_by || 'admin'
     });
     
     return apiRequest(`/scientific/test-entree?${params.toString()}`, {
@@ -323,7 +340,6 @@ export const scientificApi = {
       matricule: data.matricule,
       note: data.note.toString(),
       libelle: data.libelle || 'note1',
-      created_by: 'admin'
     });
     
     return apiRequest<Note>(`/scientific/notes?${params.toString()}`, {

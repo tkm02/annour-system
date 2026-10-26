@@ -25,7 +25,7 @@ import { coApi, MembreCO, scientificApi, Seminariste } from "@/lib/api";
 import logoAnnour from "@/public/ANNOUR.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
-import jsPDF from "jspdf";
+import jsPDF, { GState } from "jspdf";
 import {
   CreditCard,
   Eye,
@@ -1226,7 +1226,7 @@ export default function BadgeGenerationPage() {
     opacity: number = 0.5
   ) => {
     pdf.saveGraphicsState();
-    pdf.setGState(new pdf.GState({ opacity: opacity }));
+    pdf.setGState(new GState({ opacity: opacity }));
 
     const logoWidth = w * 1.1;
     const aspectRatio = 2517 / 1467;
