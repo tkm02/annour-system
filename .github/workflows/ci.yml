@@ -72,8 +72,8 @@ jobs:
           else
             RANGE="${{ github.sha }}~1..${{ github.sha }}"
           fi
-          ./gitleaks git --redact --no-banner --log-opts="${RANGE}" .
+          ./gitleaks git --config .gitleaks.toml --redact --no-banner --log-opts="${RANGE}" .
 
       - name: 🔐 Full history scan (report only)
         continue-on-error: true
-        run: ./gitleaks git --redact --no-banner .
+        run: ./gitleaks git --config .gitleaks.toml --redact --no-banner .
