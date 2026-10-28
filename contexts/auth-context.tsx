@@ -3,8 +3,12 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { authApi, type User } from "@/lib/api"
 import type { LoginResponse } from "@/lib/api"
+import { normalizeRole } from "@/lib/roles"
 
-export type UserRole =  "ADMINISTRATION" | "SCIENTIFIQUE" | "FINANCE"
+export type { UserRole } from "@/lib/roles"
+
+// Le rôle est toujours manipulé sous sa forme canonique (admin, scientifique, finances, sante)
+const withCanonicalRole = (user: User): User => ({ ...user, role: normalizeRole(user.role) })
 
 interface AuthContextType {
   user: User | null
@@ -29,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (storedUser && token) {
           console.log("👤 Utilisateur chargé depuis le localStorage:", storedUser.username)
-          setUser(storedUser)
+          setUser(withCanonicalRole(storedUser))
         } else {
           console.log("ℹ️ Aucun utilisateur connecté")
         }
@@ -52,9 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Appel de l'API de connexion
       const response: LoginResponse = await authApi.login({ identifier: usernameOrEmail, password })
-      
-      console.log("✅ Réponse API login:", response)
-      
+
       // Vérifier que l'utilisateur est actif
       if (!response.user.is_active) {
         console.warn("⚠️ Utilisateur désactivé:", usernameOrEmail)
@@ -62,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // Mettre à jour l'état local
-      setUser(response.user)
+      setUser(withCanonicalRole(response.user))
       
       console.log("✅ Utilisateur connecté:", response.user.username, "Rôle:", response.user.role)
       

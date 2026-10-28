@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { usersApi } from "@/lib/api"
+import { ROLES, ROLE_LABELS, normalizeRole } from "@/lib/roles"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,7 +27,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
     username: user.username,
     nom: user.nom,
     prenom: user.prenom,
-    role: user.role,
+    role: normalizeRole(user.role),
     password: "", // Optionnel pour la modification
   })
   const [loading, setLoading] = useState(false)
@@ -179,9 +180,9 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               disabled={loading || success}
             >
-              <option value="admin">ADMINISTRATION</option>
-              <option value="scientific">SCIENTIFIQUE</option>
-              <option value="finance">FINANCE</option>
+              {ROLES.map((role) => (
+                <option key={role} value={role}>{ROLE_LABELS[role].toUpperCase()}</option>
+              ))}
             </select>
           </div>
           

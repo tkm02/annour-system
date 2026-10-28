@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import jsPDF, { GState } from 'jspdf';
 
 // Interface matching the structure used in the PDF generator
 export interface SeminaristData {
@@ -77,7 +77,7 @@ const PDFGenerator = {
       doc.rect(0, i, pageWidth, 1, 'F');
     }
     // @ts-ignore
-    doc.setGState(new doc.GState({ opacity: 1 }));
+    doc.setGState(new GState({ opacity: 1 }));
 
     doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
     doc.rect(0, 0, pageWidth, 45, 'F');
@@ -99,12 +99,12 @@ const PDFGenerator = {
           const opacity = 0.12 - i * 0.01;
           if (opacity <= 0) break;
       
-          doc.setGState(new doc.GState({ opacity }));
+          doc.setGState(new GState({ opacity }));
           doc.setFillColor(200, 200, 200);
           doc.ellipse(circleX + circleSize / 2, circleY + circleSize / 2, (circleSize / 2) + i, (circleSize / 2) + i, 'F');
         }
       
-        doc.setGState(new doc.GState({ opacity: 1 }));
+        doc.setGState(new GState({ opacity: 1 }));
       
         // Cercle blanc propre
         doc.setFillColor(255, 255, 255);

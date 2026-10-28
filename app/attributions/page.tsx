@@ -153,7 +153,6 @@ export default function TestEntreePage() {
       matricule: sem.matricule,
       note: tempNote,
       niveau: nouveauNiveau,
-      created_by: 'admin'
     };
     
     console.log('📤 Envoi test entrée:', testData);

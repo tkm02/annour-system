@@ -1,7 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useAuth, type UserRole } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/auth-context";
+import { normalizeRole, roleLabel } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import {
   CreditCard,
@@ -25,13 +26,13 @@ interface SidebarProps {
   setOpen: (open: boolean) => void;
 }
 
-const getNavigationByRole = (role: UserRole) => {
+const getNavigationByRole = (role: string) => {
   const baseNavigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   ];
 
-  switch (role.toLocaleUpperCase()) {
-    case "ADMINISTRATION":
+  switch (normalizeRole(role)) {
+    case "admin":
       return [
         ...baseNavigation,
         { name: "Finances", href: "/finances", icon: Wallet },
@@ -40,10 +41,11 @@ const getNavigationByRole = (role: UserRole) => {
         { name: "Badges", href: "/badges", icon: UserPlus },
         { name: "Certificats", href: "/certificats", icon: GraduationCap },
         // { name: "Mini-Admins", href: "/mini-admins", icon: UserPlus },
+        { name: "Avis", href: "/feedback", icon: MessageSquare },
         { name: "Gérer les accès", href: "/acces", icon: Settings },
       ];
 
-    case "SCIENTIFIQUE":
+    case "scientifique":
       return [
         ...baseNavigation,
         { name: "Séminaristes", href: "/seminaristes", icon: Users },
@@ -54,7 +56,7 @@ const getNavigationByRole = (role: UserRole) => {
         // { name: "Communication", href: "/communication", icon: MessageSquare },
       ];
 
-    case "SANTE":
+    case "sante":
       return [
         ...baseNavigation,
         { name: "Séminaristes", href: "/sante/seminaristes", icon: Users },
@@ -62,7 +64,7 @@ const getNavigationByRole = (role: UserRole) => {
         { name: "Consultations", href: "/sante/consultations", icon: FileText },
       ];
 
-    case "FINANCE":
+    case "finances":
       return [
         ...baseNavigation,
         { name: "Finances", href: "/finances", icon: Wallet },
@@ -79,7 +81,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  const navigation = user ? getNavigationByRole(user.role as UserRole) : [];
+  const navigation = user ? getNavigationByRole(user.role) : [];
 
   const handleLogout = () => {
     logout();
@@ -113,7 +115,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                 className="text-sm font-medium text-sidebar-foreground"
                 style={{ color: "white" }}
               >
-                {(user.role).toLocaleUpperCase()}
+                {roleLabel(user.role).toLocaleUpperCase()}
               </p>
             </div>
           )}
@@ -191,7 +193,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                 Connecté en tant que
               </p>
               <p className="text-sm font-medium text-sidebar-foreground" style={{ color: "white" }}>
-                {(user.role).toLocaleUpperCase()}
+                {roleLabel(user.role).toLocaleUpperCase()}
               </p>
             </div>
           )}

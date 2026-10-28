@@ -1,0 +1,12 @@
+# Configuration gitleaks (CI) : règles par défaut + exclusions justifiées
+title = "An-Nour frontend"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Artefacts de build Next.js"
+# .next/ contient des artefacts régénérés à chaque build (dont la clé locale de chiffrement des
+# Server Actions, inutilisée : l'application n'a aucune Server Action et Vercel génère sa propre
+# clé). Le dossier n'est plus suivi par Git ; l'exclusion couvre les commits historiques.
+paths = ['''^\.next/''']

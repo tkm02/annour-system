@@ -1,6 +1,9 @@
 // lib/api.ts - VERSION UNIFIÉE MAMADOU 2025
 
-const API_BASE_URL = "https://an-nour-backend-5mf0.onrender.com/api/v1";
+// URL de l'API configurable par environnement (voir .env.example) ; repli sur l'API de production
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "https://an-nour-backend-5mf0.onrender.com/api/v1"
+).replace(/\/+$/, "");
 
 let cachedSeminaristes: any = null;
 
@@ -36,6 +39,7 @@ export interface Seminariste {
   allergie?: string;
   antecedent_medical?: string;
   dortoir_code?: string;
+  note_entree?: number | null;        // ✅ NOTE DU TEST D'ENTRÉE
 }
 
 // ✅ CREATE SEMINARISTE
@@ -159,6 +163,20 @@ export interface CreateUserPayload {
   role: string;
 }
 
+// ✅ MEMBRE CO (Comité d'Organisation)
+export interface MembreCO {
+  id: string;
+  nom: string;
+  prenoms: string;
+  contact: string;
+  commission: string;
+  statut: string;
+  photo_url: string;
+  allergies: string;
+  antecedent_medical: string;
+  created_at: string;
+}
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
@@ -213,18 +231,27 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const headers = new Headers(options.headers);
+  if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
-  const config: RequestInit = {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  };
+  const token = authApi.getToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
-  console.log("📡 API CALL:", options.method || "GET", url);
+  const config: RequestInit = { ...options, headers };
 
-  const response = await fetch(url, config);
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
-  console.log("📥 STATUS:", response.status);
+  // Token expiré, invalide ou compte supprimé : fermer la session et revenir à la connexion
+  if (response.status === 401 && token) {
+    authApi.logout();
+    if (typeof window !== 'undefined' && window.location.pathname !== "/") {
+      window.location.href = "/";
+    }
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -320,7 +347,6 @@ export const scientificApi = {
       matricule: data.matricule,
       note: data.note.toString(),
       niveau: data.niveau,
-      created_by: data.created_by || "admin",
     });
 
     return apiRequest(`/scientific/test-entree?${params.toString()}`, {
@@ -346,8 +372,7 @@ export const scientificApi = {
     const params = new URLSearchParams({
       matricule: data.matricule,
       note: data.note.toString(),
-      libelle: data.libelle || "note1",
-      created_by: "admin",
+      libelle: data.libelle || 'note1',
     });
 
     return apiRequest<Note>(`/scientific/notes?${params.toString()}`, {
@@ -486,39 +511,83 @@ export const usersApi = {
   },
 };
 
-// ✅ FINANCES API
-export const financesApi = {
-  getTransactions: async (
-    page = 1,
-    limit = 100,
-    filters?: Record<string, any>
-  ) => {
-    const params = new URLSearchParams();
+// ✅ FEEDBACK API
+export interface Feedback {
+  id: string;
+  sexe: string;
+  nom: string;
+  note_globale: number;
+  qualite_nourriture: number;
+  confort_dortoirs: number;
+  qualite_formations: number;
+  qualite_contenu: number;
+  note_organisation: number;
+  duree_appropriee: boolean;
+  recommande: boolean;
+  points_apprecies: string;
+  suggestions: string;
+  created_at: string;
+}
 
-    params.set("page", String(page));
-    params.set("limit", String(limit));
+export interface FeedbackAnalytics {
+  total_responses: number;
+  moyenne_globale: number;
+  moyenne_organisation: number;
+  moyenne_nourriture: number;
+  moyenne_dortoirs: number;
+  moyenne_formations: number;
+  moyenne_contenu: number;
+  repartition_sexe: Record<string, number>;
+  repartition_note_globale: Record<string, number>;
+  pourcentage_duree_ok: number;
+  pourcentage_recommande: number;
+  derniers_points_apprecies: string[];
+  dernieres_suggestions: string[];
+}
 
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== "") {
-          params.set(key, String(value));
-        }
-      });
-    }
+export const feedbackApi = {
+  getAnalytics: async () => {
+    return apiRequest<FeedbackAnalytics>("/admin/feedback/analytics");
+  },
 
-    const query = params.toString();
-    const endpoint = `/finances/transactions${query ? `?${query}` : ""}`;
+  getAll: async (page = 1, limit = 50, filters?: { sexe?: string; recommande?: boolean }) => {
+    const queryParams = new URLSearchParams({
+      skip: ((page - 1) * limit).toString(),
+      limit: limit.toString(),
+    });
 
-    console.log("📡 financesApi.getTransactions:", endpoint);
+    if (filters?.sexe) queryParams.append("sexe", filters.sexe);
+    if (filters?.recommande !== undefined) queryParams.append("recommande", filters.recommande.toString());
 
-    return apiRequest<FinanceResponse>(endpoint);
+    return apiRequest<{ total: number; data: Feedback[] }>(`/admin/feedback?${queryParams.toString()}`);
+  },
+
+  getOne: async (id: string) => {
+    return apiRequest<Feedback>(`/admin/feedback/${id}`);
+  },
+
+  delete: async (id: string) => {
+    return apiRequest(`/admin/feedback/${id}`, {
+      method: "DELETE",
+    });
   },
 };
+
+// ✅ CO API (Comité d'Organisation)
+export const coApi = {
+  getMembresCO: async () => {
+    return apiRequest<{ total: number; data: MembreCO[] }>('/admin/membres-co');
+  },
+};
+
+// ✅ EXPORTS
+
 
 export default {
   scientificApi,
   dashboardApi,
   authApi,
   usersApi,
-  financesApi,
+  feedbackApi,
+  coApi,
 };

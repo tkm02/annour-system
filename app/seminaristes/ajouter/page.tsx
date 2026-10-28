@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/contexts/auth-context"
+import { normalizeRole } from "@/lib/roles"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import DashboardLayout from "@/components/layout/dashboard-layout"
@@ -11,13 +12,13 @@ export default function AjouterSeminaristePage() {
   
   useEffect(() => {
     // ✅ Rediriger si pas admin
-    if (user && user.role?.toUpperCase() !== "ADMINISTRATION") {
+    if (user && normalizeRole(user.role) !== "admin") {
       router.push("/seminaristes")
     }
   }, [user, router])
   
   // Si pas admin, ne rien afficher
-  if (!user || user.role?.toUpperCase() !== "ADMINISTRATION") {
+  if (!user || normalizeRole(user.role) !== "admin") {
     return null
   }
   return (

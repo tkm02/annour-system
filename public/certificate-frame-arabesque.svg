@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1190 842" width="1190" height="842">
+  <defs>
+    <!-- Gradient vert -->
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8BC34A"/>
+      <stop offset="100%" style="stop-color:#689F38"/>
+    </linearGradient>
+    
+    <!-- Motif losanges bleus -->
+    <pattern id="blueDiamonds" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+      <rect width="24" height="24" fill="#1565C0"/>
+      <polygon points="12,2 22,12 12,22 2,12" fill="#1976D2"/>
+      <circle cx="12" cy="12" r="2.5" fill="#FFC107"/>
+    </pattern>
+    
+    <!-- Arabesque S -->
+    <g id="arabesque">
+      <path d="M0,0 Q25,-25 50,0 Q75,25 100,0" 
+            fill="none" stroke="url(#greenGrad)" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    
+    <!-- Coin arabesque -->
+    <g id="cornerArabesque">
+      <path d="M0,60 Q0,0 60,0" fill="none" stroke="url(#greenGrad)" stroke-width="5" stroke-linecap="round"/>
+      <path d="M15,60 Q15,15 60,15" fill="none" stroke="url(#greenGrad)" stroke-width="3" stroke-linecap="round"/>
+      <path d="M30,60 Q30,30 60,30" fill="none" stroke="url(#greenGrad)" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="5" cy="5" r="6" fill="#7CB342"/>
+    </g>
+    
+    <!-- Losange vert -->
+    <g id="diamond">
+      <polygon points="0,-12 12,0 0,12 -12,0" fill="url(#greenGrad)" stroke="#558B2F" stroke-width="1"/>
+    </g>
+    
+    <!-- Petit cercle -->
+    <g id="smallCircle">
+      <circle cx="0" cy="0" r="4" fill="#7CB342"/>
+    </g>
+  </defs>
+  
+  <!-- Fond blanc -->
+  <rect width="1190" height="842" fill="#FFFFFF"/>
+  
+  <!-- BORDURE BLEUE avec losanges -->
+  <rect x="0" y="0" width="1190" height="22" fill="url(#blueDiamonds)"/>
+  <rect x="0" y="820" width="1190" height="22" fill="url(#blueDiamonds)"/>
+  <rect x="0" y="0" width="22" height="842" fill="url(#blueDiamonds)"/>
+  <rect x="1168" y="0" width="22" height="842" fill="url(#blueDiamonds)"/>
+  
+  <!-- Ligne bleue fine -->
+  <rect x="22" y="22" width="1146" height="2" fill="#1565C0"/>
+  <rect x="22" y="818" width="1146" height="2" fill="#1565C0"/>
+  <rect x="22" y="22" width="2" height="798" fill="#1565C0"/>
+  <rect x="1166" y="22" width="2" height="798" fill="#1565C0"/>
+  
+  <!-- ===== COINS ARABESQUES ===== -->
+  <!-- Coin supérieur gauche -->
+  <g transform="translate(35, 35)">
+    <use href="#cornerArabesque"/>
+  </g>
+  
+  <!-- Coin supérieur droit -->
+  <g transform="translate(1155, 35) scale(-1,1)">
+    <use href="#cornerArabesque"/>
+  </g>
+  
+  <!-- Coin inférieur gauche -->
+  <g transform="translate(35, 807) scale(1,-1)">
+    <use href="#cornerArabesque"/>
+  </g>
+  
+  <!-- Coin inférieur droit -->
+  <g transform="translate(1155, 807) scale(-1,-1)">
+    <use href="#cornerArabesque"/>
+  </g>
+  
+  <!-- ===== ARABESQUES HORIZONTALES HAUT ===== -->
+  <g transform="translate(200, 50)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(400, 50)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(600, 50)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(800, 50)">
+    <use href="#arabesque"/>
+  </g>
+  
+  <!-- ===== ARABESQUES HORIZONTALES BAS ===== -->
+  <g transform="translate(200, 792)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(400, 792)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(600, 792)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(800, 792)">
+    <use href="#arabesque"/>
+  </g>
+  
+  <!-- ===== ARABESQUES VERTICALES GAUCHE ===== -->
+  <g transform="translate(50, 180) rotate(90)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(50, 380) rotate(90)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(50, 580) rotate(90)">
+    <use href="#arabesque"/>
+  </g>
+  
+  <!-- ===== ARABESQUES VERTICALES DROITE ===== -->
+  <g transform="translate(1140, 180) rotate(90)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(1140, 380) rotate(90)">
+    <use href="#arabesque"/>
+  </g>
+  <g transform="translate(1140, 580) rotate(90)">
+    <use href="#arabesque"/>
+  </g>
+  
+  <!-- ===== LOSANGES DÉCORATIFS ===== -->
+  <!-- Haut -->
+  <use href="#diamond" transform="translate(180, 50)"/>
+  <use href="#diamond" transform="translate(595, 50)"/>
+  <use href="#diamond" transform="translate(1010, 50)"/>
+  
+  <!-- Bas -->
+  <use href="#diamond" transform="translate(180, 792)"/>
+  <use href="#diamond" transform="translate(595, 792)"/>
+  <use href="#diamond" transform="translate(1010, 792)"/>
+  
+  <!-- Gauche -->
+  <use href="#diamond" transform="translate(50, 160)"/>
+  <use href="#diamond" transform="translate(50, 421)"/>
+  <use href="#diamond" transform="translate(50, 682)"/>
+  
+  <!-- Droite -->
+  <use href="#diamond" transform="translate(1140, 160)"/>
+  <use href="#diamond" transform="translate(1140, 421)"/>
+  <use href="#diamond" transform="translate(1140, 682)"/>
+  
+  <!-- Cadre vert intérieur -->
+  <rect x="120" y="120" width="950" height="602" fill="none" stroke="#7CB342" stroke-width="1" opacity="0.4"/>
+  
+  <!-- Petits cercles aux coins intérieurs -->
+  <use href="#smallCircle" transform="translate(120, 120)"/>
+  <use href="#smallCircle" transform="translate(1070, 120)"/>
+  <use href="#smallCircle" transform="translate(120, 722)"/>
+  <use href="#smallCircle" transform="translate(1070, 722)"/>
+</svg>
