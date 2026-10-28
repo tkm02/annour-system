@@ -14,6 +14,7 @@ import {
   Settings,
   UserPlus,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +34,7 @@ const getNavigationByRole = (role: UserRole) => {
     case "ADMINISTRATION":
       return [
         ...baseNavigation,
+        { name: "Finances", href: "/finances", icon: Wallet },
         { name: "Séminaristes", href: "/seminaristes", icon: Users },
         // { name: "Communication", href: "/communication", icon: MessageSquare },
         { name: "Badges", href: "/badges", icon: UserPlus },
@@ -63,6 +65,7 @@ const getNavigationByRole = (role: UserRole) => {
     case "FINANCE":
       return [
         ...baseNavigation,
+        { name: "Finances", href: "/finances", icon: Wallet },
         { name: "Vente Tickets", href: "/finance/tickets", icon: CreditCard },
         { name: "Paiements", href: "/finance/payments", icon: FileText },
       ];

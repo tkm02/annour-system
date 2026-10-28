@@ -27,7 +27,7 @@ export interface Seminariste {
   sexe: string;
   age: number;
   niveau_academique: string;
-  niveau: string | null;              // ✅ NIVEAU TEST
+  niveau: string | null;
   dortoir: string;
   photo_url: string | null;
   commune_habitation?: string;
@@ -72,9 +72,9 @@ export interface UpdateSeminariste {
 // ✅ TEST ENTRÉE
 export interface TestScore {
   matricule: string;
-  note: number;              // ✅ Changé de note_test → note
-  niveau: string;            // ✅ Ajouté
-  created_by?: string;       // ✅ Ajouté optionnel
+  note: number;
+  niveau: string;
+  created_by?: string;
 }
 
 // ✅ NOTES
@@ -85,7 +85,7 @@ export interface Note {
   note: number;
   observation: string | null;
   type: string;
-  libelle: string; // "note1", "note2", "note3", "note4"
+  libelle: string;
   created_at: string;
   updated_at: string;
   created_by: string;
@@ -170,59 +170,103 @@ export interface LoginCredentials {
   password: string;
 }
 
-// ✅ API REQUEST GÉNÉRIQUE
+// ✅ FINANCES API TYPES
+export interface FinanceTransaction {
+  id: string;
+  reference: string;
+  type: string;
+  categorie: string;
+  montant: number;
+  devise: string;
+  libelle: string;
+  description: string;
+  beneficiaire: string;
+  payeur: string;
+  matricule: string;
+  nom_seminariste: string;
+  mode_paiement: string;
+  numero_compte: string;
+  piece_justificative: string;
+  statut: string;
+  date_transaction: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  is_deleted: boolean;
+  deleted_at: string;
+  deleted_by: string;
+  deleted_reason: string;
+}
+
+export interface FinanceResponse {
+  total: number;
+  page: number;
+  limit: number;
+  data: FinanceTransaction[];
+  total_entrees: number;
+  total_sorties: number;
+  solde_periode: number;
+}
+
+// ✅ API REQUEST GÉNÉRIQUE (avec logs)
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+
   const config: RequestInit = {
     headers: { "Content-Type": "application/json" },
     ...options,
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-  
+  console.log("📡 API CALL:", options.method || "GET", url);
+
+  const response = await fetch(url, config);
+
+  console.log("📥 STATUS:", response.status);
+
   if (!response.ok) {
     const errorText = await response.text();
+    console.error("❌ API ERROR BODY:", errorText);
     throw new Error(`❌ API ${response.status}: ${errorText}`);
   }
-  
+
   return response.json();
 }
 
 // ✅ SCIENTIFIC API - UNIFIÉ
 export const scientificApi = {
-  // 📊 SÉMINARISTES (CACHE 5min)
-  // 📊 SÉMINARISTES (CACHE 5min)
   getSeminaristes: async (page = 1, limit = 100, filters?: any) => {
-    // ✅ MODE "FETCH ALL" (Si limit > 100, on charge tout)
     if (limit > 100) {
       if (cachedSeminaristes && cachedSeminaristes.limit >= 10000) {
         return cachedSeminaristes;
       }
-      
-      // 1. Première page pour avoir le total
+
       const firstBatch = await apiRequest<ApiResponse<Seminariste>>(
-        `/scientific/seminaristes?page=1&limit=100${filters ? '&' + new URLSearchParams(filters) : ''}`
+        `/scientific/seminaristes?page=1&limit=100${
+          filters ? "&" + new URLSearchParams(filters) : ""
+        }`
       );
-      
+
       let allData = [...firstBatch.data];
       const total = firstBatch.total;
       const totalPages = Math.ceil(total / 100);
 
-      // 2. Charger le reste en parallèle
       if (totalPages > 1) {
         const promises = [];
         for (let p = 2; p <= totalPages; p++) {
           promises.push(
             apiRequest<ApiResponse<Seminariste>>(
-              `/scientific/seminaristes?page=${p}&limit=100${filters ? '&' + new URLSearchParams(filters) : ''}`
+              `/scientific/seminaristes?page=${p}&limit=100${
+                filters ? "&" + new URLSearchParams(filters) : ""
+              }`
             )
           );
         }
-        
+
         const results = await Promise.all(promises);
-        results.forEach(res => {
+        results.forEach((res) => {
           allData = [...allData, ...res.data];
         });
       }
@@ -230,139 +274,132 @@ export const scientificApi = {
       const result = {
         total: total,
         page: 1,
-        limit: total, // On indique que la limite est le total
+        limit: total,
         data: allData,
       };
 
       cachedSeminaristes = result;
-      setTimeout(() => { cachedSeminaristes = null; }, 5 * 60 * 1000);
+      setTimeout(() => {
+        cachedSeminaristes = null;
+      }, 5 * 60 * 1000);
       return result;
     }
 
-    // ✅ MODE PAGINATION SHANDARD (Max 100 par le backend)
-    // Attention: Le backend rejette > 100, donc on s'assure de ne pas dépasser
     const safeLimit = Math.min(limit, 100);
-    
-    // Note: On ne cache PAS les pages individuelles pour éviter les bugs de pagination
-    // sauf si on implémente un cache par clé (page+limit). 
-    // Pour l'instant, on désactive le cache partiel pour la sécurité.
-    
+
     const data = await apiRequest<ApiResponse<Seminariste>>(
-      `/scientific/seminaristes?page=${page}&limit=${safeLimit}${filters ? '&' + new URLSearchParams(filters) : ''}`
+      `/scientific/seminaristes?page=${page}&limit=${safeLimit}${
+        filters ? "&" + new URLSearchParams(filters) : ""
+      }`
     );
     return data;
   },
-  // ✅ CRUD SÉMINARISTES
+
   createSeminariste: async (data: CreateSeminariste) => {
-    return apiRequest<Seminariste>('/admin/seminaristes', {
-      method: 'POST',
+    return apiRequest<Seminariste>("/admin/seminaristes", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   },
+
   updateSeminariste: async (matricule: string, data: Partial<UpdateSeminariste>) => {
     return apiRequest<Seminariste>(`/admin/seminaristes/${matricule}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   },
+
   deleteSeminariste: async (matricule: string) => {
     return apiRequest(`/admin/seminaristes/${matricule}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   },
-  // ✅ TEST D'ENTRÉE
-   saveTestEntree: async (data: TestScore) => {
-    
-    // ✅ CONSTRUIRE URL AVEC QUERY PARAMS
+
+  saveTestEntree: async (data: TestScore) => {
     const params = new URLSearchParams({
       matricule: data.matricule,
       note: data.note.toString(),
       niveau: data.niveau,
-      created_by: data.created_by || 'admin'
+      created_by: data.created_by || "admin",
     });
-    
+
     return apiRequest(`/scientific/test-entree?${params.toString()}`, {
-      method: 'POST',
-      // ✅ PAS DE BODY (ou body vide)
+      method: "POST",
     });
   },
 
   updateSeminaristeNiveau: async (matricule: string, niveau: string) => {
     return apiRequest(`/seminaristes/${matricule}/niveau`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify({ niveau }),
     });
   },
 
-  // 📝 NOTES
-  getNotes: async () => apiRequest<Note[]>('/scientific/notes'),
-  
+  getNotes: async () => apiRequest<Note[]>("/scientific/notes"),
+
   getNotesByLibelle: async (libelle: string) => {
-    const allNotes = await apiRequest<Note[]>('/scientific/notes');
-    return allNotes.filter(n => n.libelle === libelle);
+    const allNotes = await apiRequest<Note[]>("/scientific/notes");
+    return allNotes.filter((n) => n.libelle === libelle);
   },
-  
+
   createNote: async (data: CreateNote) => {
-    // ✅ FastAPI expects query params, not JSON body
     const params = new URLSearchParams({
       matricule: data.matricule,
       note: data.note.toString(),
-      libelle: data.libelle || 'note1',
-      created_by: 'admin'
+      libelle: data.libelle || "note1",
+      created_by: "admin",
     });
-    
+
     return apiRequest<Note>(`/scientific/notes?${params.toString()}`, {
-      method: 'POST',
+      method: "POST",
     });
   },
-  
+
   updateNote: async (id: string, data: UpdateNote) => {
     return apiRequest<Note>(`/scientific/notes/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   },
-  
+
   deleteNote: async (id: string) => {
     return apiRequest(`/scientific/notes/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   },
-  
+
   deleteNotesByLibelle: async (libelle: string) => {
     const notesToDelete = await scientificApi.getNotesByLibelle(libelle);
-    const deletePromises = notesToDelete.map(note => scientificApi.deleteNote(note.id));
+    const deletePromises = notesToDelete.map((note) =>
+      scientificApi.deleteNote(note.id)
+    );
     await Promise.all(deletePromises);
     return notesToDelete.length;
   },
 
-  // 📈 STATS
   getStats: () => apiRequest<any>("/scientific/stats"),
-  getScientificStats: () => apiRequest('/scientific/stats/scientifiques'),
+  getScientificStats: () => apiRequest("/scientific/stats/scientifiques"),
 
-  // 📜 BULLETINS
   generateBulletin: async (data: BulletinGenerate) => {
-    return apiRequest<Bulletin>('/scientific/bulletins/generate', {
-      method: 'POST',
+    return apiRequest<Bulletin>("/scientific/bulletins/generate", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   },
-  
+
   getBulletins: async (matricule?: string) => {
-    const params = matricule ? `?matricule=${matricule}` : '';
+    const params = matricule ? `?matricule=${matricule}` : "";
     return apiRequest<Bulletin[]>(`/scientific/bulletins${params}`);
   },
-  
+
   getBulletinByNumero: async (numero: string) => {
     return apiRequest<BulletinDetail>(`/scientific/bulletins/${numero}`);
   },
 
-  // 📋 MÉTADONNÉES
   getStaticMetadata: async () => {
-    return apiRequest<StaticMetadata>('/admin/static-metadata');
+    return apiRequest<StaticMetadata>("/admin/static-metadata");
   },
 
-  // 🔄 CACHE
   invalidateCache: () => {
     cachedSeminaristes = null;
   },
@@ -389,8 +426,8 @@ export const authApi = {
         password: credentials.password,
       }),
     });
-    
-    if (typeof window !== 'undefined') {
+
+    if (typeof window !== "undefined") {
       localStorage.setItem("authToken", response.access_token);
       localStorage.setItem("tokenType", response.token_type);
       localStorage.setItem("user", JSON.stringify(response.user));
@@ -399,7 +436,7 @@ export const authApi = {
   },
 
   logout: () => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.removeItem("authToken");
       localStorage.removeItem("tokenType");
       localStorage.removeItem("user");
@@ -407,13 +444,13 @@ export const authApi = {
   },
 
   getCurrentUser: (): User | null => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     const userStr = localStorage.getItem("user");
     return userStr ? JSON.parse(userStr) : null;
   },
 
   getToken: (): string | null => {
-    return typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+    return typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
   },
 
   isAuthenticated: (): boolean => !!authApi.getToken(),
@@ -422,23 +459,25 @@ export const authApi = {
 // ✅ USERS API
 export const usersApi = {
   getUsers: async (page = 1, limit = 100) => {
-    return apiRequest<ApiResponse<User>>(`/admin/users?page=${page}&limit=${limit}`);
+    return apiRequest<ApiResponse<User>>(
+      `/admin/users?page=${page}&limit=${limit}`
+    );
   },
-  
+
   createUser: async (userData: CreateUserPayload) => {
     return apiRequest<User>("/admin/auth/register", {
       method: "POST",
       body: JSON.stringify(userData),
     });
   },
-  
+
   updateUser: async (id: string, userData: Partial<CreateUserPayload>) => {
     return apiRequest<User>(`/admin/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(userData),
     });
   },
-  
+
   toggleUserStatus: async (id: string, isActive: boolean) => {
     return apiRequest<User>(`/admin/users/${id}`, {
       method: "PATCH",
@@ -447,12 +486,39 @@ export const usersApi = {
   },
 };
 
-// ✅ EXPORTS
+// ✅ FINANCES API
+export const financesApi = {
+  getTransactions: async (
+    page = 1,
+    limit = 100,
+    filters?: Record<string, any>
+  ) => {
+    const params = new URLSearchParams();
 
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params.set(key, String(value));
+        }
+      });
+    }
+
+    const query = params.toString();
+    const endpoint = `/finances/transactions${query ? `?${query}` : ""}`;
+
+    console.log("📡 financesApi.getTransactions:", endpoint);
+
+    return apiRequest<FinanceResponse>(endpoint);
+  },
+};
 
 export default {
   scientificApi,
   dashboardApi,
   authApi,
   usersApi,
+  financesApi,
 };
