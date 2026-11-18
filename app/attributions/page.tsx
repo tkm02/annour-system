@@ -155,7 +155,6 @@ export default function TestEntreePage() {
       niveau: nouveauNiveau,
     };
     
-    console.log('📤 Envoi test entrée:', testData);
     
     await scientificApi.saveTestEntree(testData);
     
@@ -166,7 +165,6 @@ export default function TestEntreePage() {
     await fetchSeminaristes();
     
   } catch (error: any) {
-    console.error('❌ Erreur test entrée:', error);
     toast.error(error.message || "Erreur sauvegarde test");
   } finally {
     setSavingMatricule(null);
@@ -188,7 +186,6 @@ export default function TestEntreePage() {
     toTest: seminaristes.filter(s => !s?.niveau).length,
   };
 
-  console.log('📊 Stats test entrée:', filteredSeminaristes);
 
 
   if (loading) {
@@ -210,7 +207,7 @@ export default function TestEntreePage() {
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">TEST D'ENTRÉE</h1>
+            <h1 className="text-2xl font-bold text-foreground">TEST D&apos;ENTRÉE</h1>
             <p className="text-muted-foreground">
               {stats.toTest} à classer • Équilibrage A/B Secondaire/Primaire
             </p>

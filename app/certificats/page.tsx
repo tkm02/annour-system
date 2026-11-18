@@ -1,4 +1,5 @@
 "use client";
+import { EDITION } from "@/lib/edition";
 
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
@@ -397,20 +398,20 @@ export default function CertificatePage() {
     // Ligne 1
     drawCenteredLineSegments([
       { text: "Pour sa participation effective à la " },
-      { text: "7ème édition", bold: true },
+      { text: EDITION.libelle, bold: true },
       { text: " du séminaire de formation" }
     ], bodyY);
 
     // Ligne 2 (suite)
     drawCenteredLineSegments([
       { text: "islamique et managériale AN NOUR qui s'est tenu du " },
-      { text: "20 au 25 décembre 2025" , bold: true }
+      { text: EDITION.dates, bold: true }
     ], bodyY + 8);
     
     // Ligne 3
     drawCenteredLineSegments([
         { text: "au " },
-        { text: "Lycée Moderne de Cocody", bold: true },
+        { text: EDITION.lieu, bold: true },
         { text: "." }
     ], bodyY + 16);
 
@@ -437,7 +438,7 @@ export default function CertificatePage() {
     pdf.setFontSize(10);
     pdf.setTextColor(80, 80, 80);
     pdf.setFont("helvetica", "normal");
-    pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, sigY + 10);
+    pdf.text(`Fait à ${EDITION.ville}, le ${EDITION.dateCloture}`, x + 22, sigY + 10);
 
   };
 
@@ -473,7 +474,7 @@ export default function CertificatePage() {
             <div className="text-[10px] font-bold text-black leading-tight mt-1">
               Association des Elèves et Etudiants
               <br />
-              Musulmans de Côte d'Ivoire
+              Musulmans de Côte d&apos;Ivoire
             </div>
             <div className="text-[9px] text-gray-700 mt-1">
               Secrétariat Régional Abidjan-Est
@@ -513,7 +514,7 @@ export default function CertificatePage() {
         {/* Body */}
         <div className="text-center mt-6 px-8 max-w-[88%]">
           <p className="text-[13px] leading-relaxed font-medium text-gray-900">
-            Pour sa participation effective à la <span className="font-bold">7ème édition</span> du séminaire de formation islamique et managériale AN NOUR qui s&apos;est tenu du <span className="font-bold">20 au 25 décembre 2025</span> au <span className="font-bold">Lycée Moderne de Cocody</span> .
+            Pour sa participation effective à la <span className="font-bold">{EDITION.libelle}</span> du séminaire de formation islamique et managériale AN NOUR qui s&apos;est tenu du <span className="font-bold">{EDITION.dates}</span> au <span className="font-bold">{EDITION.lieu}</span> .
           </p>
         </div>
 
@@ -528,7 +529,7 @@ export default function CertificatePage() {
 
         {/* Footer (date) - Positionnée à gauche, alignée avec la zone de signature */}
         <div className="absolute bottom-16 left-2 text-[11px] text-gray-600">
-          Fait à Cocody, le 25 décembre 2025
+          Fait à {EDITION.ville}, le {EDITION.dateCloture}
         </div>
       </div>
     </div>
@@ -542,9 +543,9 @@ export default function CertificatePage() {
       { text: "au " },
       { text: "Séminaire de Formation Islamique et Managériale (An-Nour)", bold: true },
       { text: ", organisé du " },
-      { text: "20 au 25 décembre 2025", bold: true },
+      { text: EDITION.dates, bold: true },
       { text: " au " },
-      { text: "Lycée Moderne de Cocody", bold: true },
+      { text: EDITION.lieu, bold: true },
     ];
 
     switch (fonction) {
@@ -701,13 +702,13 @@ export default function CertificatePage() {
         drawRichLine([
             { text: "Séminaire de Formation Islamique et Managériale (An-Nour)", bold: true },
             { text: ", organisé du " },
-            { text: "20 au 25 décembre 2025", bold: true }
+            { text: EDITION.dates, bold: true }
         ], bodyY + spacing);
 
         // "au Lycée Moderne de Cocody, témoignage de son engagement constant au service du"
         drawRichLine([
              { text: "au " },
-             { text: "Lycée Moderne de Cocody", bold: true },
+             { text: EDITION.lieu, bold: true },
              { text: ", témoignage de son engagement constant au service du" }
         ], bodyY + spacing * 2);
 
@@ -849,9 +850,9 @@ export default function CertificatePage() {
              
              drawRichLine([
                  { text: "organisé du " },
-                 { text: "20 au 25 décembre 2025", bold: true },
+                 { text: EDITION.dates, bold: true },
                  { text: " au " },
-                 { text: "Lycée Moderne de Cocody", bold: true },
+                 { text: EDITION.lieu, bold: true },
                  { text: ", en reconnaissance de son" } 
              ], bodyY + spacing * 2);
 
@@ -871,13 +872,13 @@ export default function CertificatePage() {
              drawRichLine([
                  { text: "Formation Islamique et Managériale (An-Nour)", bold: true },
                  { text: ", organisé du " },
-                 { text: "20 au 25 décembre 2025", bold: true }
+                 { text: EDITION.dates, bold: true }
              ], bodyY + spacing * 2);
 
              // "au Lycée Moderne de Cocody. Témoignage de son esprit d'équipe, de sa rigueur et"
              drawRichLine([
                  { text: "au " },
-                 { text: "Lycée Moderne de Cocody", bold: true },
+                 { text: EDITION.lieu, bold: true },
                  { text: ". Témoignage de son esprit d'équipe, de sa rigueur et" }
              ], bodyY + spacing * 3);
 
@@ -887,12 +888,12 @@ export default function CertificatePage() {
         // Footer (date)
         pdf.setFontSize(10);
         pdf.setTextColor(80, 80, 80);
-        pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, y + h - 22);
+        pdf.text(`Fait à ${EDITION.ville}, le ${EDITION.dateCloture}`, x + 22, y + h - 22);
 
         // Footer (date)
         pdf.setFontSize(10);
         pdf.setTextColor(80, 80, 80);
-        pdf.text("Fait à Cocody, le 25 décembre 2025", x + 22, y + h - 22);
+        pdf.text(`Fait à ${EDITION.ville}, le ${EDITION.dateCloture}`, x + 22, y + h - 22);
 
         // Signature
         const sigY = y + h - 35;
@@ -1026,7 +1027,7 @@ export default function CertificatePage() {
         </div>
 
         <div className="absolute bottom-4 left-2 text-[11px] text-gray-600">
-          Fait à Cocody, le 25 décembre 2025
+          Fait à {EDITION.ville}, le {EDITION.dateCloture}
         </div>
 
         <div className="absolute bottom-6 right-32">

@@ -36,6 +36,7 @@ import {
 import {
   AlertTriangle,
   Download,
+  FileSpreadsheet,
   Edit3,
   Loader2,
   Plus,
@@ -49,6 +50,10 @@ import { toast } from "sonner";
 import { useAuth } from "../../contexts/auth-context";
 import { normalizeRole } from "@/lib/roles";
 import PDFGenerator, { SeminaristData } from "../../lib/pdf-generator";
+import PaymentStatusBadge from "@/components/finance/payment-status-badge";
+import { adminApi } from "@/lib/api";
+import { downloadBlob } from "@/lib/format";
+import { PAYMENT_STATUS_FILTERS, paymentStatusInfo } from "@/lib/payment-status";
 
 interface SeminaristesTableProps {
   seminaristes: Seminariste[];
@@ -66,6 +71,8 @@ export default function SeminaristesTable({
   const [selectedGenre, setSelectedGenre] = useState("tous");
   const [selectedDortoir, setSelectedDortoir] = useState("tous");
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
+  const [selectedPaiement, setSelectedPaiement] = useState("tous");
+  const [exporting, setExporting] = useState(false);
 
   const {user} = useAuth();
   const isAdmin = normalizeRole(user?.role) === "admin";
@@ -124,9 +131,7 @@ export default function SeminaristesTable({
       setLoadingMetadata(true);
       const data = await scientificApi.getStaticMetadata();
       setMetadata(data);
-      console.log("✅ Métadonnées chargées:", data);
     } catch (error) {
-      console.error("❌ Erreur métadonnées:", error);
       toast.error("Impossible de charger les options");
     } finally {
       setLoadingMetadata(false);
@@ -211,7 +216,6 @@ export default function SeminaristesTable({
       setShowDeleteModal(false);
       setSeminaristeToDelete(null);
     } catch (error: any) {
-      console.error("❌ Erreur suppression:", error);
       toast.error(error.message || "Erreur suppression");
     } finally {
       setDeleting(false);
@@ -234,6 +238,8 @@ export default function SeminaristesTable({
           niveauAcademique: seminarist.niveau_academique,
           contact: seminarist.contact_seminariste,
         },
+        // Statut réel du paiement sur la fiche (plus de « PAIEMENT VALIDE » par défaut)
+        paymentStatus: seminarist.payment_status ?? "en_attente",
         dormitoryInfo: {
           dortoir: seminarist.dortoir,
           matricule: seminarist.matricule,
@@ -250,7 +256,6 @@ export default function SeminaristesTable({
       await PDFGenerator.generateRegistrationPDF(pdfData, qrCodeUrl);
       toast.success("✅ Reçu téléchargé");
     } catch (error) {
-      console.error("❌ Erreur téléchargement reçu:", error);
       toast.error("Erreur lors du téléchargement du reçu");
     }
   };
@@ -266,13 +271,29 @@ export default function SeminaristesTable({
       selectedGenre === "tous" || seminarist.sexe === selectedGenre;
     const matchesDortoir =
       selectedDortoir === "tous" ||
-      seminarist.dortoir.toLowerCase().includes(selectedDortoir.toLowerCase());
+      (seminarist.dortoir ?? "").toLowerCase().includes(selectedDortoir.toLowerCase());
     const matchesNiveau =
       selectedNiveau === "tous" ||
       seminarist.niveau_academique === selectedNiveau;
+    const matchesPaiement =
+      selectedPaiement === "tous" || seminarist.payment_status === selectedPaiement;
 
-    return matchesSearch && matchesGenre && matchesDortoir && matchesNiveau;
+    return matchesSearch && matchesGenre && matchesDortoir && matchesNiveau && matchesPaiement;
   });
+
+  // F-A2 : export Excel par fetch authentifié (un lien simple n'enverrait pas le token)
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const { blob, filename } = await adminApi.exportSeminaristesXlsx();
+      downloadBlob(blob, filename ?? "seminaristes.xlsx");
+      toast.success("Export Excel téléchargé");
+    } catch (error: any) {
+      toast.error(error.message || "Export impossible");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // ✅ HANDLE INPUT
   const handleInputChange = (field: keyof CreateSeminariste, value: string) => {
@@ -301,7 +322,6 @@ export default function SeminaristesTable({
       onRefresh();
       setShowFormModal(false);
     } catch (error: any) {
-      console.error("❌ Erreur formulaire:", error);
       toast.error(
         error.message || `Erreur ${isEditMode ? "modification" : "ajout"}`
       );
@@ -352,6 +372,20 @@ export default function SeminaristesTable({
                 </SelectContent>
               </Select>
 
+              <Select value={selectedPaiement} onValueChange={setSelectedPaiement}>
+                <SelectTrigger className="w-44" aria-label="Filtrer par statut de paiement">
+                  <SelectValue placeholder="Paiement" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tous">PAIEMENT : TOUS</SelectItem>
+                  {PAYMENT_STATUS_FILTERS.map((statut) => (
+                    <SelectItem key={statut} value={statut}>
+                      {paymentStatusInfo(statut).label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select
                 value={selectedDortoir}
                 onValueChange={setSelectedDortoir}
@@ -392,6 +426,12 @@ export default function SeminaristesTable({
                 <RefreshCw className="h-4 w-4" />
                 Actualiser
               </Button>
+              {isAdmin && (
+                <Button variant="outline" size="sm" className="gap-2" onClick={handleExport} disabled={exporting}>
+                  {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                  Exporter (.xlsx)
+                </Button>
+              )}
               {isAdmin && (<Button size="sm" className="gap-2" onClick={openCreateModal}>
                 <Plus className="h-4 w-4" />
                 Ajouter Séminariste
@@ -412,6 +452,7 @@ export default function SeminaristesTable({
                   <TableHead>ÂGE</TableHead>
                   <TableHead>NIVEAU</TableHead>
                   <TableHead>DORTOIR</TableHead>
+                  <TableHead>PAIEMENT</TableHead>
                   {isAdmin && (<TableHead>ACTIONS</TableHead>)}
                 </TableRow>
               </TableHeader>
@@ -444,7 +485,10 @@ export default function SeminaristesTable({
                       {seminarist.niveau_academique.toUpperCase()}
                     </TableCell>
                     <TableCell className="max-w-[150px] truncate">
-                      {seminarist.dortoir.toUpperCase()}
+                      {(seminarist.dortoir ?? "").toUpperCase()}
+                    </TableCell>
+                    <TableCell>
+                      <PaymentStatusBadge status={seminarist.payment_status} />
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -653,7 +697,7 @@ export default function SeminaristesTable({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    Commune d'habitation *
+                    Commune d&apos;habitation *
                   </label>
                   <Select
                     value={formData.commune_habitation}

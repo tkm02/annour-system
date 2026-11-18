@@ -1,40 +1,25 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+"use client"
 
-const demographicsData = [
-  { niveau: "Niveau 1", garcons: "00", filles: "00" },
-  { niveau: "Niveau 2", garcons: "00", filles: "00" },
-  { niveau: "Niveau 3", garcons: "00", filles: "00" },
-  { niveau: "Niveau 4", garcons: "00", filles: "00" },
-  { niveau: "Niveau 5", garcons: "00", filles: "00" },
-]
+import SimpleBarChart from "@/components/common/bar-chart"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import type { StatistiquesSante } from "@/lib/api"
 
-export default function HealthDemographics() {
+const dayLabel = (iso: string) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit" })
+
+/** F-S1 : consultations des 7 derniers jours et répartition par sexe (données réelles). */
+export default function HealthDemographics({ stats }: { stats: StatistiquesSante }) {
+  const days = stats.consultations_7_derniers_jours.map((d) => ({ label: dayLabel(d.date), value: d.nombre }))
   return (
-    <Card className="border-border">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg font-semibold text-foreground">Démographie</CardTitle>
-        <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-          <Download className="h-4 w-4" />
-          Exporter
-        </Button>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Consultations des 7 derniers jours</CardTitle>
+        <CardDescription>
+          Par sexe (depuis le début) : {stats.consultations_par_sexe.M} hommes · {stats.consultations_par_sexe.F} femmes
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4 text-sm font-medium text-muted-foreground border-b border-border pb-2">
-            <div>Niveau</div>
-            <div>Garçons</div>
-            <div>Filles</div>
-          </div>
-          {demographicsData.map((row, index) => (
-            <div key={index} className="grid grid-cols-3 gap-4 text-sm">
-              <div className="font-medium text-foreground">{row.niveau}</div>
-              <div className="text-secondary font-semibold">{row.garcons}</div>
-              <div className="text-primary font-semibold">{row.filles}</div>
-            </div>
-          ))}
-        </div>
+        <SimpleBarChart data={days} seriesName="Consultations" orientation="vertical" formatValue={(v) => String(v)} />
       </CardContent>
     </Card>
   )

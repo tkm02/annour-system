@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/auth-context"
 import { ThemeProvider } from "next-themes"
 import { Toaster } from "react-hot-toast"
+import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 import { Suspense } from "react"
 import "./globals.css"
 
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
   title: "An-Nour Admin",
   description: "Administration du séminaire An-Nour",
   generator: "Next.js",
+  icons: { icon: "/ANNOUR.png", apple: "/ANNOUR.png" },
 }
 
 export default function RootLayout({
@@ -27,6 +29,8 @@ export default function RootLayout({
           <Suspense fallback={null}>
             {children}
             <Toaster />
+            {/* Plusieurs écrans utilisent sonner : son conteneur doit aussi être monté */}
+            <SonnerToaster richColors position="top-right" />
           </Suspense>
         </AuthProvider>
         <Analytics />

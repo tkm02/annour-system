@@ -1,83 +1,38 @@
+"use client"
+
+import { Activity, AlertTriangle, CalendarCheck, ClipboardList, HeartPulse, Users } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Heart, Users, Calendar, Activity } from "lucide-react"
+import type { StatistiquesSante } from "@/lib/api"
 
-const healthStats = [
-  {
-    title: "Totales Séminaristes",
-    value: "000",
-    icon: Users,
-    color: "text-primary",
-  },
-  {
-    title: "Totales Consultations",
-    value: "000",
-    icon: Heart,
-    color: "text-secondary",
-  },
-  {
-    title: "Consultations Aujourd'hui",
-    value: "88",
-    icon: Calendar,
-    color: "text-accent",
-  },
-  {
-    title: "Consultations Actives",
-    value: "000",
-    icon: Activity,
-    color: "text-muted-foreground",
-  },
-]
-
-const genderStats = [
-  {
-    title: "Séminaristes Masculins",
-    value: "000",
-    subtitle: "Consultations",
-  },
-  {
-    title: "Séminaristes Féminins",
-    value: "000",
-    subtitle: "Consultations",
-  },
-  {
-    title: "Séminaristes Pépinières",
-    value: "000",
-    subtitle: "Consultations",
-  },
-]
-
-export default function HealthStats() {
+/** F-S1 : chiffres réels de GET /sante/statistiques (la carte « Consultations actives » a été retirée). */
+export default function HealthStats({ stats }: { stats: StatistiquesSante }) {
+  const tiles = [
+    {
+      title: "Séminaristes",
+      value: stats.total_seminaristes,
+      detail: `${stats.seminaristes_par_sexe.M} hommes · ${stats.seminaristes_par_sexe.F} femmes`,
+      icon: Users,
+    },
+    { title: "Consultations", value: stats.total_consultations, detail: "depuis le début", icon: ClipboardList },
+    { title: "Aujourd'hui", value: stats.consultations_aujourdhui, detail: "consultations du jour", icon: CalendarCheck },
+    { title: "Patients consultés", value: stats.patients_consultes, detail: "au moins une consultation", icon: Activity },
+    { title: "Allergies signalées", value: stats.patients_avec_allergies, detail: "séminaristes concernés", icon: AlertTriangle },
+    { title: "Antécédents médicaux", value: stats.patients_avec_antecedents, detail: "séminaristes concernés", icon: HeartPulse },
+  ]
   return (
-    <div className="space-y-4">
-      {/* Main Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {healthStats.map((stat, index) => (
-          <Card key={index} className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Gender-based Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {genderStats.map((stat, index) => (
-          <Card key={index} className="border-border">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-              <div className="text-xs text-muted-foreground">{stat.subtitle}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+      {tiles.map((tile) => (
+        <Card key={tile.title}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{tile.title}</CardTitle>
+            <tile.icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold tabular-nums">{tile.value}</div>
+            <p className="text-xs text-muted-foreground">{tile.detail}</p>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }

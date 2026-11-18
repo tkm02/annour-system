@@ -2342,7 +2342,7 @@ const BadgeCOVerso = ({ membre, qrCode }: { membre: MembreCO; qrCode?: string })
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span>Membres du Comité d'Organisation</span>
+                    <span>Membres du Comité d&apos;Organisation</span>
                     <Badge variant="outline" className="text-base">
                       {selectedMembresCO.length} sélectionné(s)
                     </Badge>

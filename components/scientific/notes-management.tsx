@@ -72,7 +72,7 @@ export default function NotesManagement() {
         if (!notesByMatricule[note.matricule]) {
           notesByMatricule[note.matricule] = {};
         }
-        notesByMatricule[note.matricule][note.libelle] = note;
+        if (note.libelle) notesByMatricule[note.matricule][note.libelle] = note;
       });
       
       // Associer les notes aux séminaristes
@@ -87,7 +87,7 @@ export default function NotesManagement() {
       // Détecter le nombre max de colonnes utilisées SEULEMENT au premier chargement
       if (noteColumns === 3 && notesResponse.length > 0) {
         const maxColumn = Math.max(1, ...notesResponse.map((n: Note) => {
-          const num = parseInt(n.libelle.replace('note', ''));
+          const num = parseInt((n.libelle ?? "").replace("note", ""));
           return isNaN(num) ? 1 : num;
         }));
         // Seulement augmenter, jamais diminuer automatiquement

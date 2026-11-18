@@ -362,7 +362,7 @@ export default function FeedbackPage() {
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Détails de l'avis</DialogTitle>
+            <DialogTitle>Détails de l&apos;avis</DialogTitle>
           </DialogHeader>
           {selectedFeedback && (
             <div className="grid gap-6 py-4">

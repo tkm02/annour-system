@@ -10,6 +10,9 @@ import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
+import { authApi } from "@/lib/api"
+import { homeFor } from "@/lib/navigation"
+import { normalizeRole } from "@/lib/roles"
 
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
@@ -34,34 +37,32 @@ export default function LoginForm() {
     }
 
     try {
-      console.log("🔐 Tentative de connexion pour:", email)
-      
       // ✅ Passer l'email (l'API l'attend)
       const success = await login(email, password)
 
       if (success) {
         toast.success("Connexion réussie!")
-        console.log("✅ Connexion réussie, redirection...")
-        
+        // F-F8 : chaque rôle arrive sur son propre tableau de bord
+        const role = normalizeRole(authApi.getCurrentUser()?.role)
         setTimeout(() => {
-          router.push("/dashboard")
+          router.push(homeFor(role))
         }, 500)
       } else {
         setError("Email ou mot de passe incorrect")
         toast.error("Identifiants incorrects")
       }
     } catch (error: any) {
-      console.error("❌ Erreur de connexion:", error)
       
       // ✅ Parser l'erreur API pour afficher un message clair
       let errorMessage = "Erreur lors de la connexion"
       
-      if (error.message?.includes("422")) {
+      // 429 (trop de tentatives) et 500 : le message d'ApiError contient déjà le délai ou la référence
+      if (error?.status === 422) {
         errorMessage = "Email ou mot de passe incorrect"
-      } else if (error.message?.includes("401")) {
+      } else if (error?.status === 401) {
         errorMessage = "Identifiants invalides"
-      } else if (error.message?.includes("403")) {
-        errorMessage = "Accès refusé"
+      } else if (error?.status === 403) {
+        errorMessage = error.message || "Accès refusé"
       } else if (error.message) {
         errorMessage = error.message
       }
@@ -170,7 +171,7 @@ export default function LoginForm() {
             💡 Information
           </p>
           <div className="text-xs space-y-1 text-muted-foreground">
-            <p>Utilisez votre <strong>email</strong> et mot de passe fournis par l'administrateur.</p>
+            <p>Utilisez votre <strong>email</strong> et mot de passe fournis par l&apos;administrateur.</p>
             <p className="text-primary font-medium mt-2">
               Exemple : admin@annour.ci
             </p>

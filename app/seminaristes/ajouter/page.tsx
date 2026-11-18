@@ -32,7 +32,7 @@ export default function AjouterSeminaristePage() {
           </div>
         </div>
 
-        <AddSeminaristForm />
+        <AddSeminaristForm mode="admin" />
       </div>
     </DashboardLayout>
   )
