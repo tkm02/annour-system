@@ -1,0 +1,2 @@
+# Scripts shell des hooks Git : toujours en LF (sinon « sh » échoue sous Windows avec core.autocrlf=true)
+.husky/** text eol=lf

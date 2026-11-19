@@ -1,0 +1,29 @@
+# Relecteurs obligatoires (si « Require review from Code Owners » est activé sur la branche protégée).
+# Règles communes, configuration de l'IA, CI et zones sensibles (CLAUDE.md §6).
+# Modifier ce fichier : PR + ADR (CONTRIBUTING.md).
+
+# Règles communes, IA, CI, secrets
+/CLAUDE.md                  @tkm02 @ym-0-bm
+/CONTRIBUTING.md            @tkm02 @ym-0-bm
+/.claude/                   @tkm02 @ym-0-bm
+/.github/                   @tkm02 @ym-0-bm
+/.env.example               @tkm02 @ym-0-bm
+/.gitleaks.toml             @tkm02 @ym-0-bm
+/docs/SECURITY.md           @tkm02 @ym-0-bm
+/docs/adr/                  @tkm02 @ym-0-bm
+
+# Zones sensibles
+/lib/api.ts                 @tkm02 @ym-0-bm
+/contexts/auth-context.tsx  @tkm02 @ym-0-bm
+/components/auth/           @tkm02 @ym-0-bm
+/lib/roles.ts               @tkm02 @ym-0-bm
+/lib/navigation.ts          @tkm02 @ym-0-bm
+/app/acces/                 @tkm02 @ym-0-bm
+/app/finance/               @tkm02 @ym-0-bm
+/components/finance/        @tkm02 @ym-0-bm
+/app/sante/                 @tkm02 @ym-0-bm
+/components/health/         @tkm02 @ym-0-bm
+/next.config.mjs            @tkm02 @ym-0-bm
+/package.json               @tkm02 @ym-0-bm
+/package-lock.json          @tkm02 @ym-0-bm
+/.husky/                    @tkm02 @ym-0-bm

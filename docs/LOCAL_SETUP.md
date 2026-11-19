@@ -1,5 +1,9 @@
 # Configuration Locale - Système An-Nour
 
+> ⚠️ **Document historique, obsolète.** Il décrit l'installation prévue avec un backend Django qui n'a pas été
+> retenu (l'API réelle est en FastAPI : dépôt `ym-0-bm/An-Nour-Backend`). Références à jour : `CLAUDE.md` §3,
+> `CONTRIBUTING.md`, `docs/ENVIRONMENTS.md` et `.env.example`.
+
 ## Prérequis
 
 - **Node.js** >= 18.0.0
