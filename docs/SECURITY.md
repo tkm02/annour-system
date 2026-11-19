@@ -8,7 +8,7 @@
 |---|---|---|
 | Variables d'environnement | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_EDITION_*` : publiques, incluses dans le bundle | ne jamais y mettre de secret |
 | Jeton de session | JWT dans `localStorage` (`authToken`, `user`) | exposé en cas de XSS : pas de HTML non échappé, CSP à mettre en place (ADR) |
-| Expiration | 401 avec token → `logout()` et retour à la connexion (`lib/api.ts`) | conserver ce comportement pour tout nouvel appel |
+| Expiration | 401 avec token, ou 403 « Compte désactivé » avec token (F-21) → `logout()` et retour à la connexion (`lib/api.ts`) ; tout autre 403 garde la session | conserver ce comportement pour tout nouvel appel |
 | Autorisation | menus filtrés par rôle, garde client `protected-route.tsx` | confort uniquement : l'API reste juge ; afficher proprement les 403 |
 | Données sensibles à l'écran | santé, finances, identité, photos | pas de `console.log` de données, pas de données dans les URL, PDF générés côté client sans stockage |
 | Analytics | `@vercel/analytics` | ne transmettre aucune donnée personnelle dans les événements |

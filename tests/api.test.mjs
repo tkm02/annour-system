@@ -70,6 +70,38 @@ test("401 avec token : session effacée et retour à la connexion", async () => 
   assert.equal(window.location.href, "/");
 });
 
+test("403 « Compte désactivé » avec token : session effacée et retour à la connexion (F-21)", async () => {
+  store.set("authToken", "tok-fictif");
+  store.set("tokenType", "bearer");
+  store.set("user", "{}");
+  nextStatus = 403;
+  nextBody = '{"detail":"Compte désactivé"}';
+  await assert.rejects(apiRequest("/scientific/notes"), { name: "ApiError", status: 403, message: "Compte désactivé" });
+  assert.equal(store.has("authToken"), false);
+  assert.equal(store.has("tokenType"), false);
+  assert.equal(store.has("user"), false);
+  assert.equal(window.location.href, "/");
+});
+
+test("403 « Accès refusé » (rôle insuffisant) : la session est conservée (F-21)", async () => {
+  store.set("authToken", "tok-fictif");
+  store.set("user", "{}");
+  nextStatus = 403;
+  nextBody = '{"detail":"Accès refusé"}';
+  await assert.rejects(apiRequest("/finances/sorties"), { name: "ApiError", status: 403 });
+  assert.equal(store.get("authToken"), "tok-fictif");
+  assert.equal(store.has("user"), true);
+  assert.equal(window.location.href, "/notes");
+});
+
+test("connexion refusée pour compte désactivé (sans token) : message affichable, pas de redirection (F-21)", async () => {
+  nextStatus = 403;
+  nextBody = '{"detail":"Compte désactivé"}';
+  window.location = { pathname: "/", href: "/" };
+  await assert.rejects(apiRequest("/admin/auth/login", { method: "POST" }), { status: 403, message: "Compte désactivé" });
+  assert.equal(window.location.href, "/");
+});
+
 test("échec de connexion (sans token) : erreur affichable, pas de redirection", async () => {
   nextStatus = 401;
   window.location = { pathname: "/", href: "/" };

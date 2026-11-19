@@ -352,6 +352,17 @@ export function toQuery(params: Record<string, string | number | boolean | null 
   return text ? `?${text}` : "";
 }
 
+/** Message exact du Backend (`app/utils/auth.py`, 403) pour un compte désactivé : pas encore de code d'erreur stable. */
+export const ACCOUNT_DISABLED_DETAIL = "Compte désactivé";
+
+/** Fermer la session locale et revenir à la connexion (rechargement complet : l'état React est réinitialisé). */
+function endSession() {
+  authApi.logout();
+  if (typeof window !== 'undefined' && window.location.pathname !== "/") {
+    window.location.href = "/";
+  }
+}
+
 async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
   if (!API_BASE_URL) throw new ApiError(0, MISSING_API_URL_MESSAGE);
 
@@ -376,15 +387,17 @@ async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<
 
   // Token expiré, invalide ou compte supprimé : fermer la session et revenir à la connexion
   if (response.status === 401 && token) {
-    authApi.logout();
-    if (typeof window !== 'undefined' && window.location.pathname !== "/") {
-      window.location.href = "/";
-    }
+    endSession();
   }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw buildApiError(response.status, errorText, response.headers.get("Retry-After"));
+    const error = buildApiError(response.status, errorText, response.headers.get("Retry-After"));
+    // F-21 : compte désactivé pendant la session → même traitement que 401 (un 403 « Accès refusé » garde la session)
+    if (response.status === 403 && token && error.detail === ACCOUNT_DISABLED_DETAIL) {
+      endSession();
+    }
+    throw error;
   }
 
   return response;
