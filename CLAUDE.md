@@ -106,6 +106,11 @@ Une fonctionnalité n'est terminée qu'après validation du parcours interface �
 réponse → affichage actualisé (erreurs, permissions, doublons, rechargement compris). Rapport final distinguant
 **Réussi / Échoué / Non exécuté / À valider manuellement**. Ordre des chantiers : `CLAUDE.md` du dossier parent.
 
+Commandes (`.claude/commands/`) et agents (`.claude/agents/`) : `/plan` → `architect` · `/design` → `ui-designer` ·
+`/implement` → `developer` · `/fix` → `qa` puis `developer` · `/test` → `qa` · `/review` → `code-reviewer` +
+`security-reviewer` · `/ux-review [global]` → `ux-reviewer` · `/onboard`, `/document`, `/ship`, `/adr` : session
+principale. Chaque ✋ est un arrêt jusqu'à validation explicite.
+
 ## 11. Documentation
 `docs/ARCHITECTURE.md` · `CONVENTIONS.md` · `FEATURES.md` · `SECURITY.md` · `TESTING.md` · `ENVIRONMENTS.md` ·
 `DEPLOYMENT.md` · `OPERATIONS.md` · `DESIGN_SYSTEM.md` · `UX_GUIDELINES.md` · `TECH_DEBT.md` · `audit/` · `adr/` ·

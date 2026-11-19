@@ -5,6 +5,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 
 ## [Non publié]
 ### Ajouté
+- Agents spécialisés (`.claude/agents/`) et commandes partagées du workflow (`.claude/commands/`).
 - Documentation de référence du projet existant : `CLAUDE.md`, `CONTRIBUTING.md`, `CHANGELOG.md` et `docs/`
   (architecture, conventions, fonctionnalités, sécurité, tests, environnements, déploiement, exploitation,
   design system, lignes directrices UX, dette technique, audit initial, ADR, modèles).
