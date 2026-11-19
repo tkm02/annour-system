@@ -6,7 +6,7 @@
 
 | ID | Sévérité | Constat | Emplacement | Piste | Statut |
 |---|---|---|---|---|---|
-| F-01 | 🔴 | `next@16.4.3` vulnérable ; `next build` s'interrompt (`SecurityFatalError`) à la première exécution | `package.json` | mise à jour de `next` + `eslint-config-next` (tâche dédiée) | ouvert |
+| F-01 | 🔴 | `next@16.4.3` vulnérable ; `next build` s'interrompt (`SecurityFatalError`) à la première exécution | `package.json` | mise à jour de `next` + `eslint-config-next` (tâche dédiée) | **résolu** (vague 1, 2026-11-19) : `next` et `eslint-config-next` 16.4.5 |
 | F-02 | 🟠 | Contraste insuffisant : texte blanc sur `--primary` vert clair (≈ 2:1) | `app/globals.css` | `DESIGN_SYSTEM.md` §3 | ouvert |
 | F-03 | 🟠 | Pages monolithiques non testées : `app/badges/page.tsx` 2 817 l., `certificats` 1 388 l., `bulletins` 1 088 l. ; `lib/api.ts` 1 214 l. | `app/`, `lib/` | extraction progressive, tâches séparées | ouvert |
 | F-04 | 🟠 | Aucun test e2e ni de composant ; couverture non mesurée | `tests/` | `TESTING.md` §3 | ouvert |

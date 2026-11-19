@@ -17,7 +17,7 @@
 ## 2. Constats ouverts (audit du 2026-11-19)
 | # | Sévérité | Constat | Piste |
 |---|---|---|---|
-| F-S1 | 🔴 | `next@16.4.3` vulnérable (avis modéré) ; le build s'interrompt une fois avec `SecurityFatalError` | mettre à jour `next` (tâche dédiée, avec test du build) |
+| F-S1 | 🔴 | `next@16.4.3` vulnérable (avis modéré) ; le build s'interrompt une fois avec `SecurityFatalError` | **traité** (2026-11-19) : `next` 16.4.5, build et `npm audit --omit=dev` sans vulnérabilité |
 | F-S2 | 🟠 | Ancienne `SECRET_KEY` Django dans l'historique (`backend/backend/settings.py`, commits `bae1da4`, `26b0cbf`) | la considérer compromise (aucun usage actuel constaté) |
 | F-S3 | 🟠 | JWT en `localStorage`, pas de CSP | ADR stockage des jetons + en-têtes de sécurité Vercel |
 | F-S4 | 🟡 | 6 dépendances en `latest` | figer les versions |
