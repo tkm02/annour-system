@@ -194,3 +194,12 @@ fiches PDF sont dans `lib/edition.ts` (surcharge possible par les variables `NEX
 ---
 
 **An Nour, pour une spiritualité étincelante.**
+
+## 📚 Documentation et contribution
+
+- Règles de travail (humains et IA) : `CLAUDE.md`, `CONTRIBUTING.md` ; historique : `CHANGELOG.md`.
+- Référence technique : `docs/` (architecture, conventions, fonctionnalités réellement présentes, sécurité, tests,
+  environnements, déploiement, design system, lignes directrices UX, dette technique).
+- Écart connu : les couleurs réellement utilisées diffèrent en partie de celles annoncées ci-dessus, et certaines
+  fonctionnalités listées ne sont pas encore implémentées — voir `docs/DESIGN_SYSTEM.md` et `docs/FEATURES.md`.
+- Vue d'ensemble des 4 applications An-Nour : dépôt Backend, `docs/SYSTEME_GLOBAL.md`.
