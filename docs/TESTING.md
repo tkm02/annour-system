@@ -31,3 +31,13 @@
    connexion/expiration de session, ajout d'un séminariste, validation d'un paiement, saisie de notes → bulletin,
    création d'une consultation.
 6. Lint : avertissements résorbés par tâches dédiées ; bloquant sur les fichiers modifiés (Phase 6).
+
+## 4. Intégration continue (ADR 0002 du dépôt Backend — étape 1)
+| Contrôle | Mode |
+|---|---|
+| `npm run typecheck` | bloquant |
+| `npm run lint` | bloquant sur les erreurs (avertissements = dette F-09) |
+| `npm test` | bloquant |
+| Couverture de `lib/` (`--experimental-test-coverage`, modules chargés par les tests ; 87,9 % des lignes le 2026-11-19) | rapport |
+| `npm run build` | bloquant (cf. F-01) |
+| gitleaks diff / historique · `npm audit --omit=dev` | bloquant / rapport · rapport |

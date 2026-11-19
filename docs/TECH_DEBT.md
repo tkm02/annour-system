@@ -12,7 +12,7 @@
 | F-04 | 🟠 | Aucun test e2e ni de composant ; couverture non mesurée | `tests/` | `TESTING.md` §3 | ouvert |
 | F-05 | 🟠 | JWT en `localStorage`, pas de CSP | `lib/api.ts` | ADR | ouvert |
 | F-06 | 🟠 | Docs historiques Django trompeuses (`docs/LOCAL_SETUP.md`, `docs/django_*.py`) | `docs/` | bandeau ajouté ; supprimer ou archiver | ouvert |
-| F-07 | 🟠 | CI uniquement sur `main` | `.github/workflows/ci.yml` | Phase 6 | ouvert |
+| F-07 | 🟠 | CI uniquement sur `main` | `.github/workflows/ci.yml` | Phase 6 | **résolu** (ADR 0002 du Backend) |
 | F-08 | 🟡 | Fichiers générés mais versionnés : `next-env.d.ts` (alterne `.next/dev/types` / `.next/types`) et `tsconfig.tsbuildinfo` (réécrit par `npm run typecheck`) | racine | les ignorer dans Git (ADR court) | ouvert |
 | F-09 | 🟡 | 171 avertissements ESLint (49 `any`, 35 inutilisés, 24 `<img>`, 4 dépendances de hooks) | — | résorption progressive | ouvert |
 | F-10 | 🟡 | 6 dépendances en `latest` | `package.json` | figer | ouvert |

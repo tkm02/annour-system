@@ -5,6 +5,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 
 ## [Non publié]
 ### Ajouté
+- CI : contrôles sur `mdev` et ses PR, couverture de `lib/` mesurée (rapport), jeton en lecture seule.
 - Règles de collaboration : `.claude/settings.json` (permissions partagées de l'assistant), modèles de PR et
   d'issues, `CODEOWNERS`, hook pré-commit Husky + lint-staged (ESLint sur les fichiers indexés, gitleaks si installé).
 - Agents spécialisés (`.claude/agents/`) et commandes partagées du workflow (`.claude/commands/`).

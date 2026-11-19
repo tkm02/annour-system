@@ -21,4 +21,4 @@
 | F-S2 | 🟠 | Ancienne `SECRET_KEY` Django dans l'historique (`backend/backend/settings.py`, commits `bae1da4`, `26b0cbf`) | la considérer compromise (aucun usage actuel constaté) |
 | F-S3 | 🟠 | JWT en `localStorage`, pas de CSP | ADR stockage des jetons + en-têtes de sécurité Vercel |
 | F-S4 | 🟡 | 6 dépendances en `latest` | figer les versions |
-| F-S5 | 🟡 | CI seulement sur `main` | Phase 6 |
+| F-S5 | 🟡 | CI seulement sur `main` | **traité** (ADR 0002 du Backend) |
