@@ -10,6 +10,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 - Plus de repli silencieux sur l'API de production : sans `NEXT_PUBLIC_API_URL`, un build de production refuse les
   appels avec un message explicite ; hors production, repli sur `http://localhost:8000/api/v1` (F-17). La variable
   doit être définie dans Vercel (Production et Preview).
+### Corrigé
+- Fiche médicale : les consultations du patient précédent ne sont plus affichées ni cliquables après un changement
+  de patient ; les réponses périmées (patient ou page précédents) sont ignorées (F-18).
 ### Ajouté
 - Sécurité du cadre (revues du 2026-11-19) : hook `PreToolUse` de protection des secrets, permissions de l'assistant
   resserrées (`git branch`, `git diff --no-index`, exports, réécritures), CI durcie (SHA-256 de gitleaks épinglé,

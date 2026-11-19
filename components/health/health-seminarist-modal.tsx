@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Loader2, Pencil, Plus, User } from "lucide-react"
 import { toast } from "react-hot-toast"
 
@@ -87,35 +87,53 @@ export default function HealthSeminaristModal({ matricule, onClose }: { matricul
   const [consultError, setConsultError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
+  // F-18 : patient affiché et numéro de la dernière requête de chaque type ; une réponse arrivée après un changement
+  // de patient ou de page (ou un rappel d'un patient précédent) est ignorée.
+  const shownMatricule = useRef<string | null>(null)
+  const ficheRequest = useRef(0)
+  const consultRequest = useRef(0)
 
   const loadFiche = useCallback(async () => {
+    if (matricule !== shownMatricule.current) return
+    const request = ++ficheRequest.current
     if (!matricule) return
     setFiche(null)
     setError(null)
     setEditingInfos(false)
     try {
-      setFiche(await santeApi.getFiche(matricule))
+      const data = await santeApi.getFiche(matricule)
+      if (request === ficheRequest.current) setFiche(data)
     } catch (err) {
-      setError(errorText(err, "Fiche médicale indisponible"))
+      if (request === ficheRequest.current) setError(errorText(err, "Fiche médicale indisponible"))
     }
   }, [matricule])
 
   const loadConsultations = useCallback(async () => {
+    if (matricule !== shownMatricule.current) return
+    const request = ++consultRequest.current
     if (!matricule) return
     setConsultError(null)
     try {
       const res = await santeApi.getPatientConsultations(matricule, page, LIMIT)
+      if (request !== consultRequest.current) return
       setConsultations(res.data)
       setTotal(res.total)
     } catch (err) {
-      setConsultError(errorText(err, "Historique indisponible"))
+      if (request === consultRequest.current) setConsultError(errorText(err, "Historique indisponible"))
     }
   }, [matricule, page])
 
   useEffect(() => {
+    // F-18 : rien du patient précédent ne reste affiché ni cliquable sous le nouveau
+    shownMatricule.current = matricule
     setPage(1)
+    setConsultations(null)
+    setTotal(0)
+    setConsultError(null)
+    setSelected(null)
+    setAdding(false)
     loadFiche()
-  }, [loadFiche])
+  }, [matricule, loadFiche])
 
   useEffect(() => {
     loadConsultations()
@@ -163,7 +181,7 @@ export default function HealthSeminaristModal({ matricule, onClose }: { matricul
                 )}
               </div>
               {editingInfos ? (
-                <InfosForm fiche={fiche} onCancel={() => setEditingInfos(false)} onSaved={(f) => { setFiche(f); setEditingInfos(false) }} />
+                <InfosForm fiche={fiche} onCancel={() => setEditingInfos(false)} onSaved={(f) => { if (f.patient.matricule === shownMatricule.current) { setFiche(f); setEditingInfos(false) } }} />
               ) : (
                 <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                   <div><dt className="text-muted-foreground">Contact du parent</dt><dd>{infos.contact_parent}</dd></div>
