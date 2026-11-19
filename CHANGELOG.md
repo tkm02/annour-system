@@ -5,6 +5,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 
 ## [Non publié]
 ### Ajouté
+- Règles de collaboration : `.claude/settings.json` (permissions partagées de l'assistant), modèles de PR et
+  d'issues, `CODEOWNERS`, hook pré-commit Husky + lint-staged (ESLint sur les fichiers indexés, gitleaks si installé).
 - Agents spécialisés (`.claude/agents/`) et commandes partagées du workflow (`.claude/commands/`).
 - Documentation de référence du projet existant : `CLAUDE.md`, `CONTRIBUTING.md`, `CHANGELOG.md` et `docs/`
   (architecture, conventions, fonctionnalités, sécurité, tests, environnements, déploiement, exploitation,

@@ -1,0 +1,10 @@
+# Hook pré-commit An-Nour : contrôles limités aux fichiers indexés (voir CONTRIBUTING.md).
+# 1. Lint des fichiers indexés (configuration « lint-staged » de package.json).
+npx lint-staged || exit 1
+
+# 2. Détection de secrets sur le contenu indexé, si gitleaks est installé.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner . || exit 1
+else
+  echo "⚠ gitleaks absent : détection locale des secrets ignorée. Installez gitleaks (voir CONTRIBUTING.md)."
+fi
