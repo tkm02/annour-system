@@ -556,13 +556,13 @@ export const scientificApi = {
     });
   },
   updateSeminariste: async (matricule: string, data: Partial<UpdateSeminariste>) => {
-    return apiRequest<Seminariste>(`/admin/seminaristes/${matricule}`, {
+    return apiRequest<Seminariste>(`/admin/seminaristes/${encodeURIComponent(matricule)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
   deleteSeminariste: async (matricule: string) => {
-    return apiRequest(`/admin/seminaristes/${matricule}`, {
+    return apiRequest(`/admin/seminaristes/${encodeURIComponent(matricule)}`, {
       method: 'DELETE',
     });
   },
@@ -605,14 +605,14 @@ export const scientificApi = {
   },
   
   updateNote: async (id: string, data: UpdateNote) => {
-    return apiRequest<Note>(`/scientific/notes/${id}`, {
+    return apiRequest<Note>(`/scientific/notes/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
   
   deleteNote: async (id: string) => {
-    return apiRequest(`/scientific/notes/${id}`, {
+    return apiRequest(`/scientific/notes/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
   },
@@ -636,12 +636,12 @@ export const scientificApi = {
   },
   
   getBulletins: async (matricule?: string) => {
-    const params = matricule ? `?matricule=${matricule}` : '';
+    const params = matricule ? `?matricule=${encodeURIComponent(matricule)}` : '';
     return apiRequest<Bulletin[]>(`/scientific/bulletins${params}`);
   },
   
   getBulletinByNumero: async (numero: string) => {
-    return apiRequest<BulletinDetail>(`/scientific/bulletins/${numero}`);
+    return apiRequest<BulletinDetail>(`/scientific/bulletins/${encodeURIComponent(numero)}`);
   },
 
   // 📋 MÉTADONNÉES
@@ -736,14 +736,14 @@ export const usersApi = {
   },
   
   updateUser: async (id: string, userData: Partial<CreateUserPayload>) => {
-    return apiRequest<User>(`/admin/users/${id}`, {
+    return apiRequest<User>(`/admin/users/${encodeURIComponent(id)}`, {
       method: "PUT",
       body: JSON.stringify(userData),
     });
   },
   
   toggleUserStatus: async (id: string, isActive: boolean) => {
-    return apiRequest<User>(`/admin/users/${id}`, {
+    return apiRequest<User>(`/admin/users/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify({ is_active: isActive }),
     });
@@ -802,11 +802,11 @@ export const feedbackApi = {
   },
 
   getOne: async (id: string) => {
-    return apiRequest<Feedback>(`/admin/feedback/${id}`);
+    return apiRequest<Feedback>(`/admin/feedback/${encodeURIComponent(id)}`);
   },
 
   delete: async (id: string) => {
-    return apiRequest(`/admin/feedback/${id}`, {
+    return apiRequest(`/admin/feedback/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
   },

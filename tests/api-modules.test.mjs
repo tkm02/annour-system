@@ -136,3 +136,30 @@ test("code mort retiré (routes inexistantes)", () => {
   assert.equal("getStats" in api.scientificApi, false);
   assert.equal("updateSeminaristeNiveau" in api.scientificApi, false);
 });
+
+test("paramètres de chemin encodés : scientifique, utilisateurs, avis (F-23)", async () => {
+  const id = "a/../b?x=1#c"; // identifiant fictif contenant des caractères réservés
+  const enc = "a%2F..%2Fb%3Fx%3D1%23c";
+  await api.scientificApi.updateSeminariste(id, {});
+  await api.scientificApi.deleteSeminariste(id);
+  await api.scientificApi.updateNote(id, {});
+  await api.scientificApi.deleteNote(id);
+  await api.scientificApi.getBulletinByNumero(id);
+  await api.scientificApi.getBulletins("M&statut=x");
+  await api.usersApi.updateUser(id, {});
+  await api.usersApi.toggleUserStatus(id, false);
+  await api.feedbackApi.getOne(id);
+  await api.feedbackApi.delete(id);
+  assert.deepEqual(calls.map((c, i) => `${c.method} ${path(i)}`), [
+    `PUT /admin/seminaristes/${enc}`,
+    `DELETE /admin/seminaristes/${enc}`,
+    `PUT /scientific/notes/${enc}`,
+    `DELETE /scientific/notes/${enc}`,
+    `GET /scientific/bulletins/${enc}`,
+    "GET /scientific/bulletins?matricule=M%26statut%3Dx",
+    `PUT /admin/users/${enc}`,
+    `PATCH /admin/users/${enc}`,
+    `GET /admin/feedback/${enc}`,
+    `DELETE /admin/feedback/${enc}`,
+  ]);
+});

@@ -17,6 +17,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
   l'ouverture d'un autre élément est ignorée ; la décision de paiement cible toujours le matricule affiché (F-20).
 - Compte désactivé pendant la session (403 « Compte désactivé ») : jeton et utilisateur effacés, retour à la
   connexion (F-21).
+- `lib/api.ts` : paramètres de chemin encodés (séminaristes, notes, bulletins, utilisateurs, avis) (F-23).
 ### Ajouté
 - Sécurité du cadre (revues du 2026-11-19) : hook `PreToolUse` de protection des secrets, permissions de l'assistant
   resserrées (`git branch`, `git diff --no-index`, exports, réécritures), CI durcie (SHA-256 de gitleaks épinglé,
