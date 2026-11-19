@@ -1,9 +1,20 @@
 // lib/api.ts - VERSION UNIFIÉE MAMADOU 2025
 
-// URL de l'API configurable par environnement (voir .env.example) ; repli sur l'API de production
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "https://an-nour-backend-5mf0.onrender.com/api/v1"
-).replace(/\/+$/, "");
+// URL de l'API configurable par environnement (voir .env.example). Jamais de repli sur l'API de production (F-17) :
+// variable obligatoire en production (Vercel Production et Preview), API locale du Backend (port 8000) sinon.
+const LOCAL_API_URL = "http://localhost:8000/api/v1";
+export const MISSING_API_URL_MESSAGE =
+  "Configuration incomplète : l'adresse de l'API (NEXT_PUBLIC_API_URL) n'est pas définie. Contactez l'administrateur.";
+
+export function resolveApiBaseUrl(configured: string | undefined, nodeEnv: string | undefined): string | null {
+  const url = configured?.trim();
+  if (url) return url.replace(/\/+$/, "");
+  return nodeEnv === "production" ? null : LOCAL_API_URL;
+}
+
+// Résolue au chargement mais vérifiée à chaque appel : le build (CI, prérendu) n'échoue pas sans la variable,
+// seuls les appels réseau sont refusés avec un message explicite.
+const API_BASE_URL = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL, process.env.NODE_ENV);
 
 let cachedSeminaristes: any = null;
 
@@ -342,6 +353,8 @@ export function toQuery(params: Record<string, string | number | boolean | null 
 }
 
 async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
+  if (!API_BASE_URL) throw new ApiError(0, MISSING_API_URL_MESSAGE);
+
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");

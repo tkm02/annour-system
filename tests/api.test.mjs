@@ -22,7 +22,7 @@ globalThis.fetch = async (url, init) => {
   return new Response(body, { status: nextStatus, headers: nextHeaders });
 };
 
-const { apiRequest, buildApiError, registrationsApi } = await import("../lib/api.ts");
+const { apiRequest, buildApiError, registrationsApi, resolveApiBaseUrl, MISSING_API_URL_MESSAGE } = await import("../lib/api.ts");
 
 beforeEach(() => {
   store.clear();
@@ -180,4 +180,36 @@ test("dortoirs et état des inscriptions : routes publiques attendues", async ()
   assert.match(calls[0].url, /\/registrations\/dortoirs\?sexe=F$/);
   assert.match(calls[1].url, /\/registrations\/status$/);
   assert.deepEqual(status, { open: false, fee: 6000 });
+});
+
+// ---------------------------------------------------------------------------
+// F-17 : jamais de repli silencieux sur l'API de production
+// ---------------------------------------------------------------------------
+
+test("URL de l'API : variable utilisée telle quelle, sans slash final", () => {
+  assert.equal(resolveApiBaseUrl("https://api.exemple.test/api/v1/", "production"), "https://api.exemple.test/api/v1");
+  assert.equal(resolveApiBaseUrl("  http://127.0.0.1:9000/api/v1  ", "development"), "http://127.0.0.1:9000/api/v1");
+});
+
+test("URL de l'API absente hors production : API locale du Backend (port 8000)", () => {
+  assert.equal(resolveApiBaseUrl(undefined, "development"), "http://localhost:8000/api/v1");
+  assert.equal(resolveApiBaseUrl("", "test"), "http://localhost:8000/api/v1");
+  assert.equal(resolveApiBaseUrl(undefined, undefined), "http://localhost:8000/api/v1");
+});
+
+test("URL de l'API absente en production : aucune URL (jamais l'API de production en dur)", () => {
+  assert.equal(resolveApiBaseUrl(undefined, "production"), null);
+  assert.equal(resolveApiBaseUrl("   ", "production"), null);
+});
+
+test("build de production sans NEXT_PUBLIC_API_URL : appel refusé avec un message explicite, aucun fetch", async () => {
+  const saved = { env: process.env.NODE_ENV, url: process.env.NEXT_PUBLIC_API_URL };
+  process.env.NODE_ENV = "production";
+  delete process.env.NEXT_PUBLIC_API_URL;
+  // Instance distincte du module (requête d'URL différente) évaluée avec l'environnement de production
+  const prod = await import("../lib/api.ts?f17-production");
+  process.env.NODE_ENV = saved.env;
+  if (saved.url !== undefined) process.env.NEXT_PUBLIC_API_URL = saved.url;
+  await assert.rejects(prod.apiRequest("/health"), { name: "ApiError", status: 0, message: MISSING_API_URL_MESSAGE });
+  assert.equal(calls.length, 0);
 });

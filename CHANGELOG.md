@@ -7,6 +7,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 ### Sécurité
 - `next` et `eslint-config-next` 16.4.3 → 16.4.5 (avis GHSA-mfr8-8qww-v76h et GHSA-vc7v-qv4w-wrv8) : le build ne
   s'interrompt plus sur `SecurityFatalError` (F-01).
+- Plus de repli silencieux sur l'API de production : sans `NEXT_PUBLIC_API_URL`, un build de production refuse les
+  appels avec un message explicite ; hors production, repli sur `http://localhost:8000/api/v1` (F-17). La variable
+  doit être définie dans Vercel (Production et Preview).
 ### Ajouté
 - Sécurité du cadre (revues du 2026-11-19) : hook `PreToolUse` de protection des secrets, permissions de l'assistant
   resserrées (`git branch`, `git diff --no-index`, exports, réécritures), CI durcie (SHA-256 de gitleaks épinglé,

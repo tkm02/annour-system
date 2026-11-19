@@ -5,10 +5,12 @@
 |---|---|---|---|
 | Développement | `npm run dev` (http://localhost:3000) | `NEXT_PUBLIC_API_URL` de `.env.local` (API locale recommandée) | `.env.local`, ignoré par Git |
 | CI | GitHub Actions (`ci.yml`) | aucune (build et tests unitaires) | — |
-| Production | Vercel *(à confirmer : projet, domaine)* | API Render (valeur par défaut de `lib/api.ts` si la variable est absente) | variables du projet Vercel |
+| Production | Vercel *(à confirmer : projet, domaine)* | API Render, via `NEXT_PUBLIC_API_URL` (**obligatoire**) | variables du projet Vercel |
 
-Pas de préproduction identifiée. Attention : sans `NEXT_PUBLIC_API_URL`, même un poste de développement appelle
-l'API de **production**.
+Pas de préproduction identifiée. Depuis F-17 (2026-11-19), `lib/api.ts` n'a plus de repli sur l'API de production :
+sans `NEXT_PUBLIC_API_URL`, un build de production (Vercel Production **et** Preview, `NODE_ENV=production`) refuse
+tout appel avec un message « Configuration incomplète » ; hors production (`npm run dev`, tests), l'API locale
+`http://localhost:8000/api/v1` est utilisée. Le build lui-même n'échoue pas (CI sans variable).
 
 ## 2. Variables (référence : `.env.example`)
 `NEXT_PUBLIC_API_URL` (URL de l'API avec `/api/v1`, sans slash final) ; `NEXT_PUBLIC_EDITION_*` (données de
