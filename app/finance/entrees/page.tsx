@@ -117,9 +117,13 @@ function EntreeDetail({ reference, onClose }: { reference: string | null; onClos
 
   useEffect(() => {
     if (!reference) return
+    let cancelled = false // F-20 : réponse ignorée si une autre entrée est affichée entre-temps
     setDetail(null)
     setError(null)
-    financeApi.getEntree(reference).then(setDetail).catch((err) => setError(errorText(err, "Entrée introuvable")))
+    financeApi.getEntree(reference)
+      .then((data) => { if (!cancelled) setDetail(data) })
+      .catch((err) => { if (!cancelled) setError(errorText(err, "Entrée introuvable")) })
+    return () => { cancelled = true }
   }, [reference])
 
   return (

@@ -13,6 +13,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 ### Corrigé
 - Fiche médicale : les consultations du patient précédent ne sont plus affichées ni cliquables après un changement
   de patient ; les réponses périmées (patient ou page précédents) sont ignorées (F-18).
+- Dialogues de détail (paiement, entrée, rapport, historique d'une sortie, consultation) : une réponse arrivée après
+  l'ouverture d'un autre élément est ignorée ; la décision de paiement cible toujours le matricule affiché (F-20).
 ### Ajouté
 - Sécurité du cadre (revues du 2026-11-19) : hook `PreToolUse` de protection des secrets, permissions de l'assistant
   resserrées (`git branch`, `git diff --no-index`, exports, réécritures), CI durcie (SHA-256 de gitleaks épinglé,
