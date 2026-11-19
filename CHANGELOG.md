@@ -5,6 +5,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 
 ## [Non publié]
 ### Ajouté
+- Sécurité du cadre (revues du 2026-11-19) : hook `PreToolUse` de protection des secrets, permissions de l'assistant
+  resserrées (`git branch`, `git diff --no-index`, exports, réécritures), CI durcie (SHA-256 de gitleaks épinglé,
+  `persist-credentials: false`, expressions via `env:`, repli si le commit précédent est introuvable).
+- Script `prepare` tolérant (`.husky/install.mjs`) : ignoré en CI, en production et sans devDependencies.
 - CI : contrôles sur `mdev` et ses PR, couverture de `lib/` mesurée (rapport), jeton en lecture seule.
 - Règles de collaboration : `.claude/settings.json` (permissions partagées de l'assistant), modèles de PR et
   d'issues, `CODEOWNERS`, hook pré-commit Husky + lint-staged (ESLint sur les fichiers indexés, gitleaks si installé).
