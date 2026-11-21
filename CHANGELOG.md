@@ -5,6 +5,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 
 ## [Non publié]
 ### Ajouté
+- Recensement CO (`/recensement-co`, rôle admin) : synthèse de l'édition en cours, fiches paginées avec recherche,
+  filtres et export CSV/Excel, détail (santé signalée confidentielle, historique des éditions), correction,
+  validation, rejet motivé et traitement des cas à vérifier (fusion ou personne différente) — routes `/admin/co/*`.
+  Silhouette de photo d'identité réutilisable (`components/common/id-photo-placeholder.tsx`). La page
+  `/membres-co` (fiches 2025) est inchangée ; son entrée de menu devient « Membres CO 2025 (archives) ».
 - CI : contrôles sur `mdev` et ses PR, couverture de `lib/` mesurée (rapport), jeton en lecture seule.
 - Règles de collaboration : `.claude/settings.json` (permissions partagées de l'assistant), modèles de PR et
   d'issues, `CODEOWNERS`, hook pré-commit Husky + lint-staged (ESLint sur les fichiers indexés, gitleaks si installé).
