@@ -210,3 +210,20 @@ test("recensement CO : 409 « cas à vérifier » remonté avec le message du se
     return true;
   });
 });
+
+test("réinscription (admin) : PATCH lier / délier, matricule encodé, token, erreur 409 remontée", async () => {
+  await api.adminApi.setReinscription("FICT26-D01-004", "FICT25-D01-001");
+  await api.adminApi.setReinscription("FICT26/D01", null);
+  assert.equal(path(0), "/admin/seminaristes/FICT26-D01-004/reinscription");
+  assert.equal(calls[0].method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[0].body), { matricule_precedent: "FICT25-D01-001" });
+  assert.equal(calls[0].headers.authorization, "Bearer tok-fictif");
+  assert.equal(path(1), "/admin/seminaristes/FICT26%2FD01/reinscription");
+  assert.deepEqual(JSON.parse(calls[1].body), { matricule_precedent: null });
+  responder = () => new Response(JSON.stringify({ detail: "Inscription déjà liée" }), { status: 409 });
+  await assert.rejects(api.adminApi.setReinscription("FICT26-D01-004", "FICT25-D01-001"), (err) => {
+    assert.equal(err.status, 409);
+    assert.equal(err.detail, "Inscription déjà liée");
+    return true;
+  });
+});
