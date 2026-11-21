@@ -41,6 +41,10 @@ export interface Seminariste {
   antecedent_medical?: string;
   dortoir_code?: string;
   note_entree?: number | null;        // ✅ NOTE DU TEST D'ENTRÉE
+  /** TAF lot 2 : matricule de l'inscription de l'édition précédente (absent tant que l'API ne le renvoie pas) */
+  matricule_precedent?: string | null;
+  /** TAF lot 2 : « inscrit(e) l'an dernier » déclaré sans correspondance complète, rattachement manuel attendu */
+  reinscription_a_verifier?: boolean;
 }
 
 // ✅ CREATE SEMINARISTE
@@ -948,6 +952,12 @@ export const recensementCoApi = {
 export const adminApi = {
   /** F-A2 : export Excel (données médicales exclues côté serveur) */
   exportSeminaristesXlsx: () => apiBlob("/admin/export/seminaristes.xlsx"),
+  /** TAF lot 2 (admin) : lier une inscription à celle de l'édition précédente, ou délier avec null (404 / 409) ; corps de réponse non spécifié par le contrat : l'écran recharge la liste */
+  setReinscription: (matricule: string, matriculePrecedent: string | null) =>
+    apiRequest<unknown>(`/admin/seminaristes/${encodeURIComponent(matricule)}/reinscription`, {
+      method: "PATCH",
+      body: JSON.stringify({ matricule_precedent: matriculePrecedent }),
+    }),
 };
 
 // ✅ VISITEURS (admin)

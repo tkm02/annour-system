@@ -8,7 +8,7 @@
 |---|---|---|---|---|
 | Connexion (`/`) | tous | `/admin/auth/login`, `/me` | `api.test.mjs` | stable |
 | Tableau de bord (`/dashboard`) | admin, scientifique | `/registrations/stats/global`, listes | — | partiel |
-| Séminaristes (`/seminaristes`, `/seminaristes/ajouter`) | admin, scientifique | `/registrations`, `/admin/seminaristes`, export XLSX | `registration.test.mjs` | stable |
+| Séminaristes (`/seminaristes`, `/seminaristes/ajouter`) | admin, scientifique | `/registrations`, `/admin/seminaristes`, export XLSX | `registration.test.mjs`, `reinscription.test.mjs` | stable (réinscription : lot 2, recette à faire) |
 | Badges (`/badges`) | admin | `/registrations` + génération client (PDF, QR) | — | à risque (2 817 l., non testé) |
 | Certificats (`/certificats`) | admin | génération client | — | à risque (non testé) |
 | Membres CO (`/membres-co`) | admin | `/admin/membres-co` | `api-modules.test.mjs` | partiel |

@@ -38,11 +38,13 @@ import {
   Download,
   FileSpreadsheet,
   Edit3,
+  Link2,
   Loader2,
   Plus,
   RefreshCw,
   Search,
   Trash2,
+  Unlink,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
@@ -54,6 +56,9 @@ import PaymentStatusBadge from "@/components/finance/payment-status-badge";
 import { adminApi } from "@/lib/api";
 import { downloadBlob } from "@/lib/format";
 import { PAYMENT_STATUS_FILTERS, paymentStatusInfo } from "@/lib/payment-status";
+import { REINSCRIPTION_FILTRES, matchesReinscriptionFilter } from "@/lib/reinscription";
+import ReinscriptionBadge from "./reinscription-badge";
+import ReinscriptionDialog, { type ReinscriptionAction } from "./reinscription-dialog";
 
 interface SeminaristesTableProps {
   seminaristes: Seminariste[];
@@ -72,6 +77,9 @@ export default function SeminaristesTable({
   const [selectedDortoir, setSelectedDortoir] = useState("tous");
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
   const [selectedPaiement, setSelectedPaiement] = useState("tous");
+  // TAF lot 2 : filtre et rattachement manuel des réinscriptions
+  const [selectedReinscription, setSelectedReinscription] = useState("tous");
+  const [reinscription, setReinscription] = useState<{ seminariste: Seminariste; action: ReinscriptionAction } | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const {user} = useAuth();
@@ -278,7 +286,9 @@ export default function SeminaristesTable({
     const matchesPaiement =
       selectedPaiement === "tous" || seminarist.payment_status === selectedPaiement;
 
-    return matchesSearch && matchesGenre && matchesDortoir && matchesNiveau && matchesPaiement;
+    const matchesReinscription = matchesReinscriptionFilter(seminarist, selectedReinscription);
+
+    return matchesSearch && matchesGenre && matchesDortoir && matchesNiveau && matchesPaiement && matchesReinscription;
   });
 
   // F-A2 : export Excel par fetch authentifié (un lien simple n'enverrait pas le token)
@@ -386,6 +396,20 @@ export default function SeminaristesTable({
                 </SelectContent>
               </Select>
 
+              <Select value={selectedReinscription} onValueChange={setSelectedReinscription}>
+                <SelectTrigger className="w-56" aria-label="Filtrer par réinscription">
+                  <SelectValue placeholder="Réinscription" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tous">RÉINSCRIPTION : TOUS</SelectItem>
+                  {REINSCRIPTION_FILTRES.map(([code, libelle]) => (
+                    <SelectItem key={code} value={code}>
+                      {libelle}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select
                 value={selectedDortoir}
                 onValueChange={setSelectedDortoir}
@@ -470,6 +494,7 @@ export default function SeminaristesTable({
                       <div className="text-sm text-muted-foreground">
                         {seminarist.prenom}
                       </div>
+                      <ReinscriptionBadge seminariste={seminarist} />
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -521,6 +546,29 @@ export default function SeminaristesTable({
                             >
                               <Download className="h-4 w-4" />
                             </Button>
+                            {seminarist.matricule_precedent ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setReinscription({ seminariste: seminarist, action: "delier" })}
+                                title="Délier de l'inscription de l'an dernier"
+                                aria-label={`Délier ${seminarist.matricule} de l'inscription de l'an dernier`}
+                              >
+                                <Unlink className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setReinscription({ seminariste: seminarist, action: "lier" })}
+                                title="Lier à l'inscription de l'an dernier"
+                                aria-label={`Lier ${seminarist.matricule} à l'inscription de l'an dernier`}
+                              >
+                                <Link2 className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>
@@ -542,6 +590,20 @@ export default function SeminaristesTable({
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin && reinscription && (
+        <ReinscriptionDialog
+          key={`${reinscription.seminariste.matricule}-${reinscription.action}`}
+          seminariste={reinscription.seminariste}
+          action={reinscription.action}
+          onClose={() => setReinscription(null)}
+          onDone={() => {
+            setReinscription(null);
+            scientificApi.invalidateCache();
+            onRefresh();
+          }}
+        />
+      )}
 
       {/* ✅ MODAL FORMULAIRE (même code que votre version) */}
       <Dialog open={showFormModal} onOpenChange={setShowFormModal}>
