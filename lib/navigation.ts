@@ -5,7 +5,7 @@ import type { UserRole } from "./roles"
 export type IconName =
   | "dashboard" | "users" | "badge" | "certificate" | "message" | "settings" | "finance" | "health"
   | "science" | "assign" | "file" | "wallet" | "trending-up" | "trending-down" | "report" | "teacher" | "visitor"
-  | "stethoscope"
+  | "stethoscope" | "census"
 
 export interface NavItem {
   name: string
@@ -29,6 +29,7 @@ export const ROUTE_ROLES: Array<[string, UserRole[]]> = [
   ["/acces", [ADMIN]],
   ["/visiteurs", [ADMIN]],
   ["/membres-co", [ADMIN]],
+  ["/recensement-co", [ADMIN]],
   ["/scientifique", [ADMIN, SCI]],
   ["/attributions", [ADMIN, SCI]],
   ["/notes", [ADMIN, SCI]],
@@ -73,7 +74,8 @@ export const NAVIGATION: Record<UserRole, NavItem[]> = {
     { name: "Séminaristes", href: "/seminaristes", icon: "users" },
     { name: "Badges", href: "/badges", icon: "badge" },
     { name: "Certificats", href: "/certificats", icon: "certificate" },
-    { name: "Membres CO", href: "/membres-co", icon: "users" },
+    { name: "Membres CO 2025 (archives)", href: "/membres-co", icon: "users" },
+    { name: "Recensement CO", href: "/recensement-co", icon: "census" },
     { name: "Visiteurs", href: "/visiteurs", icon: "visitor" },
     { name: "Avis", href: "/feedback", icon: "message" },
     { name: "Gérer les accès", href: "/acces", icon: "settings" },
