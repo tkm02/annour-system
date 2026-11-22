@@ -9,6 +9,7 @@ import {
   Award,
   BadgeCheck,
   BarChart3,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   FlaskConical,
@@ -56,6 +57,7 @@ const ICONS: Record<IconName, LucideIcon> = {
   teacher: GraduationCap,
   visitor: UserCheck,
   stethoscope: Stethoscope,
+  census: ClipboardCheck,
 };
 
 /** Lien actif : correspondance exacte ou sous-page, en privilégiant l'entrée la plus précise. */

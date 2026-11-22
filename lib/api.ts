@@ -801,6 +801,149 @@ export const coApi = {
   },
 };
 
+// ✅ RECENSEMENT CO (édition en cours, rôle admin) — contrat : Backend docs/features/recensement-co.md
+export type QualiteCO = "membre" | "responsable" | "responsable_adjoint";
+export type StatutFicheCO = "soumise" | "a_verifier" | "validee" | "rejetee";
+export type TypeMembreCO = "ancien" | "nouveau";
+export type SexeCO = "M" | "F";
+
+/** Ligne de liste (sans données médicales) ; dates ISO 8601, champs `null` possibles (fiches 2025 incomplètes). */
+export interface ParticipationCOListe {
+  id: string;
+  personne_id: string;
+  nom: string;
+  prenoms: string;
+  sexe: string | null;
+  date_naissance: string | null;
+  telephone: string | null;
+  email: string | null;
+  photo_url: string | null;
+  commission: string;
+  qualite: string;
+  type: string;
+  statut_fiche: string;
+  soumise_at: string | null;
+  validee_at: string | null;
+}
+
+export interface HistoriqueParticipationCO {
+  edition: string | null;
+  commission: string;
+  qualite: string;
+}
+
+/** Détail (avec santé ; chaque lecture est journalisée côté serveur). */
+export interface ParticipationCODetail extends ParticipationCOListe {
+  allergies: string | null;
+  antecedents_medicaux: string | null;
+  consentement_at: string | null;
+  validee_par: string | null;
+  motif_rejet: string | null;
+  historique: HistoriqueParticipationCO[];
+}
+
+/** PATCH : champs partiels de la fiche (`date_naissance` au format AAAA-MM-JJ). */
+export interface ParticipationCOUpdate {
+  nom?: string;
+  prenoms?: string;
+  date_naissance?: string;
+  sexe?: SexeCO;
+  telephone?: string;
+  email?: string;
+  commission?: string;
+  qualite?: QualiteCO;
+  allergies?: string;
+  antecedents_medicaux?: string;
+}
+
+export interface StatsCO {
+  edition: string;
+  total: number;
+  par_statut: Record<string, number>;
+  par_commission: Record<string, number>;
+  par_type: Record<string, number>;
+  par_sexe: Record<string, number>;
+  cas_a_verifier: number;
+}
+
+export interface CandidatCorrespondanceCO {
+  personne_id: string;
+  nom: string;
+  prenoms: string;
+  telephones: string[];
+  email: string | null;
+  date_naissance: string | null;
+  /** « ANNOUR25 : Santé » */
+  commissions: string[];
+  /** Ajout annoncé par le Backend (comparaison visuelle) : absent tant que l'API ne le renvoie pas */
+  photo_url?: string | null;
+  /** Ajout annoncé par le Backend : sexe actuel de la personne connue (null ou absent = non communiqué) */
+  sexe?: SexeCO | null;
+}
+
+export interface CorrespondanceCO {
+  id: string;
+  motif: string;
+  statut: string;
+  created_at: string;
+  fiche: ParticipationCOListe;
+  candidats: CandidatCorrespondanceCO[];
+  resolution: string | null;
+}
+
+export interface ResolutionCorrespondanceCO {
+  decision: "fusion" | "nouveau";
+  personne_id?: string;
+}
+
+export interface DecisionFicheCO {
+  message: string;
+  id: string;
+  statut_fiche: string;
+}
+
+/** Configuration publique du formulaire : commissions actives (valeurs acceptées par le PATCH) et qualités. */
+export interface ConfigurationCO {
+  ouvert: boolean;
+  edition: { code: string; libelle: string } | null;
+  commissions: string[];
+  commissions_precedentes: string[];
+  qualites: Array<{ code: string; libelle: string }>;
+}
+
+type QueryParams = Record<string, string | number | boolean | null | undefined>;
+
+export const recensementCoApi = {
+  getConfiguration: () => apiRequest<ConfigurationCO>("/co/configuration"),
+  getStats: () => apiRequest<StatsCO>("/admin/co/stats"),
+  /** Paramètres déjà construits (filtres + skip/limit) : voir buildListParams de lib/recensement-co.ts */
+  list: (params: QueryParams) =>
+    apiRequest<{ total: number; data: ParticipationCOListe[] }>(`/admin/co/participations${toQuery(params)}`),
+  get: (id: string) => apiRequest<ParticipationCODetail>(`/admin/co/participations/${encodeURIComponent(id)}`),
+  update: (id: string, data: ParticipationCOUpdate) =>
+    apiRequest<ParticipationCODetail>(`/admin/co/participations/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  validate: (id: string) =>
+    apiRequest<DecisionFicheCO>(`/admin/co/participations/${encodeURIComponent(id)}/valider`, { method: "POST" }),
+  reject: (id: string, motif: string) =>
+    apiRequest<DecisionFicheCO>(`/admin/co/participations/${encodeURIComponent(id)}/rejeter`, {
+      method: "POST",
+      body: JSON.stringify({ motif }),
+    }),
+  /** Cas à vérifier : tableau + total dans X-Total-Count */
+  listCorrespondances: (params: { statut?: "ouverte" | "resolue"; skip?: number; limit?: number } = {}) =>
+    apiRequestWithTotal<CorrespondanceCO>(`/admin/co/correspondances${toQuery({ statut: "ouverte", ...params })}`),
+  resolve: (id: string, data: ResolutionCorrespondanceCO) =>
+    apiRequest<{ message: string; decision: string; participation_id: string }>(
+      `/admin/co/correspondances/${encodeURIComponent(id)}/resoudre`,
+      { method: "POST", body: JSON.stringify(data) }
+    ),
+  /** Export CSV / Excel authentifié (sans données médicales) ; paramètres : buildExportParams */
+  export: (params: QueryParams) => apiBlob(`/admin/co/export${toQuery(params)}`),
+};
+
 // ✅ ADMINISTRATION : export, sessions
 export const adminApi = {
   /** F-A2 : export Excel (données médicales exclues côté serveur) */
@@ -1203,6 +1346,7 @@ export default {
   usersApi,
   feedbackApi,
   coApi,
+  recensementCoApi,
   registrationsApi,
   adminApi,
   visiteursApi,
