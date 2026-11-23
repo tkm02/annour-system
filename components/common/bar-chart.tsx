@@ -21,7 +21,7 @@ interface SimpleBarChartProps {
   height?: number
 }
 
-const MARK = "var(--chart-2)"
+const MARK = "var(--chart-1)"
 const INK_MUTED = "var(--muted-foreground)"
 
 function ChartTooltip({ active, payload, seriesName, formatValue }: {
