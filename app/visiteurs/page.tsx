@@ -1,26 +1,28 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Search, Trash2 } from "lucide-react"
+import { Trash2, UserCheck } from "lucide-react"
 import { toast } from "sonner"
 
 import ConfirmDialog from "@/components/common/confirm-dialog"
+import { DataTable, type Column } from "@/components/common/data-table"
+import { FilterBar } from "@/components/common/filter-bar"
+import { PageHeader } from "@/components/common/page-header"
 import Pager from "@/components/common/pager"
-import { EmptyState, ErrorState, LoadingState, errorText } from "@/components/common/states"
+import { EmptyState, errorText } from "@/components/common/states"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { visiteursApi, type Visiteur } from "@/lib/api"
 import { formatDate } from "@/lib/format"
+import { countLabel } from "@/lib/table"
 
 const LIMIT = 20
 
 /** F-A7 : registre des visiteurs (admin). Les visiteurs s'enregistrent depuis le formulaire public. */
 export default function VisiteursPage() {
   const [search, setSearch] = useState("")
-  const [applied, setApplied] = useState("")
+  const applied = useDebouncedValue(search.trim(), 350)
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<Visiteur[]>([])
   const [total, setTotal] = useState(0)
@@ -62,59 +64,67 @@ export default function VisiteursPage() {
     }
   }
 
+  const onSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const deleteButton = (v: Visiteur) => (
+    <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+      aria-label={`Supprimer ${v.nom} ${v.prenom}`} onClick={() => setToDelete(v)}>
+      <Trash2 className="h-4 w-4" aria-hidden="true" />
+    </Button>
+  )
+
+  const columns: Column<Visiteur>[] = [
+    { id: "nom", header: "Nom et prénom", cell: (v) => <span className="font-medium">{v.nom} {v.prenom}</span> },
+    { id: "contact", header: "Contact", cell: (v) => v.contact || "—" },
+    { id: "date", header: "Enregistré le", cell: (v) => <span className="whitespace-nowrap">{formatDate(v.created_at, true)}</span>, hideBelow: "lg" },
+    { id: "actions", header: <span className="sr-only">Actions</span>, cell: deleteButton, align: "right" },
+  ]
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Visiteurs</h1>
-          <p className="text-muted-foreground">Personnes enregistrées à l&apos;accueil (plus récentes d&apos;abord).</p>
-        </div>
-        <Card>
-          <CardHeader>
-            <form className="flex flex-col sm:flex-row gap-3" role="search"
-              onSubmit={(e) => { e.preventDefault(); setPage(1); setApplied(search.trim()) }}>
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <Input className="pl-9" placeholder="Nom ou prénom" aria-label="Rechercher un visiteur"
-                  value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-              <Button type="submit" variant="outline">Rechercher</Button>
-            </form>
-          </CardHeader>
-          <CardContent>
-            {loading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={load} /> : items.length === 0 ? (
-              <EmptyState message="Aucun visiteur." />
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nom et prénom</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Enregistré le</TableHead>
-                      <TableHead><span className="sr-only">Actions</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((v) => (
-                      <TableRow key={v.id}>
-                        <TableCell>{v.nom} {v.prenom}</TableCell>
-                        <TableCell>{v.contact}</TableCell>
-                        <TableCell className="whitespace-nowrap">{formatDate(v.created_at, true)}</TableCell>
-                        <TableCell>
-                          <Button size="icon" variant="ghost" className="text-destructive" aria-label={`Supprimer ${v.nom} ${v.prenom}`}
-                            onClick={() => setToDelete(v)}><Trash2 className="h-4 w-4" /></Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-            <Pager page={page} limit={LIMIT} total={total} onPageChange={setPage} disabled={loading} />
-          </CardContent>
-        </Card>
-      </div>
+      <PageHeader title="Visiteurs" description="Personnes enregistrées à l'accueil, des plus récentes aux plus anciennes." />
+
+      <FilterBar
+        search={search}
+        onSearchChange={onSearchChange}
+        searchLabel="Rechercher un visiteur"
+        searchPlaceholder="Nom ou prénom…"
+        onReset={() => onSearchChange("")}
+        count={!loading && !error ? countLabel(total, total, "visiteur", "visiteurs") : undefined}
+      />
+
+      <DataTable
+        caption="Registre des visiteurs"
+        columns={columns}
+        rows={items}
+        getRowKey={(v) => String(v.id)}
+        loading={loading}
+        error={error}
+        onRetry={load}
+        empty={
+          <EmptyState
+            icon={UserCheck}
+            title={applied ? "Aucun résultat" : "Aucun visiteur"}
+            message={applied ? "Aucun visiteur ne correspond à cette recherche." : "Les visiteurs enregistrés à l'accueil apparaîtront ici."}
+            action={applied ? <Button variant="outline" onClick={() => onSearchChange("")}>Effacer la recherche</Button> : undefined}
+          />
+        }
+        renderCard={(v) => (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
+            <div className="min-w-0">
+              <p className="font-medium">{v.nom} {v.prenom}</p>
+              <p className="text-sm text-muted-foreground">{v.contact || "—"}</p>
+              <p className="text-xs text-muted-foreground">{formatDate(v.created_at, true)}</p>
+            </div>
+            {deleteButton(v)}
+          </div>
+        )}
+      />
+      {!error && total > 0 && <Pager page={page} limit={LIMIT} total={total} onPageChange={setPage} disabled={loading} />}
+
       <ConfirmDialog open={!!toDelete} busy={deleting} onCancel={() => setToDelete(null)} onConfirm={remove}
         title={`Supprimer ${toDelete?.nom ?? ""} ${toDelete?.prenom ?? ""} ?`}
         description="Le visiteur sera définitivement retiré du registre." />
