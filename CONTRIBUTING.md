@@ -15,7 +15,8 @@ Backend, `docs/SYSTEME_GLOBAL.md`).
 3. Lire : `docs/ARCHITECTURE.md`, `docs/CONVENTIONS.md`, `docs/DESIGN_SYSTEM.md`, `docs/UX_GUIDELINES.md`,
    `docs/SECURITY.md`.
 4. Vérifier l'état de départ (baseline : `docs/TESTING.md`) avant toute modification.
-5. Hooks Git : activés automatiquement par `npm ci` (script `prepare` → Husky).
+5. Hooks Git : activés automatiquement par `npm ci` (script `prepare` → `.husky/install.mjs`, ignoré en CI et en
+   production).
    Installer **gitleaks** (détection de secrets du hook) : `winget install gitleaks` (Windows),
    `brew install gitleaks` (macOS) ou binaire des releases GitHub (Linux).
 
@@ -55,6 +56,9 @@ tests, revue, documentation. Un changement de contrat d'API se coordonne avec le
 - Permissions partagées de l'assistant : `.claude/settings.json` (versionné) — tests, lint, build et lecture Git
   sans confirmation ; installation de dépendances, commit, push, suppressions, déploiement avec confirmation ; lecture
   des `.env*` réels et des clés interdite. Réglages personnels : `.claude/settings.local.json` (ignoré par Git).
+- Hook `PreToolUse` (`.claude/hooks/protect-secrets.mjs`, exécuté par Node) : refuse à l'assistant,
+  quel que soit l'outil, tout chemin vers un `.env` réel, une clé ou un export de données. Protection partielle (une
+  recherche récursive n'est pas détectée) : utiliser des identifiants de **développement**, distincts de la production.
 
 ## 6. Modifier les règles communes
 `CLAUDE.md`, `CONTRIBUTING.md`, `.claude/` et la CI ne changent que par **PR + ADR** (`docs/adr/`). Les règles

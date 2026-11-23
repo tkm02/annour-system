@@ -1,9 +1,20 @@
 // lib/api.ts - VERSION UNIFIÉE MAMADOU 2025
 
-// URL de l'API configurable par environnement (voir .env.example) ; repli sur l'API de production
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "https://an-nour-backend-5mf0.onrender.com/api/v1"
-).replace(/\/+$/, "");
+// URL de l'API configurable par environnement (voir .env.example). Jamais de repli sur l'API de production (F-17) :
+// variable obligatoire en production (Vercel Production et Preview), API locale du Backend (port 8000) sinon.
+const LOCAL_API_URL = "http://localhost:8000/api/v1";
+export const MISSING_API_URL_MESSAGE =
+  "Configuration incomplète : l'adresse de l'API (NEXT_PUBLIC_API_URL) n'est pas définie. Contactez l'administrateur.";
+
+export function resolveApiBaseUrl(configured: string | undefined, nodeEnv: string | undefined): string | null {
+  const url = configured?.trim();
+  if (url) return url.replace(/\/+$/, "");
+  return nodeEnv === "production" ? null : LOCAL_API_URL;
+}
+
+// Résolue au chargement mais vérifiée à chaque appel : le build (CI, prérendu) n'échoue pas sans la variable,
+// seuls les appels réseau sont refusés avec un message explicite.
+const API_BASE_URL = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL, process.env.NODE_ENV);
 
 let cachedSeminaristes: any = null;
 
@@ -341,7 +352,20 @@ export function toQuery(params: Record<string, string | number | boolean | null 
   return text ? `?${text}` : "";
 }
 
+/** Message exact du Backend (`app/utils/auth.py`, 403) pour un compte désactivé : pas encore de code d'erreur stable. */
+export const ACCOUNT_DISABLED_DETAIL = "Compte désactivé";
+
+/** Fermer la session locale et revenir à la connexion (rechargement complet : l'état React est réinitialisé). */
+function endSession() {
+  authApi.logout();
+  if (typeof window !== 'undefined' && window.location.pathname !== "/") {
+    window.location.href = "/";
+  }
+}
+
 async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
+  if (!API_BASE_URL) throw new ApiError(0, MISSING_API_URL_MESSAGE);
+
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -363,15 +387,17 @@ async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<
 
   // Token expiré, invalide ou compte supprimé : fermer la session et revenir à la connexion
   if (response.status === 401 && token) {
-    authApi.logout();
-    if (typeof window !== 'undefined' && window.location.pathname !== "/") {
-      window.location.href = "/";
-    }
+    endSession();
   }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw buildApiError(response.status, errorText, response.headers.get("Retry-After"));
+    const error = buildApiError(response.status, errorText, response.headers.get("Retry-After"));
+    // F-21 : compte désactivé pendant la session → même traitement que 401 (un 403 « Accès refusé » garde la session)
+    if (response.status === 403 && token && error.detail === ACCOUNT_DISABLED_DETAIL) {
+      endSession();
+    }
+    throw error;
   }
 
   return response;
@@ -530,13 +556,13 @@ export const scientificApi = {
     });
   },
   updateSeminariste: async (matricule: string, data: Partial<UpdateSeminariste>) => {
-    return apiRequest<Seminariste>(`/admin/seminaristes/${matricule}`, {
+    return apiRequest<Seminariste>(`/admin/seminaristes/${encodeURIComponent(matricule)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
   deleteSeminariste: async (matricule: string) => {
-    return apiRequest(`/admin/seminaristes/${matricule}`, {
+    return apiRequest(`/admin/seminaristes/${encodeURIComponent(matricule)}`, {
       method: 'DELETE',
     });
   },
@@ -579,14 +605,14 @@ export const scientificApi = {
   },
   
   updateNote: async (id: string, data: UpdateNote) => {
-    return apiRequest<Note>(`/scientific/notes/${id}`, {
+    return apiRequest<Note>(`/scientific/notes/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
   
   deleteNote: async (id: string) => {
-    return apiRequest(`/scientific/notes/${id}`, {
+    return apiRequest(`/scientific/notes/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
   },
@@ -610,12 +636,12 @@ export const scientificApi = {
   },
   
   getBulletins: async (matricule?: string) => {
-    const params = matricule ? `?matricule=${matricule}` : '';
+    const params = matricule ? `?matricule=${encodeURIComponent(matricule)}` : '';
     return apiRequest<Bulletin[]>(`/scientific/bulletins${params}`);
   },
   
   getBulletinByNumero: async (numero: string) => {
-    return apiRequest<BulletinDetail>(`/scientific/bulletins/${numero}`);
+    return apiRequest<BulletinDetail>(`/scientific/bulletins/${encodeURIComponent(numero)}`);
   },
 
   // 📋 MÉTADONNÉES
@@ -710,14 +736,14 @@ export const usersApi = {
   },
   
   updateUser: async (id: string, userData: Partial<CreateUserPayload>) => {
-    return apiRequest<User>(`/admin/users/${id}`, {
+    return apiRequest<User>(`/admin/users/${encodeURIComponent(id)}`, {
       method: "PUT",
       body: JSON.stringify(userData),
     });
   },
   
   toggleUserStatus: async (id: string, isActive: boolean) => {
-    return apiRequest<User>(`/admin/users/${id}`, {
+    return apiRequest<User>(`/admin/users/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify({ is_active: isActive }),
     });
@@ -776,11 +802,11 @@ export const feedbackApi = {
   },
 
   getOne: async (id: string) => {
-    return apiRequest<Feedback>(`/admin/feedback/${id}`);
+    return apiRequest<Feedback>(`/admin/feedback/${encodeURIComponent(id)}`);
   },
 
   delete: async (id: string) => {
-    return apiRequest(`/admin/feedback/${id}`, {
+    return apiRequest(`/admin/feedback/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
   },

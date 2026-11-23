@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { CheckCircle2, Eye, Loader2, Search } from "lucide-react"
 import { toast } from "react-hot-toast"
 
@@ -140,15 +140,19 @@ function PaymentDetailDialog({ matricule, onClose, onChanged }: {
 }) {
   const [detail, setDetail] = useState<PaymentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // F-20 : seule la dernière requête met à jour le détail (une réponse d'un matricule précédent est ignorée)
+  const lastRequest = useRef(0)
 
   const load = useCallback(async () => {
+    const request = ++lastRequest.current
     if (!matricule) return
     setDetail(null)
     setError(null)
     try {
-      setDetail(await paymentsApi.get(matricule))
+      const data = await paymentsApi.get(matricule)
+      if (request === lastRequest.current) setDetail(data)
     } catch (err) {
-      setError(errorText(err, "Détail du paiement indisponible"))
+      if (request === lastRequest.current) setError(errorText(err, "Détail du paiement indisponible"))
     }
   }, [matricule])
 
@@ -203,7 +207,8 @@ function PaymentDetailDialog({ matricule, onClose, onChanged }: {
                 <CheckCircle2 className="h-4 w-4" /> Paiement déjà vérifié : aucune décision possible.
               </p>
             ) : (
-              <DecisionPanel detail={detail} onDone={() => { onChanged(); load() }} />
+              // key : formulaire de décision réinitialisé pour chaque paiement affiché (F-20)
+              <DecisionPanel key={detail.matricule} detail={detail} onDone={() => { onChanged(); load() }} />
             )}
           </div>
         )}

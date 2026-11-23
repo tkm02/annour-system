@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { FileDown, Loader2, Pencil } from "lucide-react"
 import { toast } from "react-hot-toast"
 
@@ -39,16 +39,20 @@ export default function ConsultationModal({ consultationId, onClose, onChanged }
   const [errors, setErrors] = useState<Errors>({})
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
+  // F-20 : seule la dernière requête met à jour le détail (une réponse d'une consultation précédente est ignorée)
+  const lastRequest = useRef(0)
 
   const load = useCallback(async () => {
+    const request = ++lastRequest.current
     if (!consultationId) return
     setConsultation(null)
     setError(null)
     setEditing(false)
     try {
-      setConsultation(await santeApi.getConsultation(consultationId))
+      const data = await santeApi.getConsultation(consultationId)
+      if (request === lastRequest.current) setConsultation(data)
     } catch (err) {
-      setError(errorText(err, "Consultation introuvable"))
+      if (request === lastRequest.current) setError(errorText(err, "Consultation introuvable"))
     }
   }, [consultationId])
 
