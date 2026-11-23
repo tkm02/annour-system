@@ -2,24 +2,26 @@
 
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, Pencil, Search, Trash2 } from "lucide-react"
+import { Loader2, Pencil, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import ConfirmDialog from "@/components/common/confirm-dialog"
-import Pager from "@/components/common/pager"
-import { EmptyState, ErrorState, LoadingState, errorText } from "@/components/common/states"
-import Field from "@/components/finance/field"
+import { DataTable, type Column } from "@/components/common/data-table"
+import Field from "@/components/common/field"
+import { FilterBar } from "@/components/common/filter-bar"
+import { PageHeader } from "@/components/common/page-header"
+import { EmptyState, errorText } from "@/components/common/states"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { coApi, type MembreCO, type MembreCOUpdate } from "@/lib/api"
+import { countLabel, matchesSearch } from "@/lib/table"
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 25
 type EditForm = Required<Pick<MembreCO, "nom" | "prenoms" | "contact" | "commission" | "statut" | "allergies" | "antecedent_medical">>
 const FIELDS: Array<keyof EditForm> = ["nom", "prenoms", "contact", "commission", "statut", "allergies", "antecedent_medical"]
 
@@ -90,7 +92,10 @@ function EditDialog({ membre, onClose, onSaved }: { membre: MembreCO | null; onC
             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Annuler</Button>
-              <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Enregistrer</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {saving ? "Enregistrement…" : "Enregistrer"}
+              </Button>
             </DialogFooter>
           </form>
         )}
@@ -104,8 +109,8 @@ export default function MembresCOPage() {
   const [items, setItems] = useState<MembreCO[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  const query = useDebouncedValue(search)
   const [commission, setCommission] = useState("toutes")
-  const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<MembreCO | null>(null)
   const [toDelete, setToDelete] = useState<MembreCO | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -124,12 +129,16 @@ export default function MembresCOPage() {
   }, [load])
 
   const commissions = useMemo(() => Array.from(new Set((items ?? []).map((m) => m.commission).filter(Boolean))).sort(), [items])
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    return (items ?? []).filter((m) =>
-      (commission === "toutes" || m.commission === commission) &&
-      (!term || `${m.nom} ${m.prenoms} ${m.contact}`.toLowerCase().includes(term)))
-  }, [items, search, commission])
+  const filtered = useMemo(
+    () => (items ?? []).filter((m) =>
+      (commission === "toutes" || m.commission === commission) && matchesSearch(query, [m.nom, m.prenoms, m.contact])),
+    [items, query, commission]
+  )
+  const filteredOut = !!query.trim() || commission !== "toutes"
+  const resetFilters = () => {
+    setSearch("")
+    setCommission("toutes")
+  }
 
   const remove = async () => {
     if (!toDelete) return
@@ -146,66 +155,81 @@ export default function MembresCOPage() {
     }
   }
 
+  const rowActions = (m: MembreCO) => (
+    <div className="flex justify-end gap-1">
+      <Button size="icon" variant="ghost" aria-label={`Modifier ${m.nom} ${m.prenoms}`} onClick={() => setEditing(m)}>
+        <Pencil className="h-4 w-4" aria-hidden="true" />
+      </Button>
+      <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+        aria-label={`Supprimer ${m.nom} ${m.prenoms}`} onClick={() => setToDelete(m)}>
+        <Trash2 className="h-4 w-4" aria-hidden="true" />
+      </Button>
+    </div>
+  )
+
+  const columns: Column<MembreCO>[] = [
+    { id: "nom", header: "Nom et prénoms", cell: (m) => <span className="font-medium">{m.nom} {m.prenoms}</span>, sortValue: (m) => `${m.nom} ${m.prenoms}` },
+    { id: "commission", header: "Commission", cell: (m) => m.commission, sortValue: (m) => m.commission },
+    { id: "statut", header: "Statut", cell: (m) => m.statut, sortValue: (m) => m.statut, hideBelow: "lg" },
+    { id: "contact", header: "Contact", cell: (m) => m.contact, hideBelow: "xl" },
+    { id: "actions", header: <span className="sr-only">Actions</span>, cell: rowActions, align: "right" },
+  ]
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Membres du comité d&apos;organisation</h1>
-          <p className="text-muted-foreground">Modification et suppression des membres (les badges se génèrent depuis la page Badges).</p>
-        </div>
-        <Card>
-          <CardHeader className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <Input className="pl-9" placeholder="Nom, prénoms ou contact" aria-label="Rechercher un membre"
-                value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
+      <PageHeader
+        title="Membres CO 2025 (archives)"
+        description="Modification et suppression des membres de l'édition précédente. Les badges se génèrent depuis la page Badges."
+      />
+
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchLabel="Rechercher un membre"
+        searchPlaceholder="Nom, prénoms ou contact…"
+        filters={
+          <Select value={commission} onValueChange={setCommission}>
+            <SelectTrigger className="w-full bg-card sm:w-56" aria-label="Filtrer par commission"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="toutes">Toutes les commissions</SelectItem>
+              {commissions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        }
+        activeFilters={commission !== "toutes" ? [{ label: `Commission : ${commission}`, onRemove: () => setCommission("toutes") }] : []}
+        onReset={resetFilters}
+        count={items ? countLabel(filtered.length, items.length, "membre", "membres") : undefined}
+      />
+
+      <DataTable
+        caption="Membres du comité d'organisation 2025"
+        columns={columns}
+        rows={filtered}
+        getRowKey={(m) => String(m.id)}
+        loading={!items && !error}
+        error={error}
+        onRetry={load}
+        pageSize={PAGE_SIZE}
+        empty={
+          <EmptyState
+            icon={Users}
+            title={filteredOut ? "Aucun résultat" : "Aucun membre"}
+            message={filteredOut ? "Aucun membre ne correspond à ces filtres." : "Aucun membre n'est enregistré pour l'édition précédente."}
+            action={filteredOut ? <Button variant="outline" onClick={resetFilters}>Réinitialiser les filtres</Button> : undefined}
+          />
+        }
+        renderCard={(m) => (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
+            <div className="min-w-0">
+              <p className="font-medium">{m.nom} {m.prenoms}</p>
+              <p className="text-sm text-muted-foreground">{m.commission} · {m.statut}</p>
+              <p className="text-xs text-muted-foreground">{m.contact}</p>
             </div>
-            <Select value={commission} onValueChange={(v) => { setCommission(v); setPage(1) }}>
-              <SelectTrigger className="sm:w-56" aria-label="Filtrer par commission"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="toutes">Toutes les commissions</SelectItem>
-                {commissions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </CardHeader>
-          <CardContent>
-            {error ? <ErrorState message={error} onRetry={load} /> : !items ? <LoadingState /> : filtered.length === 0 ? (
-              <EmptyState message="Aucun membre." />
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nom et prénoms</TableHead>
-                      <TableHead>Commission</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead className="hidden md:table-cell">Contact</TableHead>
-                      <TableHead><span className="sr-only">Actions</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((m) => (
-                      <TableRow key={m.id}>
-                        <TableCell>{m.nom} {m.prenoms}</TableCell>
-                        <TableCell>{m.commission}</TableCell>
-                        <TableCell>{m.statut}</TableCell>
-                        <TableCell className="hidden md:table-cell">{m.contact}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1 justify-end">
-                            <Button size="icon" variant="ghost" aria-label={`Modifier ${m.nom} ${m.prenoms}`} onClick={() => setEditing(m)}><Pencil className="h-4 w-4" /></Button>
-                            <Button size="icon" variant="ghost" className="text-destructive" aria-label={`Supprimer ${m.nom} ${m.prenoms}`} onClick={() => setToDelete(m)}><Trash2 className="h-4 w-4" /></Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-            <Pager page={page} limit={PAGE_SIZE} total={filtered.length} onPageChange={setPage} />
-          </CardContent>
-        </Card>
-      </div>
+            {rowActions(m)}
+          </div>
+        )}
+      />
+
       <EditDialog membre={editing} onClose={() => setEditing(null)} onSaved={load} />
       <ConfirmDialog open={!!toDelete} busy={deleting} onCancel={() => setToDelete(null)} onConfirm={remove}
         title={`Supprimer ${toDelete?.nom ?? ""} ${toDelete?.prenoms ?? ""} ?`}
