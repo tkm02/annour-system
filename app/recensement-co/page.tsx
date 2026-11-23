@@ -3,7 +3,9 @@
 import { useCallback, useMemo, useState } from "react"
 import { RefreshCw } from "lucide-react"
 
-import { ErrorState, LoadingState } from "@/components/common/states"
+import { PageHeader } from "@/components/common/page-header"
+import { StatGridSkeleton } from "@/components/common/stat-card"
+import { ErrorState } from "@/components/common/states"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import CoCasTab from "@/components/recensement-co/co-cas-tab"
 import CoDetailDialog from "@/components/recensement-co/co-detail-dialog"
@@ -50,20 +52,16 @@ export default function RecensementCOPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Membres du CO — recensement {editionLibelle ?? ""}
-            </h1>
-            <p className="text-muted-foreground">
-              Fiches transmises par le formulaire public : vérification, correction, validation et cas à vérifier.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" className="gap-2 self-start" onClick={refresh} disabled={stats.loading}>
-            <RefreshCw className={`h-4 w-4 ${stats.loading ? "animate-spin" : ""}`} aria-hidden="true" /> Actualiser
+      <PageHeader
+        title={`Recensement CO${editionLibelle ? ` — ${editionLibelle}` : ""}`}
+        description="Fiches transmises par le formulaire public : vérification, correction, validation et cas à vérifier."
+        actions={
+          <Button variant="outline" onClick={refresh} disabled={stats.loading}>
+            <RefreshCw className={stats.loading ? "animate-spin" : undefined} aria-hidden="true" /> Actualiser
           </Button>
-        </div>
+        }
+      />
+      <div className="space-y-6">
 
         <section aria-label="Synthèse du recensement">
           {stats.error ? (
@@ -71,7 +69,7 @@ export default function RecensementCOPage() {
               <ErrorState message={apiErrorMessage(stats.error, "Synthèse du recensement indisponible")} onRetry={stats.reload} />
             </CardContent></Card>
           ) : !stats.data ? (
-            <LoadingState label="Chargement de la synthèse…" />
+            <StatGridSkeleton />
           ) : (
             <CoStatsCards stats={stats.data} onShowCas={() => showCas()} />
           )}
@@ -84,7 +82,7 @@ export default function RecensementCOPage() {
               <TabsTrigger value="cas">
                 Cas à vérifier
                 {cas > 0 && (
-                  <span className="ml-1 rounded-full bg-secondary px-1.5 text-xs text-secondary-foreground">
+                  <span className="ml-1 rounded-full bg-warning-soft px-1.5 text-xs font-semibold text-warning-strong">
                     {cas}<span className="sr-only"> cas ouverts</span>
                   </span>
                 )}

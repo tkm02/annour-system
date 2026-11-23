@@ -228,7 +228,7 @@ export default function CoDetailDialog({ id, commissions, onClose, onChanged, on
                       </Button>
                     )}
                     {detail.statut_fiche !== "validee" && (
-                      <Button className="gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                      <Button className="gap-2"
                         disabled={busy || aVerifier} aria-describedby={aVerifier ? "co-valider-aide" : undefined}
                         onClick={() => setPending("valider")}>
                         <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Valider
