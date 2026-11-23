@@ -28,9 +28,12 @@ export const STATUT_LABELS: Record<StatutFiche, string> = {
 export const TYPE_LABELS: Record<string, string> = { ancien: "Ancien", nouveau: "Nouveau" }
 export const SEXE_LABELS: Record<SexeCO, string> = { M: "Homme", F: "Femme" }
 
+// Motifs produits par l'API (app/routes/recensement_co.py) ; la date de naissance n'est plus un critère (2026-11-22)
 export const MOTIF_CORRESPONDANCE_LABELS: Record<string, string> = {
   multiple: "Plusieurs personnes connues portent cette identité",
-  partielle: "Identité connue, mais téléphone, commission ou date de naissance différents",
+  partielle: "Identité connue, mais téléphone ou commission de l'an passé différents",
+  complete: "Correspond à une fiche existante, mais envoyée sans identification préalable : rattachement à confirmer",
+  tentatives: "Identité verrouillée après plusieurs tentatives partielles en 24 h",
   telephone: "Numéro de téléphone déjà connu sous une autre identité",
   email: "Email déjà utilisé par une autre personne",
 }
