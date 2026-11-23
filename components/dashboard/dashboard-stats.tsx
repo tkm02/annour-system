@@ -44,7 +44,7 @@ export default function DashboardStats({
       title: "Séminaristes Filles",
       value: femalesCount.toString().padStart(3, "0"),
       icon: UserX,
-      color: "text-accent",
+      color: "text-primary",
     },
     {
       title: "Séminaristes Pépinières",
@@ -62,7 +62,7 @@ export default function DashboardStats({
       title: "Séminaristes Pépinières Filles",
       value: pepiniereFille.toString().padStart(3, "0"),
       icon: UserX,
-      color: "text-accent",
+      color: "text-primary",
     },
     {
       title: "Pourcentage Garçons",
@@ -74,7 +74,7 @@ export default function DashboardStats({
       title: "Pourcentage Filles",
       value: `${femalePercentage.toFixed(2)}%`,
       icon: UserX,
-      color: "text-accent",
+      color: "text-primary",
     },
   ]
 

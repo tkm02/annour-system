@@ -3,43 +3,88 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Design system An-Nour — back-office (ADR 0002, variante B « SaaS clair à accents de marque »).
+ * Jetons de marque --an-* ; les rôles shadcn s'y rattachent. Contrastes calculés dans l'ADR.
+ * Le vert de marque ne porte jamais de texte (1,83:1 sur blanc) : décor, indicateurs, logo.
+ */
 :root {
-  /* Updated color tokens to match An-Nour design brief */
-  --background: oklch(1 0 0); /* #ffffff */
-  --foreground: oklch(0.2 0 0); /* #333333 */
-  --card: oklch(0.94 0 0); /* #f0f0f0 */
-  --card-foreground: oklch(0.2 0 0); /* #333333 */
-  --popover: oklch(1 0 0); /* #ffffff */
-  --popover-foreground: oklch(0.2 0 0); /* #333333 */
-  --primary: oklch(0.75 0.15 120); /* #AACD06 - An-Nour green */
-  --primary-foreground: oklch(1 0 0); /* #ffffff */
-  --secondary: oklch(0.3 0.1 240); /* #004576 - An-Nour blue */
-  --secondary-foreground: oklch(1 0 0); /* #ffffff */
-  --muted: oklch(0.94 0 0); /* #f0f0f0 */
-  --muted-foreground: oklch(0.47 0 0); /* #777777 */
-  --accent: oklch(0.75 0.15 120); /* #AACD06 */
-  --accent-foreground: oklch(0.3 0.1 240); /* #004576 */
-  --destructive: oklch(0.6 0.2 20); /* #ff4d4d */
-  --destructive-foreground: oklch(1 0 0); /* #ffffff */
-  --border: oklch(0.88 0 0); /* #e0e0e0 */
-  --input: oklch(1 0 0); /* #ffffff */
-  --ring: oklch(0.2 0 0 / 0.1); /* rgba(0, 0, 0, 0.1) */
-  --chart-1: oklch(0.75 0.15 120); /* #AACD06 */
-  --chart-2: oklch(0.3 0.1 240); /* #004576 */
-  --chart-3: oklch(0.88 0 0); /* #e0e0e0 */
-  --chart-4: oklch(0.6 0.2 20); /* #ff4d4d */
-  --chart-5: oklch(0.94 0 0); /* #f0f0f0 */
+  /* Jetons de marque */
+  --an-blue-50: #eef5fa;
+  --an-blue-100: #d6e6f2;
+  --an-blue-700: #004576;
+  --an-blue-800: #003a63;
+  --an-green-50: #f4f9dc;
+  --an-green-500: #aacd06;
+  --an-green-700: #4d5e00;
+  --an-neutral-50: #f9fafb;
+  --an-neutral-100: #f3f4f6;
+  --an-neutral-200: #e5e7eb;
+  --an-neutral-400: #8a919c;
+  --an-neutral-500: #6b7280;
+  --an-neutral-600: #4b5563;
+  --an-neutral-900: #1f2937;
+
+  /* Rôles (shadcn) */
+  --background: var(--an-neutral-50);
+  --foreground: var(--an-neutral-900);
+  --card: #ffffff;
+  --card-foreground: var(--an-neutral-900);
+  --popover: #ffffff;
+  --popover-foreground: var(--an-neutral-900);
+  --primary: var(--an-blue-700);
+  --primary-hover: var(--an-blue-800);
+  --primary-foreground: #ffffff;
+  /* Conservé en bleu de marque : compatibilité des écrans existants (text-secondary, bg-secondary). */
+  --secondary: var(--an-blue-700);
+  --secondary-foreground: #ffffff;
+  --muted: var(--an-neutral-100);
+  --muted-foreground: var(--an-neutral-600);
+  --subtle-foreground: var(--an-neutral-500); /* méta : uniquement sur blanc ou fond de page */
+  --accent: var(--an-blue-50);
+  --accent-foreground: var(--an-blue-700);
+  --brand: var(--an-green-500);
+  --brand-foreground: var(--an-blue-700);
+  --brand-soft: var(--an-green-50);
+  --brand-strong: var(--an-green-700);
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fee2e2;
+  --destructive-strong: #991b1b;
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --success-soft: #dcfce7;
+  --success-strong: #166534;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --warning-soft: #fef3c7;
+  --warning-strong: #92400e;
+  --info: #0369a1;
+  --info-foreground: #ffffff;
+  --info-soft: #e0f2fe;
+  --info-strong: #075985;
+  --border: var(--an-neutral-200);
+  --input: var(--an-neutral-400);
+  --ring: var(--an-blue-700);
+  /* Graphiques : ordre fixe, tous >= 3:1 sur blanc */
+  --chart-1: #004576;
+  --chart-2: #6b8e00;
+  --chart-3: #b45309;
+  --chart-4: #0f766e;
+  --chart-5: #7c3aed;
+  --chart-6: #64748b;
   --radius: 0.5rem;
-  --sidebar: oklch(1 0 0); /* #ffffff */
-  --sidebar-foreground: oklch(0.2 0 0); /* #333333 */
-  --sidebar-primary: oklch(0.75 0.15 120); /* #AACD06 */
-  --sidebar-primary-foreground: oklch(1 0 0); /* #ffffff */
-  --sidebar-accent: oklch(0.3 0.1 240); /* #004576 */
-  --sidebar-accent-foreground: oklch(1 0 0); /* #ffffff */
-  --sidebar-border: oklch(0.88 0 0); /* #e0e0e0 */
-  --sidebar-ring: oklch(0.2 0 0 / 0.1); /* rgba(0, 0, 0, 0.1) */
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--an-neutral-600);
+  --sidebar-primary: var(--an-blue-700);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--an-blue-50);
+  --sidebar-accent-foreground: var(--an-blue-700);
+  --sidebar-border: var(--an-neutral-200);
+  --sidebar-ring: var(--an-blue-700);
 }
 
+/* Mode sombre hors périmètre (ADR 0002) : bloc conservé, jamais activé. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -76,7 +121,7 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -86,6 +131,26 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-strong: var(--brand-strong);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-strong: var(--success-strong);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-strong: var(--warning-strong);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-info-strong: var(--info-strong);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-strong: var(--destructive-strong);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -102,6 +167,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -118,9 +184,9 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/70;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
