@@ -57,6 +57,14 @@ test("libellés : statut, qualité, type, sexe, motif ; valeur inconnue affiché
   assert.match(motifCorrespondanceLabel("telephone"), /téléphone/);
 });
 
+test("libellés des motifs de correspondance : tous ceux produits par l'API, sans date de naissance", () => {
+  for (const motif of ["multiple", "partielle", "complete", "tentatives", "telephone", "email"]) {
+    assert.notEqual(motifCorrespondanceLabel(motif), motif, motif);
+  }
+  assert.doesNotMatch(motifCorrespondanceLabel("partielle"), /naissance/);
+  assert.match(motifCorrespondanceLabel("complete"), /rattachement à confirmer/);
+});
+
 test("silhouette : homme si M, femme voilée si F, neutre sinon", () => {
   assert.equal(silhouetteFor("M"), "homme");
   assert.equal(silhouetteFor("f"), "femme");

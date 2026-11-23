@@ -4,6 +4,11 @@ Toutes les évolutions notables de ce dépôt sont consignées ici.
 Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
+### Corrigé
+- Recensement CO, cas à vérifier : libellés des motifs `complete` (fiche envoyée sans identification préalable qui
+  correspond à une fiche existante, API `fix/recensement-co-securite`) et `tentatives` (identité verrouillée) ;
+  le libellé `partielle` ne cite plus la date de naissance (retirée du recensement le 2026-11-22).
+
 ### Ajouté
 - Recensement CO (`/recensement-co`, rôle admin) : synthèse de l'édition en cours, fiches paginées avec recherche,
   filtres et export CSV/Excel, détail (santé signalée confidentielle, historique des éditions), correction,
