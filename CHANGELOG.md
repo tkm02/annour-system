@@ -10,6 +10,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 - Plus de repli silencieux sur l'API de production : sans `NEXT_PUBLIC_API_URL`, un build de production refuse les
   appels avec un message explicite ; hors production, repli sur `http://localhost:8000/api/v1` (F-17). La variable
   doit être définie dans Vercel (Production et Preview).
+
 ### Corrigé
 - Fiche médicale : les consultations du patient précédent ne sont plus affichées ni cliquables après un changement
   de patient ; les réponses périmées (patient ou page précédents) sont ignorées (F-18).
@@ -20,7 +21,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 - `lib/api.ts` : paramètres de chemin encodés (séminaristes, notes, bulletins, utilisateurs, avis) (F-23).
 - Garde de route : la redirection vers la connexion attend la lecture de la session (`isLoading`) au lieu de
   dépendre de l'ordre des effets (F-24).
+- Recensement CO, cas à vérifier : libellés des motifs `complete` (fiche envoyée sans identification préalable qui
+  correspond à une fiche existante, API `fix/recensement-co-securite`) et `tentatives` (identité verrouillée) ;
+  le libellé `partielle` ne cite plus la date de naissance (retirée du recensement le 2026-11-22).
+
 ### Ajouté
+- Recensement CO (`/recensement-co`, rôle admin) : synthèse de l'édition en cours, fiches paginées avec recherche,
+  filtres et export CSV/Excel, détail (santé signalée confidentielle, historique des éditions), correction,
+  validation, rejet motivé et traitement des cas à vérifier (fusion ou personne différente) — routes `/admin/co/*`.
+  Silhouette de photo d'identité réutilisable (`components/common/id-photo-placeholder.tsx`). La page
+  `/membres-co` (fiches 2025) est inchangée ; son entrée de menu devient « Membres CO 2025 (archives) ».
 - Sécurité du cadre (revues du 2026-11-19) : hook `PreToolUse` de protection des secrets, permissions de l'assistant
   resserrées (`git branch`, `git diff --no-index`, exports, réécritures), CI durcie (SHA-256 de gitleaks épinglé,
   `persist-credentials: false`, expressions via `env:`, repli si le commit précédent est introuvable).

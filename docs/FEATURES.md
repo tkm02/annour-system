@@ -12,6 +12,7 @@
 | Badges (`/badges`) | admin | `/registrations` + génération client (PDF, QR) | — | à risque (2 817 l., non testé) |
 | Certificats (`/certificats`) | admin | génération client | — | à risque (non testé) |
 | Membres CO (`/membres-co`) | admin | `/admin/membres-co` | `api-modules.test.mjs` | partiel |
+| Recensement CO (`/recensement-co`) | admin | `/admin/co/*` (+ `/co/configuration` pour les commissions) | `recensement-co.test.mjs`, `api-modules.test.mjs`, `navigation.test.mjs` | nouveau (recette navigateur à faire) |
 | Visiteurs (`/visiteurs`) | admin | `/visiteurs` | — | partiel |
 | Avis (`/feedback`) | admin | `/admin/feedback`, analytique | — | partiel |
 | Gestion des accès (`/acces`) | admin | `/admin/users`, `/admin/auth/register`, révocation | `roles.test.mjs` | stable |

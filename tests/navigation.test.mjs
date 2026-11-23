@@ -47,3 +47,15 @@ test("menus cibles : liens morts retirés, tableau de bord par rôle", () => {
   assert.equal(homeFor("scientifique"), "/dashboard");
   assert.deepEqual(navigationFor("inconnu"), []);
 });
+
+test("recensement CO : page et menu réservés à l'administration, ancienne page Membres CO conservée", () => {
+  assert.deepEqual(allowedRolesFor("/recensement-co"), ["admin"]);
+  for (const role of ["scientifique", "finances", "sante"]) assert.equal(canAccess(role, "/recensement-co"), false, role);
+  assert.equal(canAccess(null, "/recensement-co"), false);
+  const hrefs = navigationFor("admin").map((i) => i.href);
+  assert.ok(hrefs.includes("/recensement-co") && hrefs.includes("/membres-co"));
+  assert.equal(navigationFor("admin").find((i) => i.href === "/membres-co").name, "Membres CO 2025 (archives)");
+  for (const role of ["scientifique", "finances", "sante"]) {
+    assert.ok(!navigationFor(role).some((i) => i.href === "/recensement-co"), role);
+  }
+});

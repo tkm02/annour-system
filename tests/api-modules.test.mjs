@@ -163,3 +163,50 @@ test("paramètres de chemin encodés : scientifique, utilisateurs, avis (F-23)",
     `DELETE /admin/feedback/${enc}`,
   ]);
 });
+
+test("recensement CO : routes /admin/co/*, méthodes, corps, X-Total-Count et export authentifié", async () => {
+  responder = () => json({ total: 0, data: [] });
+  await api.recensementCoApi.getStats();
+  await api.recensementCoApi.list({ commission: "Santé", statut: "a_verifier", q: "Fictif", skip: 20, limit: 20 });
+  await api.recensementCoApi.get("p/1");
+  await api.recensementCoApi.update("p1", { telephone: "0700000000", allergies: "" });
+  await api.recensementCoApi.validate("p1");
+  await api.recensementCoApi.reject("p1", "Fiche en double");
+  await api.recensementCoApi.resolve("c1", { decision: "fusion", personne_id: "pers1" });
+  await api.recensementCoApi.resolve("c1", { decision: "nouveau" });
+  assert.equal(path(0), "/admin/co/stats");
+  assert.equal(path(1), "/admin/co/participations?commission=Sant%C3%A9&statut=a_verifier&q=Fictif&skip=20&limit=20");
+  assert.equal(path(2), "/admin/co/participations/p%2F1");
+  assert.equal(calls[3].method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[3].body), { telephone: "0700000000", allergies: "" });
+  assert.equal(path(4), "/admin/co/participations/p1/valider");
+  assert.equal(calls[4].method, "POST");
+  assert.equal(path(5), "/admin/co/participations/p1/rejeter");
+  assert.deepEqual(JSON.parse(calls[5].body), { motif: "Fiche en double" });
+  assert.equal(path(6), "/admin/co/correspondances/c1/resoudre");
+  assert.deepEqual(JSON.parse(calls[6].body), { decision: "fusion", personne_id: "pers1" });
+  assert.deepEqual(JSON.parse(calls[7].body), { decision: "nouveau" });
+  for (const call of calls) assert.equal(call.headers.authorization, "Bearer tok-fictif");
+
+  calls.length = 0;
+  responder = () => json([{ id: "c1" }], { "X-Total-Count": "41" });
+  const cas = await api.recensementCoApi.listCorrespondances({ skip: 20, limit: 20 });
+  assert.equal(path(0), "/admin/co/correspondances?statut=ouverte&skip=20&limit=20");
+  assert.equal(cas.total, 41);
+
+  calls.length = 0;
+  responder = () => new Response("csv", { status: 200, headers: { "Content-Disposition": 'attachment; filename="membres_co_ANNOUR26.csv"' } });
+  const fichier = await api.recensementCoApi.export({ format: "csv", sexe: "F" });
+  assert.equal(path(0), "/admin/co/export?format=csv&sexe=F");
+  assert.equal(calls[0].headers.authorization, "Bearer tok-fictif");
+  assert.equal(fichier.filename, "membres_co_ANNOUR26.csv");
+});
+
+test("recensement CO : 409 « cas à vérifier » remonté avec le message du serveur", async () => {
+  responder = () => new Response(JSON.stringify({ detail: "Résolvez d'abord le cas à vérifier associé à cette fiche" }), { status: 409 });
+  await assert.rejects(api.recensementCoApi.validate("p1"), (err) => {
+    assert.equal(err.status, 409);
+    assert.equal(err.message, "Résolvez d'abord le cas à vérifier associé à cette fiche");
+    return true;
+  });
+});
