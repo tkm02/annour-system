@@ -4,7 +4,7 @@ import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import QRCode from "qrcode"
-import toast from "react-hot-toast"
+import { toast } from "sonner"
 import { AlertCircle, CheckCircle2, Clock, Download, FileImage, Loader2, Plus, RefreshCw, XCircle } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"

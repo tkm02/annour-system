@@ -4,7 +4,6 @@ import { Plus_Jakarta_Sans } from "next/font/google"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/auth-context"
-import { Toaster } from "react-hot-toast"
 import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 import { Suspense } from "react"
 import "./globals.css"
@@ -35,9 +34,8 @@ export default function RootLayout({
         <AuthProvider>
           <Suspense fallback={null}>
             {children}
-            <Toaster />
-            {/* Plusieurs écrans utilisent sonner : son conteneur doit aussi être monté */}
-            <SonnerToaster theme="light" richColors position="top-right" />
+            {/* Notifications : sonner seul (F-11, décision D6) */}
+            <SonnerToaster theme="light" richColors closeButton position="top-right" />
           </Suspense>
         </AuthProvider>
         <Analytics />

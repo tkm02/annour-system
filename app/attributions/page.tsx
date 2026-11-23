@@ -139,7 +139,7 @@ export default function TestEntreePage() {
 
   const handleSaveNote = async (sem: Seminariste) => {
   if (tempNote === 0) {
-    toast.warning("⚠️ Entrez une note entre 0 et 20");
+    toast.warning("Entrez une note entre 0 et 20");
     return;
   }
 
@@ -158,7 +158,7 @@ export default function TestEntreePage() {
     
     await scientificApi.saveTestEntree(testData);
     
-    toast.success(`✅ ${nouveauNiveau} • Note: ${tempNote}/20`);
+    toast.success(`${nouveauNiveau} • Note: ${tempNote}/20`);
     
     // ✅ Rafraîchir liste
     scientificApi.invalidateCache();

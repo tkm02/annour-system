@@ -309,13 +309,13 @@ export default function BadgeGenerationPage() {
   // ✅ GÉNÉRATION PDF MEMBRES CO
   const generateCOPDF = async () => {
     if (selectedMembresCO.length === 0) {
-      toast.warning("⚠️ Sélectionnez au moins un membre CO");
+      toast.warning("Sélectionnez au moins un membre CO");
       return;
     }
 
     try {
       setGenerating(true);
-      toast.info("📄 Génération badges Membres CO...");
+      toast.info("Génération badges Membres CO...");
 
       const pdf = new jsPDF({
         orientation: "landscape",
@@ -346,7 +346,7 @@ export default function BadgeGenerationPage() {
       }
 
       pdf.save(`badges-co-${new Date().toISOString().split("T")[0]}.pdf`);
-      toast.success(`✅ ${selectedMembresCO.length} badges CO générés`);
+      toast.success(`${selectedMembresCO.length} badges CO générés`);
     } catch (error: any) {
       console.error("❌ Erreur PDF CO:", error);
       toast.error("Erreur génération PDF");
@@ -579,13 +579,13 @@ export default function BadgeGenerationPage() {
   };
   const generatePDF = async () => {
     if (selectedSeminaristes.length === 0) {
-      toast.warning("⚠️ Sélectionnez au moins un séminariste");
+      toast.warning("Sélectionnez au moins un séminariste");
       return;
     }
 
     try {
       setGenerating(true);
-      toast.info("📄 Génération PDF avec recto-verso côte à côte...");
+      toast.info("Génération PDF avec recto-verso côte à côte...");
 
       const pdf = new jsPDF({
         orientation: "landscape", // ✅ Paysage pour mettre 2 badges côte à côte
@@ -629,7 +629,7 @@ export default function BadgeGenerationPage() {
 
       pdf.save(`badges-annour-${new Date().toISOString().split("T")[0]}.pdf`);
       toast.success(
-        `✅ ${selectedSeminaristes.length} badge(s) générés (recto-verso côte à côte)`
+        `${selectedSeminaristes.length} badge(s) générés (recto-verso côte à côte)`
       );
     } catch (error: any) {
       console.error("❌ Erreur PDF:", error);
@@ -681,7 +681,7 @@ export default function BadgeGenerationPage() {
 
     try {
       setGenerating(true);
-      toast.info("📄 Génération badges Staff...");
+      toast.info("Génération badges Staff...");
 
       const pdf = new jsPDF({
         orientation: "landscape",
@@ -713,7 +713,7 @@ export default function BadgeGenerationPage() {
       }
 
       pdf.save(`badges-staff-${new Date().toISOString().split("T")[0]}.pdf`);
-      toast.success(`✅ ${selectedStaff.length} badges staff générés`);
+      toast.success(`${selectedStaff.length} badges staff générés`);
     } catch (error: any) {
       console.error("❌ Erreur PDF Staff:", error);
       toast.error("Erreur génération PDF");
@@ -968,7 +968,7 @@ export default function BadgeGenerationPage() {
 
     try {
       setGenerating(true);
-      toast.info("📄 Génération badges personnalisés...");
+      toast.info("Génération badges personnalisés...");
 
       const pdf = new jsPDF({
         orientation: "landscape",
@@ -996,7 +996,7 @@ export default function BadgeGenerationPage() {
       }
 
       pdf.save(`badges-personnalises-${new Date().toISOString().split("T")[0]}.pdf`);
-      toast.success(`✅ ${selectedBadges.length} badges personnalisés générés`);
+      toast.success(`${selectedBadges.length} badges personnalisés générés`);
     } catch (error: any) {
       console.error("❌ Erreur PDF Custom:", error);
       toast.error("Erreur génération PDF");

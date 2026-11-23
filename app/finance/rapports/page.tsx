@@ -3,7 +3,7 @@
 import type React from "react"
 import { useCallback, useEffect, useState } from "react"
 import { FileDown, FilePlus2, Loader2 } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import SimpleBarChart, { recordToBars } from "@/components/common/bar-chart"
 import Pager from "@/components/common/pager"

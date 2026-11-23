@@ -4,7 +4,7 @@ import { Fragment, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronDown, LogOut, Menu, MonitorSmartphone } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,

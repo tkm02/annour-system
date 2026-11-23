@@ -3,7 +3,7 @@
 import type React from "react"
 import { useCallback, useEffect, useState } from "react"
 import { Loader2, Plus, Trash2 } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import ConfirmDialog from "@/components/common/confirm-dialog"
 import { EmptyState, ErrorState, LoadingState, errorText } from "@/components/common/states"

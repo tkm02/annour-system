@@ -133,12 +133,12 @@ export default function NotesManagement() {
   const handleRefresh = () => {
     scientificApi.invalidateCache();
     fetchData();
-    toast.success("🔄 Liste actualisée");
+    toast.success("Liste actualisée");
   };
 
   // ✅ EXPORTER
   const handleExport = () => {
-    toast.info("📥 Export en développement...");
+    toast.info("Export en développement...");
   };
 
   // ✅ AJOUTER COLONNE (NOTE 4)
@@ -148,7 +148,7 @@ export default function NotesManagement() {
       return;
     }
     setNoteColumns(prev => prev + 1);
-    toast.success(`✅ Colonne NOTE ${noteColumns + 1} ajoutée`);
+    toast.success(`Colonne NOTE ${noteColumns + 1} ajoutée`);
   };
 
   // ✅ SUPPRIMER COLONNE (avec confirmation)
@@ -171,7 +171,7 @@ export default function NotesManagement() {
       setNoteColumns(prev => prev - 1);
       setShowDeleteConfirm(false);
       
-      toast.success(`✅ ${deletedCount} note(s) "${libelleToDelete}" supprimée(s)`);
+      toast.success(`${deletedCount} note(s) "${libelleToDelete}" supprimée(s)`);
       
       // Rafraîchir les données
       await fetchData();
@@ -453,7 +453,7 @@ export default function NotesManagement() {
         onClose={() => setShowNotesEntryModal(false)}
         onSuccess={() => {
           fetchData();
-          toast.success("✅ Notes mises à jour");
+          toast.success("Notes mises à jour");
         }}
         currentNoteColumns={noteColumns}
       />

@@ -3,7 +3,7 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Loader2, Pencil, Search, Trash2 } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import ConfirmDialog from "@/components/common/confirm-dialog"
 import Pager from "@/components/common/pager"

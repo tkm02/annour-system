@@ -3,7 +3,7 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import { errorText } from "@/components/common/states"
 import ConsultationFields from "@/components/health/consultation-fields"

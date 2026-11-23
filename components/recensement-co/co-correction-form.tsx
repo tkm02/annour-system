@@ -3,7 +3,7 @@
 import type React from "react"
 import { useMemo, useState } from "react"
 import { Loader2, ShieldAlert } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import Field from "@/components/finance/field"
 import { Button } from "@/components/ui/button"

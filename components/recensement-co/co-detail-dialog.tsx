@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react"
 import { AlertTriangle, CheckCircle2, Pencil, ShieldAlert, XCircle } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import { ErrorState, LoadingState } from "@/components/common/states"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
