@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { coApi, MembreCO, scientificApi, Seminariste } from "@/lib/api";
+import { SITE_PUBLIC } from "@/lib/edition";
 import logoAnnour from "@/public/ANNOUR.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
@@ -481,7 +482,7 @@ export default function BadgeGenerationPage() {
     pdf.setFontSize(6);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+    pdf.text(SITE_PUBLIC, x + w / 2, y + h - 3, { align: "center" });
   };
 
   // ✅ DRAW CO BADGE VERSO
@@ -575,7 +576,7 @@ export default function BadgeGenerationPage() {
     pdf.setFontSize(8);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+    pdf.text(SITE_PUBLIC, x + w / 2, y + h - 3, { align: "center" });
   };
   const generatePDF = async () => {
     if (selectedSeminaristes.length === 0) {
@@ -828,7 +829,7 @@ export default function BadgeGenerationPage() {
     pdf.setFontSize(6);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+    pdf.text(SITE_PUBLIC, x + w / 2, y + h - 3, { align: "center" });
   };
 
   // ✅ DRAW STAFF VERSO (Identique au style CO)
@@ -922,7 +923,7 @@ export default function BadgeGenerationPage() {
     pdf.setFontSize(8);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+    pdf.text(SITE_PUBLIC, x + w / 2, y + h - 3, { align: "center" });
   };
 
   // ✅ GESTION BADGES PERSONNALISÉS
@@ -1132,7 +1133,7 @@ export default function BadgeGenerationPage() {
     pdf.setFontSize(6);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+    pdf.text(SITE_PUBLIC, x + w / 2, y + h - 3, { align: "center" });
   };
 
   // ✅ DRAW CUSTOM BADGE VERSO
@@ -1212,7 +1213,7 @@ export default function BadgeGenerationPage() {
     pdf.setFontSize(8);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, { align: "center" });
+    pdf.text(SITE_PUBLIC, x + w / 2, y + h - 3, { align: "center" });
   };
 
   // ✅ Fonction pour ajouter un logo en arrière-plan avec opacité
@@ -1415,7 +1416,7 @@ export default function BadgeGenerationPage() {
     pdf.setFontSize(8);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, {
+    pdf.text(SITE_PUBLIC, x + w / 2, y + h - 3, {
       align: "center",
     });
   };
@@ -1548,7 +1549,7 @@ export default function BadgeGenerationPage() {
     pdf.setFontSize(8);
     pdf.setTextColor(166, 195, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text("https://an-nour25.vercel.app", x + w / 2, y + h - 3, {
+    pdf.text(SITE_PUBLIC, x + w / 2, y + h - 3, {
       align: "center",
     });
   };
@@ -1666,7 +1667,7 @@ const BadgeRecto = ({ seminariste }: { seminariste: Seminariste }) => (
       {/* Footer */}
       <div className="absolute  bottom-3 left-0 right-0 text-center">
         <span className="text-xs font-bold text-[#A6C33C]">
-          https://an-nour25.vercel.app
+          {SITE_PUBLIC}
         </span>
       </div>
     </div>
@@ -1762,7 +1763,7 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
       {/* Footer */}
       <div className="absolute bottom-3 left-0 right-0 text-center">
         <span className="text-xs font-bold text-[#A6C33C]">
-          https://an-nour25.vercel.app
+          {SITE_PUBLIC}
         </span>
       </div>
     </div>
@@ -1831,7 +1832,7 @@ const BadgeCORecto = ({ membre }: { membre: MembreCO }) => (
 
       {/* Footer */}
       <div className="absolute bottom-3 left-0 right-0 text-center">
-        <span className="text-xs font-bold text-[#A6C33C]">https://an-nour25.vercel.app</span>
+        <span className="text-xs font-bold text-[#A6C33C]">{SITE_PUBLIC}</span>
       </div>
     </div>
   </div>
@@ -1892,7 +1893,7 @@ const BadgeCOVerso = ({ membre, qrCode }: { membre: MembreCO; qrCode?: string })
 
       {/* Footer */}
       <div className="absolute bottom-3 left-0 right-0 text-center">
-        <span className="text-xs font-bold text-[#A6C33C]">https://an-nour25.vercel.app</span>
+        <span className="text-xs font-bold text-[#A6C33C]">{SITE_PUBLIC}</span>
       </div>
     </div>
   </div>

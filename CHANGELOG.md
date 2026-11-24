@@ -4,6 +4,11 @@ Toutes les évolutions notables de ce dépôt sont consignées ici.
 Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
+### Modifié — domaine de production (2026-11-24)
+- Badges : l'adresse du site public imprimée devient `annour.ci` (constante `SITE_PUBLIC` de `lib/edition.ts` au lieu
+  de 12 copies de `https://an-nour25.vercel.app`, F-13). Back-office servi sur `https://backoffice.annour.ci`
+  (`docs/ENVIRONMENTS.md`).
+
 ### Modifié — recensement CO, qualités selon la commission (2026-11-24)
 - Qualités Manager Général / Manager Général Adjoint (Comité Managérial) ajoutées aux libellés et au filtre ;
   qualité vide (« — ») pour les commissions sans qualité. Formulaire de correction : qualités proposées selon la

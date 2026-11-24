@@ -18,7 +18,7 @@
 | F-10 | 🟡 | 6 dépendances en `latest` | `package.json` | figer | ouvert |
 | F-11 | 🟡 | Deux bibliothèques de toast (`react-hot-toast`, `sonner`) | `app/layout.tsx` | en garder une (ADR) | ouvert |
 | F-12 | 🟡 | `styles/globals.css` non importé (doublon) | `styles/` | supprimer | ouvert |
-| F-13 | 🟡 | URL du site public écrite en dur 10 fois | `app/badges/page.tsx` | constante ou variable `NEXT_PUBLIC_*` | ouvert |
+| F-13 | 🟡 | URL du site public écrite en dur 10 fois | `app/badges/page.tsx` | constante ou variable `NEXT_PUBLIC_*` | **résolu** (2026-11-24) : constante `SITE_PUBLIC` de `lib/edition.ts` (`annour.ci`) |
 | F-14 | 🟡 | Nom de paquet `my-v0-project`, version 0.1.0 | `package.json` | renommer | ouvert |
 | F-15 | 🟡 | Couleurs en dur et quasi-doublons dans les gabarits imprimables | badges, certificats, bulletins | `DESIGN_SYSTEM.md` §2 | ouvert |
 | F-16 | 🟡 | `README.md` annonce des fonctions non retrouvées (communication inter-comités, emplois du temps, billets de santé, tickets) | `README.md` | confirmer le périmètre | ouvert |
