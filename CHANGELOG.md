@@ -4,6 +4,16 @@ Toutes les évolutions notables de ce dépôt sont consignées ici.
 Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
+### Modifié — refonte UI, écrans de documents (TAF lot 5, étape 9)
+- Notes, Bulletins, Attestations et Badges sur le design system : en-tête de page, onglets, barre de filtres
+  (recherche insensible aux accents, puces), tableaux triables et paginés avec sélection, état d'erreur avec
+  « Réessayer », formulaires avec libellés, boutons sur la couleur principale.
+- Sélection : « Sélectionner les N résultats » et « Effacer la sélection » ; ordre de sélection conservé pour
+  l'aperçu et le PDF (`lib/selection.ts`, testé).
+- Notes : vraie pagination au lieu de boutons sans effet, confirmation accessible avant de supprimer une colonne.
+  Boutons sans effet retirés (« Exporter » des notes, « Imprimer » des badges).
+- Gabarits imprimables (dessins PDF et aperçus) inchangés. Aucun appel d'API ajouté, retiré ou modifié.
+
 ### Modifié — refonte UI, socle (TAF lot 5, ADR 0002)
 - Design system : bleu `#004576` en couleur principale (boutons lisibles : 9,94:1 au lieu de 2,16:1, F-02), vert
   An-Nour réservé à la marque, couleurs sémantiques succès / alerte / erreur / info, anneau de focus visible

@@ -38,6 +38,21 @@ aucun appel d'API ajouté, retiré ou modifié ; `lib/api.ts`, `contexts/`, `lib
 6 Tableau de bord + scientifique · 7 Écrans simples · 8 Séminaristes · 9 Habillage des écrans imprimables ·
 10 Finance ✋ · 11 Santé ✋ · 12 Accès ✋ · 13 Connexion ✋ · 14 Revue et documentation.
 
+### Avancement
+| Étapes | État | Livraison |
+|---|---|---|
+| 0 à 7 | Fusionnées dans `mdev` | PR #16 |
+| 9 — Notes, Bulletins, Attestations, Badges | Branche `feature/refonte-ui-pedagogie` | Panneaux communs `components/documents/` ; gabarits (dessins PDF et aperçus) non modifiés |
+| 8, 10 à 14 | À faire | 8 après le lot 2 ; 12 et 13 après le lot 3 |
+
+### Étape 9 — choix d'habillage
+- Sélection en tableau paginé (25 lignes) ; « Sélectionner les N résultats » garde la sélection de toute la liste
+  filtrée. L'ordre de sélection est conservé (`lib/selection.ts`) : le premier élément coché alimente l'aperçu.
+- Sur mobile, les listes à cocher défilent horizontalement (décision D10 : production sur ordinateur et tablette).
+- Retirés car sans effet : bouton « Exporter » des Notes (message « en développement »), bouton « Imprimer » des
+  badges séminaristes, fausse pagination des Notes (remplacée par une vraie pagination).
+- Les listes Comité, Formateurs, Donateurs et Personnalisés restent locales à la page (non enregistrées), comme avant.
+
 ## 5. Risques et sécurité
 Aucune donnée nouvelle manipulée. Zones sensibles (`lib/navigation.ts`, `components/auth/`, `app/acces`,
 `app/finance/**`, `app/sante/**`) : diff présenté avant commit, aucune logique modifiée. La préférence de repli de
