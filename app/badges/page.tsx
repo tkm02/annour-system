@@ -1,10 +1,22 @@
 "use client";
 
+import { DataTable, type Column } from "@/components/common/data-table";
+import Field from "@/components/common/field";
+import { FilterBar } from "@/components/common/filter-bar";
+import { PageHeader } from "@/components/common/page-header";
+import { EmptyState, errorText } from "@/components/common/states";
+import { StatusBadge } from "@/components/common/status-badge";
+import {
+  GeneratePanel,
+  ListPanel,
+  NiveauFilter,
+  niveauxOf,
+  PreviewPanel,
+  SelectionActions,
+  seminaristeColumns,
+} from "@/components/documents/document-panels";
 import DashboardLayout from "@/components/layout/dashboard-layout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -13,33 +25,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { addToSelection, applySelection, isAllSelected } from "@/lib/selection";
+import { countLabel, matchesSearch } from "@/lib/table";
 import { coApi, MembreCO, scientificApi, Seminariste } from "@/lib/api";
 import logoAnnour from "@/public/ANNOUR.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import jsPDF, { GState } from "jspdf";
 import {
   CreditCard,
-  Eye,
   FileText,
   Loader2,
-  Printer,
   RefreshCw,
-  Search,
   Trash2,
   UserPlus,
   Users
 } from "lucide-react";
 import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // ✅ INTERFACE STAFF (Comité & Formateurs) - Aligné avec MembreCO
@@ -70,7 +74,9 @@ interface CustomBadgeMember {
 export default function BadgeGenerationPage() {
   const [seminaristes, setSeminaristes] = useState<Seminariste[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const query = useDebouncedValue(searchTerm);
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
   const [selectedSeminaristes, setSelectedSeminaristes] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -92,8 +98,10 @@ export default function BadgeGenerationPage() {
   // ✅ STATE MEMBRES CO
   const [membresCO, setMembresCO] = useState<MembreCO[]>([]);
   const [loadingCO, setLoadingCO] = useState(false);
+  const [loadErrorCO, setLoadErrorCO] = useState<string | null>(null);
   const [selectedMembresCO, setSelectedMembresCO] = useState<string[]>([]);
   const [searchTermCO, setSearchTermCO] = useState("");
+  const queryCO = useDebouncedValue(searchTermCO);
   const [selectedCommission, setSelectedCommission] = useState("tous");
   const [showVersoCO, setShowVersoCO] = useState(false);
 
@@ -113,10 +121,11 @@ export default function BadgeGenerationPage() {
   const fetchSeminaristes = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await scientificApi.getSeminaristes(1, 10000);
       setSeminaristes(response.data);
-    } catch (error: any) {
-      toast.error(error.message || "Erreur chargement");
+    } catch (error) {
+      setLoadError(errorText(error, "Chargement des séminaristes impossible"));
     } finally {
       setLoading(false);
     }
@@ -126,10 +135,11 @@ export default function BadgeGenerationPage() {
   const fetchMembresCO = async () => {
     try {
       setLoadingCO(true);
+      setLoadErrorCO(null);
       const response = await coApi.getMembresCO();
       setMembresCO(response.data);
-    } catch (error: any) {
-      toast.error(error.message || "Erreur chargement membres CO");
+    } catch (error) {
+      setLoadErrorCO(errorText(error, "Chargement des membres CO impossible"));
     } finally {
       setLoadingCO(false);
     }
@@ -186,58 +196,23 @@ export default function BadgeGenerationPage() {
     }
   }, [selectedSeminaristes]);
 
-  const filteredSeminaristes = seminaristes.filter((sem) => {
-    const fullName = `${sem.nom} ${sem.prenom || ""}`.toLowerCase();
-    const matchesSearch =
-      !searchTerm ||
-      fullName.includes(searchTerm.toLowerCase()) ||
-      sem.matricule.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesNiveau =
-      selectedNiveau === "tous" || sem.niveau === selectedNiveau;
-    return matchesSearch && matchesNiveau;
-  });
+  const niveaux = useMemo(() => niveauxOf(seminaristes), [seminaristes]);
+  const filteredSeminaristes = useMemo(() => seminaristes.filter((sem) =>
+    (selectedNiveau === "tous" || sem.niveau === selectedNiveau) &&
+    matchesSearch(query, [sem.nom, sem.prenom, sem.matricule])
+  ), [seminaristes, query, selectedNiveau]);
+  const filteredKeys = filteredSeminaristes.map((s) => s.matricule);
 
-  const handleSelectAll = () => {
-    if (selectedSeminaristes.length === filteredSeminaristes.length) {
-      setSelectedSeminaristes([]);
-    } else {
-      setSelectedSeminaristes(filteredSeminaristes.map((s) => s.matricule));
-    }
-  };
-
-  const handleSelectOne = (matricule: string) => {
-    setSelectedSeminaristes((prev) =>
-      prev.includes(matricule)
-        ? prev.filter((m) => m !== matricule)
-        : [...prev, matricule]
-    );
-  };
-
-  // ✅ FILTRAGE MEMBRES CO
-  const filteredMembresCO = membresCO.filter((membre) => {
-    const fullName = `${membre.nom} ${membre.prenoms || ""}`.toLowerCase();
-    const matchesSearch =
-      !searchTermCO ||
-      fullName.includes(searchTermCO.toLowerCase()) ||
-      membre.commission.toLowerCase().includes(searchTermCO.toLowerCase());
-    const matchesCommission =
-      selectedCommission === "tous" || membre.commission === selectedCommission;
-    return matchesSearch && matchesCommission;
-  });
-
-  const handleSelectAllCO = () => {
-    if (selectedMembresCO.length === filteredMembresCO.length) {
-      setSelectedMembresCO([]);
-    } else {
-      setSelectedMembresCO(filteredMembresCO.map((m) => m.id));
-    }
-  };
-
-  const handleSelectOneCO = (id: string) => {
-    setSelectedMembresCO((prev) =>
-      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
-    );
-  };
+  // Membres CO : recherche sur le nom, les prénoms et la commission
+  const commissions = useMemo(
+    () => Array.from(new Set(membresCO.map((m) => m.commission).filter(Boolean))).sort((a, b) => a.localeCompare(b, "fr")),
+    [membresCO]
+  );
+  const filteredMembresCO = useMemo(() => membresCO.filter((membre) =>
+    (selectedCommission === "tous" || membre.commission === selectedCommission) &&
+    matchesSearch(queryCO, [membre.nom, membre.prenoms, membre.commission])
+  ), [membresCO, queryCO, selectedCommission]);
+  const filteredKeysCO = filteredMembresCO.map((m) => m.id);
 
   // ✅ HELPER: Charger une image, corriger l'orientation et créer un cercle
   const loadImageAsCircularBase64 = async (url: string, size: number = 200): Promise<string | null> => {
@@ -665,12 +640,6 @@ export default function BadgeGenerationPage() {
     setStaffList(staffList.filter((s) => s.id !== id));
   };
 
-  const toggleStaffSelection = (id: string) => {
-    setStaffList(
-      staffList.map((s) => (s.id === id ? { ...s, selected: !s.selected } : s))
-    );
-  };
-
   // ✅ GÉNÉRATION PDF STAFF
   const generateStaffPDF = async () => {
     const selectedStaff = staffList.filter((s) => s.selected);
@@ -950,12 +919,6 @@ export default function BadgeGenerationPage() {
 
   const removeCustomBadge = (id: string) => {
     setCustomBadgeList(customBadgeList.filter((b) => b.id !== id));
-  };
-
-  const toggleCustomBadgeSelection = (id: string) => {
-    setCustomBadgeList(
-      customBadgeList.map((b) => (b.id === id ? { ...b, selected: !b.selected } : b))
-    );
   };
 
   // ✅ GÉNÉRATION PDF BADGES PERSONNALISÉS
@@ -1899,809 +1862,431 @@ const BadgeCOVerso = ({ membre, qrCode }: { membre: MembreCO; qrCode?: string })
 );
 
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <Card>
-          <CardContent className="p-12">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <div className="text-lg font-semibold">Chargement...</div>
-            </div>
-          </CardContent>
-        </Card>
-      </DashboardLayout>
-    );
-  }
+  const filteredOut = selectedNiveau !== "tous" || !!query.trim();
+  const resetFilters = () => {
+    setSearchTerm("");
+    setSelectedNiveau("tous");
+  };
+  const filteredOutCO = selectedCommission !== "tous" || !!queryCO.trim();
+  const resetFiltersCO = () => {
+    setSearchTermCO("");
+    setSelectedCommission("tous");
+  };
+  const firstSeminariste = seminaristes.find((s) => s.matricule === selectedSeminaristes[0]);
+  const firstMembreCO = membresCO.find((m) => m.id === selectedMembresCO[0]);
+  const selectedStaff = staffList.filter((s) => s.selected);
+  const selectedCustom = customBadgeList.filter((b) => b.selected);
+  const count = selectedSeminaristes.length;
+  const plural = (n: number) => (n > 1 ? "s" : "");
+  const badgesLabel = (n: number) => `Télécharger ${n} badge${plural(n)} (PDF)`;
+
+  const removeButton = (label: string, onClick: () => void) => (
+    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+      aria-label={label} onClick={onClick}>
+      <Trash2 className="h-4 w-4" aria-hidden="true" />
+    </Button>
+  );
+
+  const coColumns: Column<MembreCO>[] = [
+    {
+      id: "nom", header: "Nom et prénoms", sortValue: (m) => `${m.nom} ${m.prenoms}`,
+      cell: (m) => (
+        <div className="flex items-center gap-2">
+          {m.photo_url ? (
+            <img src={m.photo_url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted" aria-hidden="true">
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </span>
+          )}
+          <div className="min-w-0">
+            <div className="font-medium">{m.nom}</div>
+            <div className="text-sm text-muted-foreground">{m.prenoms}</div>
+          </div>
+        </div>
+      ),
+    },
+    { id: "commission", header: "Commission", cell: (m) => m.commission, sortValue: (m) => m.commission },
+    { id: "statut", header: "Statut", cell: (m) => m.statut || "Membre", sortValue: (m) => m.statut || "Membre", hideBelow: "md" },
+    { id: "contact", header: "Contact", cell: (m) => m.contact, hideBelow: "lg" },
+  ];
+
+  const staffColumns: Column<StaffMember>[] = [
+    { id: "nom", header: "Nom et prénoms", cell: (s) => <span className="font-medium">{s.nom} {s.prenoms}</span>, sortValue: (s) => `${s.nom} ${s.prenoms}` },
+    { id: "commission", header: "Commission", cell: (s) => <StatusBadge icon={null}>{s.commission}</StatusBadge>, sortValue: (s) => s.commission },
+    { id: "statut", header: "Statut", cell: (s) => s.statut || "—", hideBelow: "md" },
+    { id: "contact", header: "Contact", cell: (s) => s.contact || "—", hideBelow: "lg" },
+    { id: "actions", header: <span className="sr-only">Actions</span>, align: "right", cell: (s) => removeButton(`Retirer ${s.nom} ${s.prenoms} de la liste`, () => removeStaff(s.id)) },
+  ];
+
+  const customColumns: Column<CustomBadgeMember>[] = [
+    { id: "nom", header: "Nom et prénom", cell: (b) => <span className="font-medium">{b.nom} {b.prenom}</span>, sortValue: (b) => `${b.nom} ${b.prenom}` },
+    { id: "statut", header: "Statut", cell: (b) => <StatusBadge icon={null}>{b.statut}</StatusBadge>, sortValue: (b) => b.statut },
+    { id: "fonction", header: "Fonction", cell: (b) => b.fonction || "—", hideBelow: "md" },
+    { id: "contact", header: "Contact", cell: (b) => b.contact || "—", hideBelow: "lg" },
+    { id: "actions", header: <span className="sr-only">Actions</span>, align: "right", cell: (b) => removeButton(`Retirer le badge de ${b.nom} ${b.prenom}`.trim(), () => removeCustomBadge(b.id)) },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <CreditCard className="h-7 w-7 text-[#A6C33C]" />
-              GÉNÉRATION DE BADGES AN-NOUR
-            </h1>
-            <p className="text-muted-foreground">
-              Badges recto-verso côte à côte avec QR code
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        title="Badges"
+        description="Badges recto verso avec QR code, au format A4 paysage."
+      />
 
-        <Tabs defaultValue="seminaristes" className="w-full">
-            <TabsList className="mb-4">
-                <TabsTrigger 
-                  value="seminaristes" 
-                  className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
-                >
-                  Séminaristes
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="staff" 
-                  className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
-                >
-                  Comité & Formateurs
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="membres-co" 
-                  className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
-                >
-                  Membres CO {loadingCO && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="personnalise" 
-                  className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
-                >
-                  🎨 Personnalisé
-                </TabsTrigger>
-            </TabsList>
+      <Tabs defaultValue="seminaristes" className="gap-4">
+        <TabsList className="h-auto w-full flex-wrap sm:w-fit">
+          <TabsTrigger value="seminaristes">Séminaristes</TabsTrigger>
+          <TabsTrigger value="staff">Comité et formateurs</TabsTrigger>
+          <TabsTrigger value="membres-co">
+            Membres CO 2025
+            {loadingCO && <Loader2 className="animate-spin" aria-hidden="true" />}
+          </TabsTrigger>
+          <TabsTrigger value="personnalise">Personnalisés</TabsTrigger>
+        </TabsList>
 
-            {/* 🟢 TAB SÉMINARISTES */}
-            <TabsContent value="seminaristes">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* SÉLECTION */}
-          <div className="lg:col-span-2 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Sélection des Séminaristes</span>
-                  <Badge variant="outline" className="text-base">
-                    {selectedSeminaristes.length} sélectionné(s)
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Rechercher..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
+        {/* Séminaristes */}
+        <TabsContent value="seminaristes">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
+              <ListPanel title="Séminaristes" description="Cochez les séminaristes dont vous voulez imprimer le badge.">
+                <FilterBar
+                  search={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  searchLabel="Rechercher un séminariste"
+                  searchPlaceholder="Nom, prénom ou matricule…"
+                  filters={<NiveauFilter value={selectedNiveau} onChange={setSelectedNiveau} niveaux={niveaux} />}
+                  activeFilters={selectedNiveau !== "tous" ? [{ label: `Niveau : ${selectedNiveau}`, onRemove: () => setSelectedNiveau("tous") }] : []}
+                  onReset={resetFilters}
+                  count={seminaristes.length > 0 ? countLabel(filteredSeminaristes.length, seminaristes.length, "séminariste", "séminaristes") : undefined}
+                  actions={
+                    <>
+                      <SelectionActions
+                        filteredCount={filteredKeys.length}
+                        allFilteredSelected={isAllSelected(selectedSeminaristes, filteredKeys)}
+                        selectedCount={count}
+                        onSelectFiltered={() => setSelectedSeminaristes((prev) => addToSelection(prev, filteredKeys))}
+                        onClear={() => setSelectedSeminaristes([])}
+                      />
+                      <Button variant="outline" size="icon" onClick={fetchSeminaristes} disabled={loading} aria-label="Actualiser la liste des séminaristes">
+                        <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
+                      </Button>
+                    </>
+                  }
+                />
+                <DataTable
+                  caption="Séminaristes à sélectionner pour les badges"
+                  columns={seminaristeColumns<Seminariste>()}
+                  rows={filteredSeminaristes}
+                  getRowKey={(s) => s.matricule}
+                  loading={loading}
+                  error={loadError}
+                  onRetry={fetchSeminaristes}
+                  pageSize={25}
+                  selection={{
+                    selected: new Set(selectedSeminaristes),
+                    onChange: (next) => setSelectedSeminaristes((prev) => applySelection(prev, next)),
+                    label: (s) => `${s.nom} ${s.prenom ?? ""}`.trim(),
+                  }}
+                  empty={
+                    <EmptyState
+                      icon={Users}
+                      title={filteredOut ? "Aucun résultat" : "Aucun séminariste"}
+                      message={filteredOut ? "Aucun séminariste ne correspond à ces filtres." : "Aucun séminariste n'est encore inscrit."}
+                      action={filteredOut ? <Button variant="outline" onClick={resetFilters}>Réinitialiser les filtres</Button> : undefined}
                     />
-                  </div>
-                  <Select
-                    value={selectedNiveau}
-                    onValueChange={setSelectedNiveau}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tous">Tous niveaux</SelectItem>
-                      {Array.from(
-                        new Set(
-                          seminaristes.map((s) => s.niveau).filter(Boolean)
-                        )
-                      ).map((niveau) => (
-                        <SelectItem key={niveau} value={niveau || ""}>
-                          {niveau}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchSeminaristes}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </div>
+                  }
+                />
+              </ListPanel>
+            </div>
 
-                <div className="border rounded-lg max-h-[500px] overflow-y-auto">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-background">
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                            className="border-[#A6C33C]"
-                            checked={
-                              selectedSeminaristes.length ===
-                                filteredSeminaristes.length &&
-                              filteredSeminaristes.length > 0
-                            }
-                            onCheckedChange={handleSelectAll}
-                          />
-                        </TableHead>
-                        <TableHead>MATRICULE</TableHead>
-                        <TableHead>NOM & PRÉNOM</TableHead>
-                        <TableHead>NIVEAU</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredSeminaristes.map((sem) => (
-                        <TableRow key={sem.id}>
-                          <TableCell>
-                            <Checkbox
-                              className="border-[#A6C33C]"
-                              checked={selectedSeminaristes.includes(
-                                sem.matricule
-                              )}
-                              onCheckedChange={() =>
-                                handleSelectOne(sem.matricule)
-                              }
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono font-semibold">
-                            {sem.matricule}
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-semibold">{sem.nom}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {sem.prenom}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {sem.niveau || "Non classé"}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* PREVIEW */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Eye className="h-5 w-5" />
-                    Aperçu Badge
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowVerso(!showVerso)}
-                    className="text-xs"
-                  >
-                    {showVerso ? "Voir Recto" : "Voir Verso"}
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                {selectedSeminaristes.length > 0 ? (
+            <div className="space-y-6">
+              <PreviewPanel title="Aperçu du badge" verso={showVerso} onToggleVerso={() => setShowVerso(!showVerso)}
+                emptyIcon={CreditCard} emptyMessage="Sélectionnez un séminariste pour afficher l'aperçu de son badge.">
+                {firstSeminariste ? (
                   <div className="scale-[0.65] origin-top">
-                    {showVerso ? (
-                      <BadgeVerso
-                        seminariste={
-                          seminaristes.find(
-                            (s) => s.matricule === selectedSeminaristes[0]
-                          )!
-                        }
-                      />
-                    ) : (
-                      <BadgeRecto
-                        seminariste={
-                          seminaristes.find(
-                            (s) => s.matricule === selectedSeminaristes[0]
-                          )!
-                        }
-                      />
-                    )}
+                    {showVerso ? <BadgeVerso seminariste={firstSeminariste} /> : <BadgeRecto seminariste={firstSeminariste} />}
                   </div>
-                ) : (
-                  <div className="w-64 h-96 border-2 border-dashed rounded-xl flex items-center justify-center">
-                    <div className="text-center space-y-2">
-                      <CreditCard className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <div className="text-sm text-muted-foreground">
-                        Sélectionnez un séminariste
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Options</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 pt-2">
-                  <Button
-                    className="w-full gap-2 bg-[#A6C33C] hover:bg-[#95B035]"
-                    size="lg"
-                    onClick={generatePDF}
-                    disabled={selectedSeminaristes.length === 0 || generating}
-                  >
-                    {generating ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Génération PDF...
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-5 w-5" />
-                        Télécharger PDF ({selectedSeminaristes.length})
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2"
-                    disabled={selectedSeminaristes.length === 0}
-                  >
-                    <Printer className="h-4 w-4" />
-                    Imprimer
-                  </Button>
-                </div>
-
-                <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg space-y-1">
-                  <div className="font-semibold mb-1">
-                    ✅ Badges professionnels :
-                  </div>
-                  <div>• Recto-verso côte à côte</div>
-                  <div>• 1 badge par page (recto + verso)</div>
-                  <div>• Logo en arrière-plan subtil</div>
-                  <div>• QR Code avec matricule</div>
-                  <div>• Format A4 paysage</div>
-                  <div>• Prêt à imprimer</div>
-                </div>
-              </CardContent>
-            </Card>
+                ) : null}
+              </PreviewPanel>
+              <GeneratePanel
+                label={badgesLabel(count)}
+                icon={FileText}
+                count={count}
+                generating={generating}
+                onGenerate={generatePDF}
+                notes={["Recto et verso côte à côte, un badge par page", "QR code avec le matricule", "A4 paysage, prêt à imprimer"]}
+              />
+            </div>
           </div>
-        </div>
         </TabsContent>
 
-        {/* 🔵 TAB COMITÉ & FORMATEURS */}
-            <TabsContent value="staff">
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                     {/* INPUT STAFF */}
-                     <div className="space-y-4 col-span-2">
-                         <Card>
-                            <CardHeader>
-                                <CardTitle>Ajouter un membre (Comité / Formateur)</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input 
-                                        placeholder="Nom *" 
-                                        value={newStaff.nom}
-                                        onChange={(e) => setNewStaff({...newStaff, nom: e.target.value})}
-                                    />
-                                    <Input 
-                                        placeholder="Prénoms *"
-                                        value={newStaff.prenoms}
-                                        onChange={(e) => setNewStaff({...newStaff, prenoms: e.target.value})}
-                                    />
-                                    <Input 
-                                        placeholder="Contact (téléphone)"
-                                        value={newStaff.contact}
-                                        onChange={(e) => setNewStaff({...newStaff, contact: e.target.value})}
-                                    />
-                                    <Select 
-                                        value={newStaff.commission} 
-                                        onValueChange={(v) => setNewStaff({...newStaff, commission: v})}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Commission" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Formateur">Formateur</SelectItem>
-                                            <SelectItem value="Sécurité">Sécurité</SelectItem>
-                                            <SelectItem value="Restauration">Restauration</SelectItem>
-                                            <SelectItem value="Santé">Santé</SelectItem>
-                                            <SelectItem value="Logistique">Logistique</SelectItem>
-                                            <SelectItem value="Protocole">Protocole</SelectItem>
-                                            <SelectItem value="Communication">Communication</SelectItem>
-                                            <SelectItem value="Scientifique">Scientifique</SelectItem>
-                                            <SelectItem value="Hygiène">Hygiène</SelectItem>
-                                            <SelectItem value="Pepinière">Pepinière</SelectItem>
-                                            <SelectItem value="Manager Général">Manager Général</SelectItem>
-                                            <SelectItem value="Manager Général Adjoint">Manager Général Adjoint</SelectItem>
-                                            <SelectItem value="Superviseur Général">Superviseur Général</SelectItem>
-                                            <SelectItem value="Président de Sous-comités">Président de Sous-comités</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select 
-                                        value={newStaff.statut} 
-                                        onValueChange={(v) => setNewStaff({...newStaff, statut: v})}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Statut (optionnel)" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="aucun">Aucun</SelectItem>
-                                            <SelectItem value="Membre">Membre</SelectItem>
-                                            <SelectItem value="Responsable">Responsable</SelectItem>
-                                            <SelectItem value="Responsable Adjoint">Responsable Adjoint</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Input 
-                                        placeholder="Allergies (optionnel)"
-                                        value={newStaff.allergies}
-                                        onChange={(e) => setNewStaff({...newStaff, allergies: e.target.value})}
-                                    />
-                                    <Input 
-                                        placeholder="Antécédents médicaux (optionnel)"
-                                        value={newStaff.antecedent_medical}
-                                        onChange={(e) => setNewStaff({...newStaff, antecedent_medical: e.target.value})}
-                                        className="col-span-2"
-                                    />
-                                </div>
-                                <Button onClick={handleAddStaff} className="w-full bg-[#AC3] hover:bg-[#9B2]">
-                                    <UserPlus className="mr-2 h-4 w-4" /> Ajouter
-                                </Button>
-                            </CardContent>
-                         </Card>
+        {/* Comité et formateurs */}
+        <TabsContent value="staff">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="min-w-0 space-y-6 lg:col-span-2">
+              <ListPanel title="Ajouter un membre" description="Comité ou formateur. La liste reste dans cette page : elle n'est pas enregistrée.">
+                <form
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddStaff();
+                  }}
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field id="staff-nom" label="Nom *">
+                      {(f) => <Input {...f} value={newStaff.nom} onChange={(e) => setNewStaff({ ...newStaff, nom: e.target.value })} />}
+                    </Field>
+                    <Field id="staff-prenoms" label="Prénoms *">
+                      {(f) => <Input {...f} value={newStaff.prenoms} onChange={(e) => setNewStaff({ ...newStaff, prenoms: e.target.value })} />}
+                    </Field>
+                    <Field id="staff-contact" label="Contact (téléphone)">
+                      {(f) => <Input {...f} type="tel" value={newStaff.contact} onChange={(e) => setNewStaff({ ...newStaff, contact: e.target.value })} />}
+                    </Field>
+                    <Field id="staff-commission" label="Commission">
+                      {(f) => (
+                        <Select value={newStaff.commission} onValueChange={(v) => setNewStaff({ ...newStaff, commission: v })}>
+                          <SelectTrigger {...f} className="w-full"><SelectValue placeholder="Commission" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Formateur">Formateur</SelectItem>
+                            <SelectItem value="Sécurité">Sécurité</SelectItem>
+                            <SelectItem value="Restauration">Restauration</SelectItem>
+                            <SelectItem value="Santé">Santé</SelectItem>
+                            <SelectItem value="Logistique">Logistique</SelectItem>
+                            <SelectItem value="Protocole">Protocole</SelectItem>
+                            <SelectItem value="Communication">Communication</SelectItem>
+                            <SelectItem value="Scientifique">Scientifique</SelectItem>
+                            <SelectItem value="Hygiène">Hygiène</SelectItem>
+                            <SelectItem value="Pepinière">Pepinière</SelectItem>
+                            <SelectItem value="Manager Général">Manager Général</SelectItem>
+                            <SelectItem value="Manager Général Adjoint">Manager Général Adjoint</SelectItem>
+                            <SelectItem value="Superviseur Général">Superviseur Général</SelectItem>
+                            <SelectItem value="Président de Sous-comités">Président de Sous-comités</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </Field>
+                    <Field id="staff-statut" label="Statut (facultatif)">
+                      {(f) => (
+                        <Select value={newStaff.statut} onValueChange={(v) => setNewStaff({ ...newStaff, statut: v })}>
+                          <SelectTrigger {...f} className="w-full"><SelectValue placeholder="Aucun" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="aucun">Aucun</SelectItem>
+                            <SelectItem value="Membre">Membre</SelectItem>
+                            <SelectItem value="Responsable">Responsable</SelectItem>
+                            <SelectItem value="Responsable Adjoint">Responsable Adjoint</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </Field>
+                    <Field id="staff-allergies" label="Allergies (facultatif)">
+                      {(f) => <Input {...f} value={newStaff.allergies} onChange={(e) => setNewStaff({ ...newStaff, allergies: e.target.value })} />}
+                    </Field>
+                    <div className="sm:col-span-2">
+                      <Field id="staff-antecedents" label="Antécédents médicaux (facultatif)">
+                        {(f) => <Input {...f} value={newStaff.antecedent_medical} onChange={(e) => setNewStaff({ ...newStaff, antecedent_medical: e.target.value })} />}
+                      </Field>
+                    </div>
+                  </div>
+                  <Button type="submit" variant="outline">
+                    <UserPlus aria-hidden="true" /> Ajouter à la liste
+                  </Button>
+                </form>
+              </ListPanel>
 
-                         <Card>
-                             <CardHeader>
-                                 <CardTitle className="flex justify-between">
-                                    <span>Liste du Staff ({staffList.length})</span>
-                                    {staffList.length > 0 && (
-                                        <Badge>{staffList.filter(s=>s.selected).length} sélectionnés</Badge>
-                                    )}
-                                 </CardTitle>
-                             </CardHeader>
-                             <CardContent>
-                                <div className="border rounded-lg max-h-[400px] overflow-y-auto">
-                                <Table>
-                                    <TableHeader className="sticky top-0 bg-background">
-                                        <TableRow>
-                                            <TableHead className="w-10">Select</TableHead>
-                                            <TableHead>Nom & Prénoms</TableHead>
-                                            <TableHead>Commission</TableHead>
-                                            <TableHead>Statut</TableHead>
-                                            <TableHead>Contact</TableHead>
-                                            <TableHead className="w-10">Action</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {staffList.map((staff) => (
-                                            <TableRow key={staff.id}>
-                                                <TableCell>
-                                                    <Checkbox 
-                                                        className="border-[#A6C33C]"
-                                                        checked={staff.selected}
-                                                        onCheckedChange={() => toggleStaffSelection(staff.id)}
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="font-bold">
-                                                    {staff.nom} {staff.prenoms}
-                                                </TableCell>
-                                                <TableCell><Badge variant="outline">{staff.commission}</Badge></TableCell>
-                                                <TableCell>{staff.statut || "-"}</TableCell>
-                                                <TableCell>{staff.contact || "-"}</TableCell>
-                                                <TableCell>
-                                                    <Button variant="ghost" size="sm" onClick={() => removeStaff(staff.id)}>
-                                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                        {staffList.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                                    Aucun membre ajouté.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                                </div>
-                             </CardContent>
-                         </Card>
-                     </div>
+              <ListPanel title="Comité et formateurs" description={staffList.length > 0 ? `${staffList.length} dans la liste, ${selectedStaff.length} sélectionné${plural(selectedStaff.length)}` : undefined}>
+                <DataTable
+                  caption="Membres du comité et formateurs à badger"
+                  columns={staffColumns}
+                  rows={staffList}
+                  getRowKey={(s) => s.id}
+                  selection={{
+                    selected: new Set(selectedStaff.map((s) => s.id)),
+                    onChange: (next) => setStaffList(staffList.map((s) => ({ ...s, selected: next.has(s.id) }))),
+                    label: (s) => `${s.nom} ${s.prenoms}`,
+                  }}
+                  empty={<EmptyState icon={UserPlus} title="Liste vide" message="Ajoutez un membre avec le formulaire ci-dessus." />}
+                />
+              </ListPanel>
+            </div>
 
-                     {/* ACTIONS */}
-                     <div className="space-y-4">
-                        <Card>
-                            <CardHeader><CardTitle>Génération</CardTitle></CardHeader>
-                            <CardContent>
-                                <Button 
-                                    className="w-full bg-[#AC3]" 
-                                    size="lg"
-                                    onClick={generateStaffPDF}
-                                    disabled={staffList.filter(s=>s.selected).length === 0 || generating}
-                                >
-                                    {generating ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
-                                    Générer Badges Staff
-                                </Button>
-                            </CardContent>
-                        </Card>
-                     </div>
-                 </div>
-            </TabsContent>
+            <div className="space-y-6">
+              <GeneratePanel
+                label={badgesLabel(selectedStaff.length)}
+                icon={FileText}
+                count={selectedStaff.length}
+                generating={generating}
+                onGenerate={generateStaffPDF}
+                notes={["Recto et verso côte à côte", "A4 paysage, prêt à imprimer"]}
+              />
+            </div>
+          </div>
+        </TabsContent>
 
-        {/* 🟣 TAB MEMBRES CO */}
+        {/* Membres CO */}
         <TabsContent value="membres-co">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* SÉLECTION MEMBRES CO */}
-            <div className="lg:col-span-2 space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Membres du Comité d&apos;Organisation</span>
-                    <Badge variant="outline" className="text-base">
-                      {selectedMembresCO.length} sélectionné(s)
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Rechercher par nom ou commission..."
-                        value={searchTermCO}
-                        onChange={(e) => setSearchTermCO(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    <Select
-                      value={selectedCommission}
-                      onValueChange={setSelectedCommission}
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
+              <ListPanel title="Membres du comité d'organisation 2025" description="Fiches de l'édition précédente (page Membres CO 2025).">
+                <FilterBar
+                  search={searchTermCO}
+                  onSearchChange={setSearchTermCO}
+                  searchLabel="Rechercher un membre"
+                  searchPlaceholder="Nom, prénoms ou commission…"
+                  filters={
+                    <Select value={selectedCommission} onValueChange={setSelectedCommission}>
+                      <SelectTrigger className="w-full bg-card sm:w-56" aria-label="Filtrer par commission"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="tous">Toutes commissions</SelectItem>
-                        {Array.from(
-                          new Set(membresCO.map((m) => m.commission).filter(Boolean))
-                        ).map((commission) => (
-                          <SelectItem key={commission} value={commission}>
-                            {commission}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="tous">Toutes les commissions</SelectItem>
+                        {commissions.map((commission) => <SelectItem key={commission} value={commission}>{commission}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={fetchMembresCO}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="border rounded-lg max-h-[500px] overflow-y-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background">
-                        <TableRow>
-                          <TableHead className="w-12">
-                            <Checkbox
-                              className="border-[#A6C33C]"
-                              checked={
-                                selectedMembresCO.length === filteredMembresCO.length &&
-                                filteredMembresCO.length > 0
-                              }
-                              onCheckedChange={handleSelectAllCO}
-                            />
-                          </TableHead>
-                          <TableHead>NOM & PRÉNOMS</TableHead>
-                          <TableHead>COMMISSION</TableHead>
-                          <TableHead>STATUT</TableHead>
-                          <TableHead>CONTACT</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredMembresCO.map((membre) => (
-                          <TableRow key={membre.id}>
-                            <TableCell>
-                              <Checkbox
-                                className="border-[#A6C33C]"
-                                checked={selectedMembresCO.includes(membre.id)}
-                                onCheckedChange={() => handleSelectOneCO(membre.id)}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {membre.photo_url ? (
-                                  <img
-                                    src={membre.photo_url}
-                                    alt={membre.nom}
-                                    className="w-8 h-8 rounded-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                                    <Users className="h-4 w-4 text-gray-400" />
-                                  </div>
-                                )}
-                                <div>
-                                  <div className="font-semibold">{membre.nom}</div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {membre.prenoms}
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{membre.commission}</Badge>
-                            </TableCell>
-                            <TableCell>{membre.statut || "Membre"}</TableCell>
-                            <TableCell className="text-sm">{membre.contact}</TableCell>
-                          </TableRow>
-                        ))}
-                        {filteredMembresCO.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                              {loadingCO ? "Chargement..." : "Aucun membre CO trouvé."}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                  }
+                  activeFilters={selectedCommission !== "tous" ? [{ label: `Commission : ${selectedCommission}`, onRemove: () => setSelectedCommission("tous") }] : []}
+                  onReset={resetFiltersCO}
+                  count={membresCO.length > 0 ? countLabel(filteredMembresCO.length, membresCO.length, "membre", "membres") : undefined}
+                  actions={
+                    <>
+                      <SelectionActions
+                        filteredCount={filteredKeysCO.length}
+                        allFilteredSelected={isAllSelected(selectedMembresCO, filteredKeysCO)}
+                        selectedCount={selectedMembresCO.length}
+                        onSelectFiltered={() => setSelectedMembresCO((prev) => addToSelection(prev, filteredKeysCO))}
+                        onClear={() => setSelectedMembresCO([])}
+                      />
+                      <Button variant="outline" size="icon" onClick={fetchMembresCO} disabled={loadingCO} aria-label="Actualiser la liste des membres CO">
+                        <RefreshCw className={loadingCO ? "animate-spin" : undefined} aria-hidden="true" />
+                      </Button>
+                    </>
+                  }
+                />
+                <DataTable
+                  caption="Membres du comité d'organisation à sélectionner pour les badges"
+                  columns={coColumns}
+                  rows={filteredMembresCO}
+                  getRowKey={(m) => m.id}
+                  loading={loadingCO}
+                  error={loadErrorCO}
+                  onRetry={fetchMembresCO}
+                  pageSize={25}
+                  selection={{
+                    selected: new Set(selectedMembresCO),
+                    onChange: (next) => setSelectedMembresCO((prev) => applySelection(prev, next)),
+                    label: (m) => `${m.nom} ${m.prenoms}`,
+                  }}
+                  empty={
+                    <EmptyState
+                      icon={Users}
+                      title={filteredOutCO ? "Aucun résultat" : "Aucun membre"}
+                      message={filteredOutCO ? "Aucun membre ne correspond à ces filtres." : "Aucun membre CO n'est enregistré."}
+                      action={filteredOutCO ? <Button variant="outline" onClick={resetFiltersCO}>Réinitialiser les filtres</Button> : undefined}
+                    />
+                  }
+                />
+              </ListPanel>
             </div>
 
-            {/* PREVIEW CO */}
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Eye className="h-5 w-5" />
-                      Aperçu Badge CO
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowVersoCO(!showVersoCO)}
-                      className="text-xs"
-                    >
-                      {showVersoCO ? "Voir Recto" : "Voir Verso"}
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center">
-                  {selectedMembresCO.length > 0 ? (
-                    <div className="scale-[0.65] origin-top">
-                      {showVersoCO ? (
-                        <BadgeCOVerso
-                          membre={membresCO.find((m) => m.id === selectedMembresCO[0])!}
-                          qrCode={qrCodesCO[selectedMembresCO[0]]}
-                        />
-                      ) : (
-                        <BadgeCORecto
-                          membre={membresCO.find((m) => m.id === selectedMembresCO[0])!}
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <div className="w-64 h-96 border-2 border-dashed rounded-xl flex items-center justify-center">
-                      <div className="text-center space-y-2">
-                        <CreditCard className="h-12 w-12 mx-auto text-muted-foreground" />
-                        <div className="text-sm text-muted-foreground">
-                          Sélectionnez un membre CO
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Options</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2 pt-2">
-                    <Button
-                      className="w-full gap-2 bg-[#A6C33C] hover:bg-[#95B035]"
-                      size="lg"
-                      onClick={generateCOPDF}
-                      disabled={selectedMembresCO.length === 0 || generating}
-                    >
-                      {generating ? (
-                        <>
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          Génération PDF...
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="h-5 w-5" />
-                          Télécharger PDF ({selectedMembresCO.length})
-                        </>
-                      )}
-                    </Button>
+            <div className="space-y-6">
+              <PreviewPanel title="Aperçu du badge" verso={showVersoCO} onToggleVerso={() => setShowVersoCO(!showVersoCO)}
+                emptyIcon={CreditCard} emptyMessage="Sélectionnez un membre pour afficher l'aperçu de son badge.">
+                {firstMembreCO ? (
+                  <div className="scale-[0.65] origin-top">
+                    {showVersoCO ? (
+                      <BadgeCOVerso membre={firstMembreCO} qrCode={qrCodesCO[selectedMembresCO[0]]} />
+                    ) : (
+                      <BadgeCORecto membre={firstMembreCO} />
+                    )}
                   </div>
-
-                  <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg space-y-1">
-                    <div className="font-semibold mb-1">✅ Badges Membres CO :</div>
-                    <div>• Recto-verso côte à côte</div>
-                    <div>• Photo, nom, commission, statut</div>
-                    <div>• Contact et infos médicales au verso</div>
-                    <div>• QR Code avec ID</div>
-                  </div>
-                </CardContent>
-              </Card>
+                ) : null}
+              </PreviewPanel>
+              <GeneratePanel
+                label={badgesLabel(selectedMembresCO.length)}
+                icon={FileText}
+                count={selectedMembresCO.length}
+                generating={generating}
+                onGenerate={generateCOPDF}
+                notes={["Recto et verso côte à côte", "Photo, nom, commission et statut", "Contact et informations médicales au verso", "QR code avec l'identifiant"]}
+              />
             </div>
           </div>
         </TabsContent>
 
-        {/* 🎨 TAB BADGES PERSONNALISÉS */}
+        {/* Badges personnalisés */}
         <TabsContent value="personnalise">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* FORMULAIRE D'AJOUT */}
-            <div className="space-y-4 col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <UserPlus className="h-5 w-5" />
-                    Créer un Badge Personnalisé
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      placeholder="Nom *"
-                      value={newCustomBadge.nom}
-                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, nom: e.target.value })}
-                    />
-                    <Input
-                      placeholder="Prénom *"
-                      value={newCustomBadge.prenom}
-                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, prenom: e.target.value })}
-                    />
-                    <Input
-                      placeholder="Contact (téléphone)"
-                      value={newCustomBadge.contact}
-                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, contact: e.target.value })}
-                    />
-                    <Input
-                      placeholder="Fonction (optionnel)"
-                      value={newCustomBadge.fonction}
-                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, fonction: e.target.value })}
-                    />
-                    <Select
-                      value={newCustomBadge.statut}
-                      onValueChange={(v) => setNewCustomBadge({ ...newCustomBadge, statut: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Statut" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Visiteur">Visiteur (champs optionnels)</SelectItem>
-                        <SelectItem value="Manager Général">Manager Général</SelectItem>
-                        <SelectItem value="Manager Général Adjoint">Manager Général Adjoint</SelectItem>
-                        <SelectItem value="Superviseur Général">Superviseur Général</SelectItem>
-                        <SelectItem value="Président de Sous-comités">Président de Sous-comités</SelectItem>
-                        <SelectItem value="Invité">Invité</SelectItem>
-                        <SelectItem value="VIP">VIP</SelectItem>
-                        <SelectItem value="Partenaire">Partenaire</SelectItem>
-                        <SelectItem value="Sponsor">Sponsor</SelectItem>
-                        <SelectItem value="Intervenant">Intervenant</SelectItem>
-                        <SelectItem value="Presse">Presse</SelectItem>
-                        <SelectItem value="Observateur">Observateur</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="URL de la photo (optionnel)"
-                      value={newCustomBadge.photo_url}
-                      onChange={(e) => setNewCustomBadge({ ...newCustomBadge, photo_url: e.target.value })}
-                      className="col-span-2"
-                    />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="min-w-0 space-y-6 lg:col-span-2">
+              <ListPanel title="Créer un badge personnalisé" description="Nom et prénom obligatoires, sauf pour un visiteur. La liste n'est pas enregistrée.">
+                <form
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddCustomBadge();
+                  }}
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field id="custom-nom" label="Nom">
+                      {(f) => <Input {...f} value={newCustomBadge.nom} onChange={(e) => setNewCustomBadge({ ...newCustomBadge, nom: e.target.value })} />}
+                    </Field>
+                    <Field id="custom-prenom" label="Prénom">
+                      {(f) => <Input {...f} value={newCustomBadge.prenom} onChange={(e) => setNewCustomBadge({ ...newCustomBadge, prenom: e.target.value })} />}
+                    </Field>
+                    <Field id="custom-contact" label="Contact (téléphone)">
+                      {(f) => <Input {...f} type="tel" value={newCustomBadge.contact} onChange={(e) => setNewCustomBadge({ ...newCustomBadge, contact: e.target.value })} />}
+                    </Field>
+                    <Field id="custom-fonction" label="Fonction (facultatif)">
+                      {(f) => <Input {...f} value={newCustomBadge.fonction} onChange={(e) => setNewCustomBadge({ ...newCustomBadge, fonction: e.target.value })} />}
+                    </Field>
+                    <Field id="custom-statut" label="Statut">
+                      {(f) => (
+                        <Select value={newCustomBadge.statut} onValueChange={(v) => setNewCustomBadge({ ...newCustomBadge, statut: v })}>
+                          <SelectTrigger {...f} className="w-full"><SelectValue placeholder="Statut" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Visiteur">Visiteur (champs facultatifs)</SelectItem>
+                            <SelectItem value="Manager Général">Manager Général</SelectItem>
+                            <SelectItem value="Manager Général Adjoint">Manager Général Adjoint</SelectItem>
+                            <SelectItem value="Superviseur Général">Superviseur Général</SelectItem>
+                            <SelectItem value="Président de Sous-comités">Président de Sous-comités</SelectItem>
+                            <SelectItem value="Invité">Invité</SelectItem>
+                            <SelectItem value="VIP">VIP</SelectItem>
+                            <SelectItem value="Partenaire">Partenaire</SelectItem>
+                            <SelectItem value="Sponsor">Sponsor</SelectItem>
+                            <SelectItem value="Intervenant">Intervenant</SelectItem>
+                            <SelectItem value="Presse">Presse</SelectItem>
+                            <SelectItem value="Observateur">Observateur</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </Field>
+                    <Field id="custom-photo" label="URL de la photo (facultatif)">
+                      {(f) => <Input {...f} type="url" value={newCustomBadge.photo_url} onChange={(e) => setNewCustomBadge({ ...newCustomBadge, photo_url: e.target.value })} />}
+                    </Field>
                   </div>
-                  <Button onClick={handleAddCustomBadge} className="w-full bg-[#A6C33C] hover:bg-[#95B035]">
-                    <UserPlus className="mr-2 h-4 w-4" /> Ajouter le Badge
+                  <Button type="submit" variant="outline">
+                    <UserPlus aria-hidden="true" /> Ajouter le badge
                   </Button>
-                </CardContent>
-              </Card>
+                </form>
+              </ListPanel>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
-                    <span>Liste des Badges Personnalisés ({customBadgeList.length})</span>
-                    {customBadgeList.length > 0 && (
-                      <Badge className="bg-[#A6C33C]">
-                        {customBadgeList.filter((b) => b.selected).length} sélectionné(s)
-                      </Badge>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="border rounded-lg max-h-[400px] overflow-y-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background">
-                        <TableRow>
-                          <TableHead className="w-10">Select</TableHead>
-                          <TableHead>Nom & Prénom</TableHead>
-                          <TableHead>Contact</TableHead>
-                          <TableHead>Fonction</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead className="w-10">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {customBadgeList.map((badge) => (
-                          <TableRow key={badge.id}>
-                            <TableCell>
-                              <Checkbox
-                                className="border-[#A6C33C]"
-                                checked={badge.selected}
-                                onCheckedChange={() => toggleCustomBadgeSelection(badge.id)}
-                              />
-                            </TableCell>
-                            <TableCell className="font-bold">
-                              {badge.nom} {badge.prenom}
-                            </TableCell>
-                            <TableCell>{badge.contact || "-"}</TableCell>
-                            <TableCell>{badge.fonction || "-"}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="border-[#A6C33C] text-[#A6C33C]">
-                                {badge.statut}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeCustomBadge(badge.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {customBadgeList.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                              Aucun badge personnalisé créé. Utilisez le formulaire ci-dessus.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+              <ListPanel title="Badges personnalisés" description={customBadgeList.length > 0 ? `${customBadgeList.length} dans la liste, ${selectedCustom.length} sélectionné${plural(selectedCustom.length)}` : undefined}>
+                <DataTable
+                  caption="Badges personnalisés à imprimer"
+                  columns={customColumns}
+                  rows={customBadgeList}
+                  getRowKey={(b) => b.id}
+                  selection={{
+                    selected: new Set(selectedCustom.map((b) => b.id)),
+                    onChange: (next) => setCustomBadgeList(customBadgeList.map((b) => ({ ...b, selected: next.has(b.id) }))),
+                    label: (b) => `${b.nom} ${b.prenom}`.trim(),
+                  }}
+                  empty={<EmptyState icon={CreditCard} title="Aucun badge" message="Créez un badge avec le formulaire ci-dessus." />}
+                />
+              </ListPanel>
             </div>
 
-            {/* PREVIEW & ACTIONS */}
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Eye className="h-5 w-5" />
-                      Aperçu Badge
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowVersoCustom(!showVersoCustom)}
-                      className="text-xs"
-                    >
-                      {showVersoCustom ? "Voir Recto" : "Voir Verso"}
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center">
-                  {customBadgeList.filter((b) => b.selected).length > 0 ? (
+            <div className="space-y-6">
+              <PreviewPanel title="Aperçu du badge" verso={showVersoCustom} onToggleVerso={() => setShowVersoCustom(!showVersoCustom)}
+                emptyIcon={CreditCard} emptyMessage="Sélectionnez un badge pour afficher son aperçu.">
+                {selectedCustom.length > 0 ? (
                     <div className="w-[280px] h-[390px] bg-white rounded-lg shadow-xl border-4 border-[#A6C33C] p-4 flex flex-col items-center relative overflow-hidden">
                       {/* Watermark */}
                       <div className="absolute inset-0 flex items-center justify-center opacity-[0.08] pointer-events-none">
@@ -2759,59 +2344,20 @@ const BadgeCOVerso = ({ membre, qrCode }: { membre: MembreCO; qrCode?: string })
                         )}
                       </div>
                     </div>
-                  ) : (
-                    <div className="w-64 h-96 border-2 border-dashed rounded-xl flex items-center justify-center">
-                      <div className="text-center space-y-2">
-                        <CreditCard className="h-12 w-12 mx-auto text-muted-foreground" />
-                        <div className="text-sm text-muted-foreground">
-                          Sélectionnez un badge à prévisualiser
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Génération</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button
-                    className="w-full gap-2 bg-[#A6C33C] hover:bg-[#95B035]"
-                    size="lg"
-                    onClick={generateCustomBadgePDF}
-                    disabled={customBadgeList.filter((b) => b.selected).length === 0 || generating}
-                  >
-                    {generating ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Génération PDF...
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-5 w-5" />
-                        Télécharger PDF ({customBadgeList.filter((b) => b.selected).length})
-                      </>
-                    )}
-                  </Button>
-
-                  <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg space-y-1">
-                    <div className="font-semibold mb-1">🎨 Badges Personnalisés :</div>
-                    <div>• Nom, Prénom, Contact</div>
-                    <div>• Fonction optionnelle</div>
-                    <div>• Statut personnalisable</div>
-                    <div>• Recto-verso côte à côte</div>
-                    <div>• QR Code unique</div>
-                    <div>• Format A4 paysage</div>
-                  </div>
-                </CardContent>
-              </Card>
+                ) : null}
+              </PreviewPanel>
+              <GeneratePanel
+                label={badgesLabel(selectedCustom.length)}
+                icon={FileText}
+                count={selectedCustom.length}
+                generating={generating}
+                onGenerate={generateCustomBadgePDF}
+                notes={["Nom, prénom et contact", "Fonction facultative, statut au choix", "Recto et verso côte à côte, QR code unique", "A4 paysage"]}
+              />
             </div>
           </div>
         </TabsContent>
-        </Tabs>
-      </div>
+      </Tabs>
     </DashboardLayout>
   );
 }
