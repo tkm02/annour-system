@@ -2,43 +2,38 @@
 import { EDITION } from "@/lib/edition";
 import { ApiError, bulletinsApi } from "@/lib/api";
 
+import { DataTable, type Column } from "@/components/common/data-table";
+import { FilterBar } from "@/components/common/filter-bar";
+import { PageHeader } from "@/components/common/page-header";
+import { EmptyState, errorText } from "@/components/common/states";
+import { StatusBadge } from "@/components/common/status-badge";
+import {
+  GeneratePanel,
+  ListPanel,
+  NiveauFilter,
+  niveauxOf,
+  PreviewPanel,
+  SelectionActions,
+  seminaristeColumns,
+} from "@/components/documents/document-panels";
 import DashboardLayout from "@/components/layout/dashboard-layout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { addToSelection, applySelection, isAllSelected } from "@/lib/selection";
+import { countLabel, matchesSearch } from "@/lib/table";
 import { Bulletin, Note, scientificApi, Seminariste } from "@/lib/api";
 import logoAnnour from "@/public/ANNOUR.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
-import { de, et, se } from "date-fns/locale";
 import jsPDF from "jspdf";
 import {
-  Download,
-  Eye,
   FileText,
-  Loader2,
   Printer,
   RefreshCw,
-  Search,
   Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 interface SeminaristeWithNotes extends Seminariste {
@@ -48,7 +43,9 @@ interface SeminaristeWithNotes extends Seminariste {
 export default function BulletinGenerationPage() {
   const [seminaristes, setSeminaristes] = useState<SeminaristeWithNotes[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const query = useDebouncedValue(searchTerm);
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
   const [selectedSeminaristes, setSelectedSeminaristes] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -80,6 +77,7 @@ export default function BulletinGenerationPage() {
   const fetchSeminaristes = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [semResponse, notesResponse] = await Promise.all([
         scientificApi.getSeminaristes(1, 10000),
         scientificApi.getNotes(),
@@ -101,8 +99,8 @@ export default function BulletinGenerationPage() {
       }));
 
       setSeminaristes(semWithNotes);
-    } catch (error: any) {
-      toast.error(error.message || "Erreur chargement");
+    } catch (error) {
+      setLoadError(errorText(error, "Chargement des séminaristes impossible"));
     } finally {
       setLoading(false);
     }
@@ -135,36 +133,13 @@ export default function BulletinGenerationPage() {
   }, [selectedSeminaristes, seminaristes]);
 
   // ✅ FILTRES
-  const niveaux = Array.from(
-    new Set(seminaristes.map((s) => s.niveau).filter(Boolean))
-  );
+  const niveaux = useMemo(() => niveauxOf(seminaristes), [seminaristes]);
 
-  const filteredSeminaristes = seminaristes.filter((sem) => {
-    const fullName = `${sem.nom} ${sem.prenom || ""}`.toLowerCase();
-    const matchesSearch =
-      !searchTerm ||
-      fullName.includes(searchTerm.toLowerCase()) ||
-      sem.matricule.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesNiveau =
-      selectedNiveau === "tous" || sem.niveau === selectedNiveau;
-    return matchesSearch && matchesNiveau;
-  });
-
-  const handleSelectAll = () => {
-    if (selectedSeminaristes.length === filteredSeminaristes.length) {
-      setSelectedSeminaristes([]);
-    } else {
-      setSelectedSeminaristes(filteredSeminaristes.map((s) => s.matricule));
-    }
-  };
-
-  const handleSelectOne = (matricule: string) => {
-    setSelectedSeminaristes((prev) =>
-      prev.includes(matricule)
-        ? prev.filter((m) => m !== matricule)
-        : [...prev, matricule]
-    );
-  };
+  const filteredSeminaristes = useMemo(() => seminaristes.filter((sem) =>
+    (selectedNiveau === "tous" || sem.niveau === selectedNiveau) &&
+    matchesSearch(query, [sem.nom, sem.prenom, sem.matricule])
+  ), [seminaristes, query, selectedNiveau]);
+  const filteredKeys = filteredSeminaristes.map((s) => s.matricule);
 
   // ✅ GÉNÉRER PDF - FORMAT PAYSAGE
   const generatePDF = async () => {
@@ -863,224 +838,145 @@ export default function BulletinGenerationPage() {
     </div>
   )};
 
-  // ✅ LOADING
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <Card>
-          <CardContent className="p-12">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <div className="text-lg font-semibold">Chargement...</div>
-            </div>
-          </CardContent>
-        </Card>
-      </DashboardLayout>
-    );
-  }
+  const filteredOut = selectedNiveau !== "tous" || !!query.trim();
+  const resetFilters = () => {
+    setSearchTerm("");
+    setSelectedNiveau("tous");
+  };
+  const firstSelected = seminaristes.find((s) => s.matricule === selectedSeminaristes[0]);
+  const count = selectedSeminaristes.length;
+
+  const columns: Column<SeminaristeWithNotes>[] = [
+    ...seminaristeColumns<SeminaristeWithNotes>(),
+    {
+      id: "notes", header: "Notes saisies", align: "center",
+      sortValue: (s) => Object.keys(s.notes || {}).length,
+      cell: (s) => {
+        const notesCount = Object.keys(s.notes || {}).length;
+        return <StatusBadge tone={notesCount > 0 ? "success" : "neutral"} icon={null}>{notesCount}</StatusBadge>;
+      },
+    },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="h-7 w-7 text-[#008080]" />
-              GÉNÉRATION DE BULLETINS AN-NOUR
-            </h1>
-            <p className="text-muted-foreground">
-              Bulletins de fin de séminaire avec notes et moyennes ({EDITION.anneeScolaire})
-            </p>
-          </div>
-          <Button variant="outline" onClick={recalculerAnnee} disabled={recalculating} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${recalculating ? "animate-spin" : ""}`} />
+      <PageHeader
+        title="Bulletins"
+        description={`Bulletins de fin de séminaire avec notes, moyennes et rangs (${EDITION.anneeScolaire}).`}
+        actions={
+          <Button variant="outline" onClick={recalculerAnnee} disabled={recalculating}>
+            <RefreshCw className={recalculating ? "animate-spin" : undefined} aria-hidden="true" />
             Recalculer l&apos;année
           </Button>
+        }
+      />
+
+      {generationErrors.length > 0 && (
+        <div role="alert" className="mb-6 space-y-2 rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive-strong">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-semibold">Bulletins à compléter</p>
+            <Button variant="link" size="sm" className="h-auto p-0 text-destructive-strong" onClick={() => setGenerationErrors([])}>
+              Masquer
+            </Button>
+          </div>
+          <ul className="list-disc space-y-1 pl-5">
+            {generationErrors.map((e) => <li key={e} className="whitespace-pre-line">{e}</li>)}
+          </ul>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
+          <ListPanel title="Séminaristes" description="Cochez les séminaristes dont vous voulez générer le bulletin.">
+            <FilterBar
+              search={searchTerm}
+              onSearchChange={setSearchTerm}
+              searchLabel="Rechercher un séminariste"
+              searchPlaceholder="Nom, prénom ou matricule…"
+              filters={<NiveauFilter value={selectedNiveau} onChange={setSelectedNiveau} niveaux={niveaux} />}
+              activeFilters={selectedNiveau !== "tous" ? [{ label: `Niveau : ${selectedNiveau}`, onRemove: () => setSelectedNiveau("tous") }] : []}
+              onReset={resetFilters}
+              count={seminaristes.length > 0 ? countLabel(filteredSeminaristes.length, seminaristes.length, "séminariste", "séminaristes") : undefined}
+              actions={
+                <>
+                  <SelectionActions
+                    filteredCount={filteredKeys.length}
+                    allFilteredSelected={isAllSelected(selectedSeminaristes, filteredKeys)}
+                    selectedCount={count}
+                    onSelectFiltered={() => setSelectedSeminaristes((prev) => addToSelection(prev, filteredKeys))}
+                    onClear={() => setSelectedSeminaristes([])}
+                  />
+                  <Button variant="outline" size="icon" onClick={fetchSeminaristes} disabled={loading} aria-label="Actualiser la liste">
+                    <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
+                  </Button>
+                </>
+              }
+            />
+            <DataTable
+              caption="Séminaristes à sélectionner pour les bulletins"
+              columns={columns}
+              rows={filteredSeminaristes}
+              getRowKey={(s) => s.matricule}
+              loading={loading}
+              error={loadError}
+              onRetry={fetchSeminaristes}
+              pageSize={25}
+              selection={{
+                selected: new Set(selectedSeminaristes),
+                onChange: (next) => setSelectedSeminaristes((prev) => applySelection(prev, next)),
+                label: (s) => `${s.nom} ${s.prenom ?? ""}`.trim(),
+              }}
+              empty={
+                <EmptyState
+                  icon={Users}
+                  title={filteredOut ? "Aucun résultat" : "Aucun séminariste"}
+                  message={filteredOut ? "Aucun séminariste ne correspond à ces filtres." : "Aucun séminariste n'est encore inscrit."}
+                  action={filteredOut ? <Button variant="outline" onClick={resetFilters}>Réinitialiser les filtres</Button> : undefined}
+                />
+              }
+            />
+          </ListPanel>
         </div>
 
-        {generationErrors.length > 0 && (
-          <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/5 p-4 text-sm space-y-1">
-            <p className="font-semibold text-destructive">Bulletins à compléter</p>
-            <ul className="list-disc pl-5">
-              {generationErrors.map((e) => <li key={e} className="whitespace-pre-line">{e}</li>)}
-            </ul>
-            <button type="button" className="text-xs underline" onClick={() => setGenerationErrors([])}>Masquer</button>
-          </div>
-        )}
+        <div className="space-y-6">
+          <PreviewPanel
+            title="Aperçu du bulletin"
+            emptyIcon={FileText}
+            emptyMessage="Sélectionnez un séminariste pour afficher l'aperçu de son bulletin."
+            footer={
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="bulletin-nb-notes">Colonnes de notes dans l&apos;aperçu</Label>
+                <Input
+                  id="bulletin-nb-notes"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={numberOfNotes}
+                  onChange={(e) => setNumberOfNotes(parseInt(e.target.value) || 4)}
+                  className="w-20"
+                />
+              </div>
+            }
+          >
+            {firstSelected ? (
+              <div className="scale-[0.40] origin-top">
+                <BulletinPreview
+                  seminariste={firstSelected}
+                  bulletin={previewBulletin}
+                  numberOfNotes={numberOfNotes}
+                />
+              </div>
+            ) : null}
+          </PreviewPanel>
 
-        {/* Main Grid - Same as Badge Page */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* SÉLECTION */}
-          <div className="lg:col-span-2 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Sélection des Séminaristes</span>
-                  <Badge variant="outline" className="text-base">
-                    {selectedSeminaristes.length} sélectionné(s)
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Rechercher..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <Select value={selectedNiveau} onValueChange={setSelectedNiveau}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tous">Tous niveaux</SelectItem>
-                      {niveaux.map((niveau) => (
-                        <SelectItem key={niveau} value={niveau || ""}>
-                          {niveau}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="sm" onClick={fetchSeminaristes}>
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <div className="flex items-center gap-2 mt-2">
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">Nombre de notes:</span>
-                    <Input
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={numberOfNotes}
-                        onChange={(e) => setNumberOfNotes(parseInt(e.target.value) || 4)}
-                        className="w-20"
-                    />
-                </div>
-
-                <div className="border rounded-lg max-h-[500px] overflow-y-auto">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-background">
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                            className="border-[#008080]"
-                            checked={
-                              selectedSeminaristes.length === filteredSeminaristes.length &&
-                              filteredSeminaristes.length > 0
-                            }
-                            onCheckedChange={handleSelectAll}
-                          />
-                        </TableHead>
-                        <TableHead>MATRICULE</TableHead>
-                        <TableHead>NOM & PRÉNOM</TableHead>
-                        <TableHead>NIVEAU</TableHead>
-                        <TableHead className="text-center">NOTES</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredSeminaristes.map((sem) => {
-                        const notesCount = Object.keys(sem.notes || {}).length;
-                        return (
-                          <TableRow key={sem.id}>
-                            <TableCell>
-                              <Checkbox
-                                className="border-[#008080]"
-                                checked={selectedSeminaristes.includes(sem.matricule)}
-                                onCheckedChange={() => handleSelectOne(sem.matricule)}
-                              />
-                            </TableCell>
-                            <TableCell className="font-mono font-semibold">
-                              {sem.matricule}
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-semibold">{sem.nom}</div>
-                              <div className="text-sm text-muted-foreground">{sem.prenom}</div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{sem.niveau || "Non classé"}</Badge>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {notesCount > 0 ? (
-                                <Badge className="bg-green-500">{notesCount}</Badge>
-                              ) : (
-                                <Badge variant="secondary">0</Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* PREVIEW */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Aperçu Bulletin
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                {selectedSeminaristes.length > 0 ? (
-                  <div className="scale-[0.40] origin-top">
-                    <BulletinPreview
-                      seminariste={seminaristes.find((s) => s.matricule === selectedSeminaristes[0])!}
-                      bulletin={previewBulletin}
-                      numberOfNotes={numberOfNotes}
-                    />
-                  </div>
-                ) : (
-                  <div className="w-64 h-96 border-2 border-dashed rounded-xl flex items-center justify-center">
-                    <div className="text-center space-y-2">
-                      <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <div className="text-sm text-muted-foreground">
-                        Sélectionnez un séminariste
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Options</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 pt-2">
-                  <Button
-                    className="w-full gap-2 bg-[#008080] hover:bg-[#006666]"
-                    size="lg"
-                    onClick={generatePDF}
-                    disabled={selectedSeminaristes.length === 0 || generating}
-                  >
-                    {generating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Génération en cours...
-                      </>
-                    ) : (
-                      <>
-                        <Printer className="h-4 w-4" />
-                        Générer {selectedSeminaristes.length} Bulletin(s)
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <GeneratePanel
+            label={`Générer ${count} bulletin${count > 1 ? "s" : ""} (PDF)`}
+            icon={Printer}
+            count={count}
+            generating={generating}
+            onGenerate={generatePDF}
+            notes={["A4 paysage, un bulletin par page", "Moyenne et rang calculés par le serveur"]}
+          />
         </div>
       </div>
     </DashboardLayout>

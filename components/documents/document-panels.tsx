@@ -36,8 +36,10 @@ export function ListPanel({ title, description, actions, children }: {
 }
 
 /** Aperçu du premier élément sélectionné, avec bascule recto / verso facultative. */
-export function PreviewPanel({ title = "Aperçu", verso, onToggleVerso, emptyIcon: EmptyIcon, emptyMessage, children }: {
+export function PreviewPanel({ title = "Aperçu", verso, onToggleVerso, emptyIcon: EmptyIcon, emptyMessage, footer, children }: {
   title?: string
+  /** Réglages de l'aperçu, affichés sous le gabarit */
+  footer?: React.ReactNode
   verso?: boolean
   onToggleVerso?: () => void
   emptyIcon: LucideIcon
@@ -73,6 +75,7 @@ export function PreviewPanel({ title = "Aperçu", verso, onToggleVerso, emptyIco
           </div>
         )}
       </CardContent>
+      {footer && <CardContent className="border-t border-border pt-4">{footer}</CardContent>}
     </Card>
   )
 }
