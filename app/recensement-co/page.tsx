@@ -38,6 +38,7 @@ export default function RecensementCOPage() {
     return [...all]
   }, [config.data, stats.data])
   const commissionsActives = config.data?.commissions ?? []
+  const qualitesParCommission = config.data?.qualites_par_commission ?? null
   const edition = stats.data?.edition ?? null
   const editionLibelle = config.data?.edition?.code === edition && config.data?.edition?.libelle ? config.data.edition.libelle : edition
   const cas = stats.data?.cas_a_verifier ?? 0
@@ -102,7 +103,7 @@ export default function RecensementCOPage() {
       </div>
       {/* Monté seulement pendant l'ouverture : le détail (santé) n'est pas conservé après fermeture */}
       {openId && (
-        <CoDetailDialog key={openId} id={openId} commissions={commissionsActives}
+        <CoDetailDialog key={openId} id={openId} commissions={commissionsActives} qualitesParCommission={qualitesParCommission}
           onClose={() => setOpenId(null)} onChanged={refresh} onShowCas={showCas} />
       )}
     </DashboardLayout>

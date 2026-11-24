@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useRemoteData } from "@/hooks/use-remote-data"
 import { ApiError, recensementCoApi, type ParticipationCODetail } from "@/lib/api"
 import { formatDate } from "@/lib/format"
-import { formatDateNaissance, qualiteLabel, sexeLabel, typeLabel } from "@/lib/recensement-co"
+import { formatDateNaissance, qualiteLabel, sexeLabel, typeLabel, type QualitesParCommission } from "@/lib/recensement-co"
 import CoCorrectionForm from "./co-correction-form"
 import { ActionConfirm, RejectDialog } from "./co-decision-dialogs"
 import { CoPhoto, InfoRow, StatutBadge, apiErrorMessage } from "./co-shared"
@@ -87,9 +87,10 @@ function DetailView({ detail }: { detail: ParticipationCODetail }) {
  * détail par ouverture (lecture journalisée côté serveur) : le PATCH renvoie la fiche, valider/rejeter la mettent à
  * jour localement.
  */
-export default function CoDetailDialog({ id, commissions, onClose, onChanged, onShowCas }: {
+export default function CoDetailDialog({ id, commissions, qualitesParCommission = null, onClose, onChanged, onShowCas }: {
   id: string
   commissions: string[]
+  qualitesParCommission?: QualitesParCommission
   onClose: () => void
   /** Recharge la synthèse et les listes (jamais le détail) */
   onChanged: () => void
@@ -207,7 +208,8 @@ export default function CoDetailDialog({ id, commissions, onClose, onChanged, on
             )}
 
             {editing ? (
-              <CoCorrectionForm key={detail.id} detail={detail} commissions={commissions} onDirtyChange={setDirty}
+              <CoCorrectionForm key={detail.id} detail={detail} commissions={commissions}
+                qualitesParCommission={qualitesParCommission} onDirtyChange={setDirty}
                 onCancel={requestCancelEdit}
                 onSaved={(saved) => { setLocal(saved); setDirty(false); setEditing(false); onChanged() }} />
             ) : (

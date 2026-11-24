@@ -828,7 +828,8 @@ export const coApi = {
 };
 
 // ✅ RECENSEMENT CO (édition en cours, rôle admin) — contrat : Backend docs/features/recensement-co.md
-export type QualiteCO = "membre" | "responsable" | "responsable_adjoint";
+// Qualités selon la commission : `qualites_par_commission` de /co/configuration (Backend QUALITES_PAR_COMMISSION)
+export type QualiteCO = "membre" | "responsable" | "responsable_adjoint" | "manager_general" | "manager_general_adjoint";
 export type StatutFicheCO = "soumise" | "a_verifier" | "validee" | "rejetee";
 export type TypeMembreCO = "ancien" | "nouveau";
 export type SexeCO = "M" | "F";
@@ -845,7 +846,7 @@ export interface ParticipationCOListe {
   email: string | null;
   photo_url: string | null;
   commission: string;
-  qualite: string;
+  qualite: string | null; // null : commission sans qualité (Secrétaire Régional, Président de Sous-Comité, Superviseur)
   type: string;
   statut_fiche: string;
   soumise_at: string | null;
@@ -855,7 +856,7 @@ export interface ParticipationCOListe {
 export interface HistoriqueParticipationCO {
   edition: string | null;
   commission: string;
-  qualite: string;
+  qualite: string | null;
 }
 
 /** Détail (avec santé ; chaque lecture est journalisée côté serveur). */
@@ -935,6 +936,8 @@ export interface ConfigurationCO {
   commissions: string[];
   commissions_precedentes: string[];
   qualites: Array<{ code: string; libelle: string }>;
+  /** Libellé de commission → codes de qualité proposés ([] : commission sans qualité) ; absent : API antérieure */
+  qualites_par_commission?: Record<string, string[]>;
 }
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;

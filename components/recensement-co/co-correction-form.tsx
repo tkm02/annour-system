@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { ApiError, recensementCoApi, type ParticipationCODetail } from "@/lib/api"
 import {
   NOM_MAX, QUALITE_LABELS, SANTE_MAX, SEXE_LABELS, correctionApiErrors, correctionModifiee, diffCorrection,
-  formFromDetail, premierChampEnErreur, santeEffacee, validateCorrection, type CorrectionForm, type Errors,
+  formFromDetail, premierChampEnErreur, qualitesPourCommission, santeEffacee, validateCorrection, type CorrectionForm,
+  type Errors, type QualitesParCommission,
 } from "@/lib/recensement-co"
 import { ActionConfirm } from "./co-decision-dialogs"
 import { apiErrorMessage } from "./co-shared"
@@ -27,10 +28,12 @@ function focusFirstError(errors: Errors) {
 }
 
 /** Correction d'une fiche par l'administration (PATCH partiel : seuls les champs modifiés sont envoyés). */
-export default function CoCorrectionForm({ detail, commissions, onCancel, onSaved, onDirtyChange }: {
+export default function CoCorrectionForm({ detail, commissions, qualitesParCommission = null, onCancel, onSaved, onDirtyChange }: {
   detail: ParticipationCODetail
   /** Commissions actives de l'édition (valeurs acceptées par le serveur) */
   commissions: string[]
+  /** Qualités proposées par commission (configuration du formulaire ; null : toutes) */
+  qualitesParCommission?: QualitesParCommission
   onCancel: () => void
   /** Reçoit la fiche renvoyée par le PATCH (pas de nouvelle lecture des données de santé) */
   onSaved: (detail: ParticipationCODetail) => void
@@ -47,8 +50,13 @@ export default function CoCorrectionForm({ detail, commissions, onCancel, onSave
     () => (commissions.includes(initial.commission) || !initial.commission ? commissions : [initial.commission, ...commissions]),
     [commissions, initial.commission],
   )
+  const qualitesProposees = qualitesPourCommission(form.commission.trim(), qualitesParCommission)
   const set = (field: keyof CorrectionForm) => (value: string) => {
     const next = { ...form, [field]: value }
+    // Qualité non proposée pour la nouvelle commission : à choisir de nouveau
+    if (field === "commission" && !qualitesPourCommission(value.trim(), qualitesParCommission).includes(next.qualite)) {
+      next.qualite = ""
+    }
     setForm(next)
     onDirtyChange(correctionModifiee(next, initial))
     if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }))
@@ -56,7 +64,7 @@ export default function CoCorrectionForm({ detail, commissions, onCancel, onSave
 
   const save = async () => {
     setConfirmSante(false)
-    const update = diffCorrection(form, initial)
+    const update = diffCorrection(form, initial, qualitesParCommission)
     if (Object.keys(update).length === 0) {
       toast("Aucune modification à enregistrer")
       onDirtyChange(false)
@@ -86,7 +94,7 @@ export default function CoCorrectionForm({ detail, commissions, onCancel, onSave
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
     setFormError(null)
-    const problems = validateCorrection(form, initial)
+    const problems = validateCorrection(form, initial, new Date(), qualitesParCommission)
     setErrors(problems)
     if (Object.keys(problems).length > 0) {
       focusFirstError(problems)
@@ -128,7 +136,9 @@ export default function CoCorrectionForm({ detail, commissions, onCancel, onSave
         {text("email", "Email", { type: "email", maxLength: 254 })}
         {select("commission", "Commission *", commissionOptions.map((c) => [c, c]), "Choisir", true,
           commissions.length === 0 ? "Liste des commissions indisponible : seule la commission actuelle est proposée." : undefined)}
-        {select("qualite", "Qualité *", Object.entries(QUALITE_LABELS), "Choisir", true)}
+        {qualitesProposees.length > 0
+          ? select("qualite", "Qualité *", qualitesProposees.map((code) => [code, QUALITE_LABELS[code as keyof typeof QUALITE_LABELS] ?? code]), "Choisir", true)
+          : <p className="self-end pb-2 text-sm text-muted-foreground">Qualité : aucune pour cette commission.</p>}
       </div>
 
       <fieldset className="space-y-4 rounded-lg border border-destructive/40 p-4">

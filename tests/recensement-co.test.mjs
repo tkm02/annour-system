@@ -8,7 +8,7 @@ import {
   diffCorrection, exportFilename, formFromDetail, formatDateNaissance, hasActiveFilters, motifCorrespondanceLabel,
   normaliserTelephone, qualiteLabel, sexeLabel, silhouetteFor, statutLabel, toDateInput, typeLabel, validateCorrection,
   validateMotif, changementsFusion, comparerCandidat, correctionModifiee, nombreFiltresActifs, pageRecalee,
-  premierChampEnErreur, santeEffacee,
+  premierChampEnErreur, santeEffacee, qualitesPourCommission,
 } from "../lib/recensement-co.ts";
 
 const detail = (over = {}) => ({
@@ -128,7 +128,40 @@ test("correction : seuls les champs modifiés sont envoyés, santé effaçable p
     allergies: "", antecedents_medicaux: "Asthme",
   });
   const complete = formFromDetail(detail({ sexe: null }));
-  assert.deepEqual(diffCorrection({ ...complete, sexe: "M", commission: "Logistique" }, complete), { sexe: "M", commission: "Logistique" });
+  // Commission changée : la qualité retenue l'accompagne (cohérence vérifiée par le serveur)
+  assert.deepEqual(diffCorrection({ ...complete, sexe: "M", commission: "Logistique" }, complete),
+    { sexe: "M", commission: "Logistique", qualite: "membre" });
+});
+
+test("correction : qualité selon la commission (Comité Managérial, commissions sans qualité)", () => {
+  const table = {
+    "Comité Managérial": ["manager_general", "manager_general_adjoint"],
+    Santé: ["membre", "responsable", "responsable_adjoint"],
+    Superviseur: [],
+  };
+  assert.deepEqual(qualitesPourCommission("Comité Managérial", table), ["manager_general", "manager_general_adjoint"]);
+  assert.deepEqual(qualitesPourCommission("Superviseur", table), []);
+  assert.deepEqual(qualitesPourCommission("Cellule hors référentiel", table), ["membre", "responsable", "responsable_adjoint"]);
+  assert.equal(qualitesPourCommission("Santé", null).length, 5); // configuration antérieure : toutes
+  assert.equal(qualiteLabel("manager_general_adjoint"), "Manager Général Adjoint");
+  assert.equal(qualiteLabel(null), "—");
+
+  const initial = formFromDetail(detail()); // Santé · membre
+  const vers = (commission, qualite = initial.qualite) => ({ ...initial, commission, qualite });
+  assert.equal(validateCorrection(vers("Comité Managérial"), initial, TODAY, table).qualite,
+    "Qualité non valable pour cette commission.");
+  assert.equal(validateCorrection(vers("Comité Managérial", ""), initial, TODAY, table).qualite, "La qualité est obligatoire.");
+  assert.deepEqual(validateCorrection(vers("Comité Managérial", "manager_general"), initial, TODAY, table), {});
+  assert.deepEqual(validateCorrection(vers("Superviseur", ""), initial, TODAY, table), {});
+  assert.deepEqual(diffCorrection(vers("Comité Managérial", "manager_general"), initial, table),
+    { commission: "Comité Managérial", qualite: "manager_general" });
+  // Commission sans qualité : rien n'est envoyé pour la qualité (le serveur la vide)
+  assert.deepEqual(diffCorrection(vers("Superviseur", ""), initial, table), { commission: "Superviseur" });
+  // Fiche sans qualité (Superviseur) : formulaire vide, retour vers une commission à qualités
+  const sansQualite = formFromDetail(detail({ commission: "Superviseur", qualite: null }));
+  assert.equal(sansQualite.qualite, "");
+  assert.equal(validateCorrection({ ...sansQualite, commission: "Santé" }, sansQualite, TODAY, table).qualite,
+    "La qualité est obligatoire.");
 });
 
 test("correction : erreurs de l'API (409 email, 422 par champ, autre message)", () => {
