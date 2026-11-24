@@ -163,7 +163,7 @@ export default function NotesEntryModal({
         }
       }
 
-      toast.success(`✅ ${savedCount} notes enregistrées`);
+      toast.success(`${savedCount} notes enregistrées`);
       onSuccess();
       onClose();
     } catch (error: any) {

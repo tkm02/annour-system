@@ -5,27 +5,26 @@ import { useState } from "react"
 import { AlertTriangle, CheckCircle2, Clock, XCircle, type LucideIcon } from "lucide-react"
 
 import IdPhotoPlaceholder from "@/components/common/id-photo-placeholder"
+import { StatusBadge, type StatusTone } from "@/components/common/status-badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ApiError } from "@/lib/api"
 import { PHOTO_NON_FOURNIE, statutLabel } from "@/lib/recensement-co"
 import { cn } from "@/lib/utils"
 
-// Statuts : couleur du thème + icône + libellé (jamais la couleur seule)
-const STATUT_STYLES: Record<string, { icon: LucideIcon; className: string }> = {
-  soumise: { icon: Clock, className: "border-border bg-muted text-foreground" },
-  a_verifier: { icon: AlertTriangle, className: "border-secondary bg-secondary/10 text-secondary dark:text-foreground" },
-  validee: { icon: CheckCircle2, className: "border-primary bg-primary/15 text-foreground" },
-  rejetee: { icon: XCircle, className: "border-destructive bg-destructive/10 text-foreground" },
+// Statuts : ton sémantique + icône + libellé (jamais la couleur seule), via le badge commun
+const STATUT_STYLES: Record<string, { icon: LucideIcon; tone: StatusTone }> = {
+  soumise: { icon: Clock, tone: "info" },
+  a_verifier: { icon: AlertTriangle, tone: "warning" },
+  validee: { icon: CheckCircle2, tone: "success" },
+  rejetee: { icon: XCircle, tone: "danger" },
 }
 
 export function StatutBadge({ statut, className }: { statut: string | null | undefined; className?: string }) {
   const style = STATUT_STYLES[statut ?? ""] ?? STATUT_STYLES.soumise
-  const Icon = style.icon
   return (
-    <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium", style.className, className)}>
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+    <StatusBadge tone={style.tone} icon={style.icon} className={className}>
       {statutLabel(statut)}
-    </span>
+    </StatusBadge>
   )
 }
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react"
 import { AlertTriangle, CheckCircle2, Pencil, ShieldAlert, XCircle } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import { ErrorState, LoadingState } from "@/components/common/states"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -228,7 +228,7 @@ export default function CoDetailDialog({ id, commissions, onClose, onChanged, on
                       </Button>
                     )}
                     {detail.statut_fiche !== "validee" && (
-                      <Button className="gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                      <Button className="gap-2"
                         disabled={busy || aVerifier} aria-describedby={aVerifier ? "co-valider-aide" : undefined}
                         onClick={() => setPending("valider")}>
                         <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Valider

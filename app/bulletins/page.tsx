@@ -169,13 +169,13 @@ export default function BulletinGenerationPage() {
   // ✅ GÉNÉRER PDF - FORMAT PAYSAGE
   const generatePDF = async () => {
     if (selectedSeminaristes.length === 0) {
-      toast.warning("⚠️ Sélectionnez au moins un séminariste");
+      toast.warning("Sélectionnez au moins un séminariste");
       return;
     }
 
     try {
       setGenerating(true);
-      toast.info(`📄 Génération de ${selectedSeminaristes.length} bulletin(s)...`);
+      toast.info(`Génération de ${selectedSeminaristes.length} bulletin(s)...`);
 
       const pdf = new jsPDF({
         orientation: "landscape",  // ✅ FORMAT PAYSAGE

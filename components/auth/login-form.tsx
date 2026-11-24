@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
-import toast from "react-hot-toast"
+import { toast } from "sonner"
 import { authApi } from "@/lib/api"
 import { homeFor } from "@/lib/navigation"
 import { normalizeRole } from "@/lib/roles"

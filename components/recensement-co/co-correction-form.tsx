@@ -3,7 +3,7 @@
 import type React from "react"
 import { useMemo, useState } from "react"
 import { Loader2, ShieldAlert } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import Field from "@/components/finance/field"
 import { Button } from "@/components/ui/button"
@@ -146,7 +146,7 @@ export default function CoCorrectionForm({ detail, commissions, onCancel, onSave
       {formError && <p className="whitespace-pre-line text-sm text-destructive" role="alert">{formError}</p>}
       <div className="sticky bottom-0 -mx-6 -mb-6 flex flex-col-reverse gap-2 border-t bg-background px-6 py-4 sm:static sm:m-0 sm:flex-row sm:justify-end sm:p-0 sm:pt-4">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>Annuler</Button>
-        <Button type="submit" disabled={saving} className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+        <Button type="submit" disabled={saving}>
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}Enregistrer la correction
         </Button>
       </div>

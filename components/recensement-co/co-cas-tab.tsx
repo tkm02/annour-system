@@ -3,7 +3,7 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Check, EqualNot, UserCheck, UserPlus } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import Pager from "@/components/common/pager"
 import { EmptyState, ErrorState, LoadingState } from "@/components/common/states"

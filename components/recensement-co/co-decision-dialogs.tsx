@@ -37,8 +37,7 @@ export function ActionConfirm({ open, title, description, confirmLabel, cancelLa
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); onConfirm() }}
-            className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+          <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); onConfirm() }}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}{confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

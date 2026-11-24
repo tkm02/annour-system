@@ -3,7 +3,7 @@
 import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { FileDown, Loader2, Pencil } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import { ErrorState, LoadingState, errorText } from "@/components/common/states"
 import ConsultationFields from "@/components/health/consultation-fields"

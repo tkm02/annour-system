@@ -210,7 +210,7 @@ export default function SeminaristesTable({
     try {
       setDeleting(true);
       await scientificApi.deleteSeminariste(seminaristeToDelete.matricule);
-      toast.success("✅ Séminariste supprimé");
+      toast.success("Séminariste supprimé");
       scientificApi.invalidateCache();
       onRefresh();
       setShowDeleteModal(false);
@@ -254,7 +254,7 @@ export default function SeminaristesTable({
       const qrCodeUrl = await QRCode.toDataURL(qrData);
 
       await PDFGenerator.generateRegistrationPDF(pdfData, qrCodeUrl);
-      toast.success("✅ Reçu téléchargé");
+      toast.success("Reçu téléchargé");
     } catch (error) {
       toast.error("Erreur lors du téléchargement du reçu");
     }
@@ -312,10 +312,10 @@ export default function SeminaristesTable({
 
       if (isEditMode && editingMatricule) {
         await scientificApi.updateSeminariste(editingMatricule, formData);
-        toast.success("✅ Séminariste modifié");
+        toast.success("Séminariste modifié");
       } else {
         await scientificApi.createSeminariste(formData);
-        toast.success("✅ Séminariste ajouté");
+        toast.success("Séminariste ajouté");
       }
 
       scientificApi.invalidateCache();

@@ -38,7 +38,7 @@ export default function SeminaristesPage() {
   const handleRefresh = () => {
     scientificApi.invalidateCache();
     fetchSeminaristes();
-    toast.success("🔄 Liste actualisée");
+    toast.success("Liste actualisée");
   };
 
   return (

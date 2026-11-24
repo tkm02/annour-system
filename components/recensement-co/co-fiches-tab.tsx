@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ChevronDown, Download, Eye, FileSpreadsheet, Loader2, RotateCcw, Search, SlidersHorizontal } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "sonner"
 
 import Pager from "@/components/common/pager"
 import { EmptyState, ErrorState, LoadingState } from "@/components/common/states"

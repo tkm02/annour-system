@@ -11,6 +11,8 @@ export interface NavItem {
   name: string
   href: string
   icon: IconName
+  /** Groupe d'affichage dans le menu (les entrées d'un même groupe sont contiguës) */
+  section: string
 }
 
 const ADMIN: UserRole = "admin"
@@ -70,39 +72,44 @@ export function homeFor(role: string | null | undefined): string {
 
 export const NAVIGATION: Record<UserRole, NavItem[]> = {
   admin: [
-    { name: "Tableau de bord", href: "/dashboard", icon: "dashboard" },
-    { name: "Séminaristes", href: "/seminaristes", icon: "users" },
-    { name: "Badges", href: "/badges", icon: "badge" },
-    { name: "Certificats", href: "/certificats", icon: "certificate" },
-    { name: "Membres CO 2025 (archives)", href: "/membres-co", icon: "users" },
-    { name: "Recensement CO", href: "/recensement-co", icon: "census" },
-    { name: "Visiteurs", href: "/visiteurs", icon: "visitor" },
-    { name: "Avis", href: "/feedback", icon: "message" },
-    { name: "Gérer les accès", href: "/acces", icon: "settings" },
-    { name: "Finances", href: "/finance", icon: "finance" },
-    { name: "Paiements", href: "/finance/paiements", icon: "wallet" },
-    { name: "Santé", href: "/sante", icon: "health" },
+    { name: "Tableau de bord", href: "/dashboard", icon: "dashboard", section: "Pilotage" },
+    { name: "Séminaristes", href: "/seminaristes", icon: "users", section: "Séminaristes" },
+    { name: "Badges", href: "/badges", icon: "badge", section: "Séminaristes" },
+    { name: "Certificats", href: "/certificats", icon: "certificate", section: "Séminaristes" },
+    { name: "Recensement CO", href: "/recensement-co", icon: "census", section: "Comité d'organisation" },
+    { name: "Membres CO 2025 (archives)", href: "/membres-co", icon: "users", section: "Comité d'organisation" },
+    { name: "Visiteurs", href: "/visiteurs", icon: "visitor", section: "Accueil" },
+    { name: "Avis", href: "/feedback", icon: "message", section: "Accueil" },
+    { name: "Scientifique", href: "/scientifique", icon: "science", section: "Pédagogie" },
+    { name: "Attributions", href: "/attributions", icon: "assign", section: "Pédagogie" },
+    { name: "Notes", href: "/notes", icon: "file", section: "Pédagogie" },
+    { name: "Bulletins", href: "/bulletins", icon: "file", section: "Pédagogie" },
+    { name: "Formateurs", href: "/formateurs", icon: "teacher", section: "Pédagogie" },
+    { name: "Vue d'ensemble", href: "/finance", icon: "finance", section: "Finances" },
+    { name: "Paiements", href: "/finance/paiements", icon: "wallet", section: "Finances" },
+    { name: "Vue d'ensemble", href: "/sante", icon: "health", section: "Santé" },
+    { name: "Gérer les accès", href: "/acces", icon: "settings", section: "Administration" },
   ],
   scientifique: [
-    { name: "Tableau de bord", href: "/dashboard", icon: "dashboard" },
-    { name: "Séminaristes", href: "/seminaristes", icon: "users" },
-    { name: "Scientifique", href: "/scientifique", icon: "science" },
-    { name: "Attributions", href: "/attributions", icon: "assign" },
-    { name: "Notes", href: "/notes", icon: "file" },
-    { name: "Bulletins", href: "/bulletins", icon: "file" },
-    { name: "Formateurs", href: "/formateurs", icon: "teacher" },
+    { name: "Tableau de bord", href: "/dashboard", icon: "dashboard", section: "Pilotage" },
+    { name: "Séminaristes", href: "/seminaristes", icon: "users", section: "Séminaristes" },
+    { name: "Scientifique", href: "/scientifique", icon: "science", section: "Pédagogie" },
+    { name: "Attributions", href: "/attributions", icon: "assign", section: "Pédagogie" },
+    { name: "Notes", href: "/notes", icon: "file", section: "Pédagogie" },
+    { name: "Bulletins", href: "/bulletins", icon: "file", section: "Pédagogie" },
+    { name: "Formateurs", href: "/formateurs", icon: "teacher", section: "Pédagogie" },
   ],
   finances: [
-    { name: "Tableau de bord", href: "/finance", icon: "finance" },
-    { name: "Entrées", href: "/finance/entrees", icon: "trending-up" },
-    { name: "Sorties", href: "/finance/sorties", icon: "trending-down" },
-    { name: "Paiements", href: "/finance/paiements", icon: "wallet" },
-    { name: "Rapports", href: "/finance/rapports", icon: "report" },
+    { name: "Tableau de bord", href: "/finance", icon: "finance", section: "Finances" },
+    { name: "Entrées", href: "/finance/entrees", icon: "trending-up", section: "Finances" },
+    { name: "Sorties", href: "/finance/sorties", icon: "trending-down", section: "Finances" },
+    { name: "Paiements", href: "/finance/paiements", icon: "wallet", section: "Finances" },
+    { name: "Rapports", href: "/finance/rapports", icon: "report", section: "Finances" },
   ],
   sante: [
-    { name: "Tableau de bord", href: "/sante", icon: "health" },
-    { name: "Séminaristes", href: "/sante/seminaristes", icon: "users" },
-    { name: "Consultations", href: "/sante/consultations", icon: "stethoscope" },
+    { name: "Tableau de bord", href: "/sante", icon: "health", section: "Santé" },
+    { name: "Séminaristes", href: "/sante/seminaristes", icon: "users", section: "Santé" },
+    { name: "Consultations", href: "/sante/consultations", icon: "stethoscope", section: "Santé" },
   ],
 }
 

@@ -1,20 +1,24 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useState } from "react"
-import { Loader2, Plus, Trash2 } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { GraduationCap, Loader2, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 import ConfirmDialog from "@/components/common/confirm-dialog"
-import { EmptyState, ErrorState, LoadingState, errorText } from "@/components/common/states"
-import Field from "@/components/finance/field"
+import { DataTable, type Column } from "@/components/common/data-table"
+import Field from "@/components/common/field"
+import { FilterBar } from "@/components/common/filter-bar"
+import { PageHeader } from "@/components/common/page-header"
+import { EmptyState, errorText } from "@/components/common/states"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { formateursApi, type Formateur } from "@/lib/api"
 import { formatDate } from "@/lib/format"
+import { countLabel, matchesSearch } from "@/lib/table"
 
 type Errors = Record<string, string>
 
@@ -27,6 +31,8 @@ export default function FormateursPage() {
   const [saving, setSaving] = useState(false)
   const [toDelete, setToDelete] = useState<Formateur | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [search, setSearch] = useState("")
+  const query = useDebouncedValue(search)
 
   const load = useCallback(async () => {
     setError(null)
@@ -77,68 +83,92 @@ export default function FormateursPage() {
     }
   }
 
+  const filtered = useMemo(
+    () => (items ?? []).filter((f) => matchesSearch(query, [f.nom, f.prenoms, f.contact])),
+    [items, query]
+  )
+
+  const deleteButton = (f: Formateur) => (
+    <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+      aria-label={`Supprimer ${f.nom} ${f.prenoms}`} onClick={() => setToDelete(f)}>
+      <Trash2 className="h-4 w-4" aria-hidden="true" />
+    </Button>
+  )
+
+  const columns: Column<Formateur>[] = [
+    { id: "nom", header: "Nom et prénoms", cell: (f) => <span className="font-medium">{f.nom} {f.prenoms}</span>, sortValue: (f) => `${f.nom} ${f.prenoms}` },
+    { id: "contact", header: "Contact", cell: (f) => f.contact || "—" },
+    { id: "date", header: "Ajouté le", cell: (f) => formatDate(f.created_at), sortValue: (f) => f.created_at, hideBelow: "lg" },
+    { id: "actions", header: <span className="sr-only">Actions</span>, cell: deleteButton, align: "right" },
+  ]
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Formateurs</h1>
-          <p className="text-muted-foreground">Intervenants du séminaire.</p>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Ajouter un formateur</CardTitle></CardHeader>
-            <CardContent>
-              <form onSubmit={submit} className="space-y-4" noValidate>
-                <Field id="formateur-nom" label="Nom *" error={errors.nom}>
-                  {(p) => <Input {...p} maxLength={100} value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />}
-                </Field>
-                <Field id="formateur-prenoms" label="Prénoms *" error={errors.prenoms}>
-                  {(p) => <Input {...p} maxLength={100} value={form.prenoms} onChange={(e) => setForm({ ...form, prenoms: e.target.value })} />}
-                </Field>
-                <Field id="formateur-contact" label="Contact (téléphone ou e-mail) *" error={errors.contact}>
-                  {(p) => <Input {...p} maxLength={100} value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />}
-                </Field>
-                {errors._form && <p className="text-sm text-destructive" role="alert">{errors._form}</p>}
-                <Button type="submit" className="w-full gap-2" disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Ajouter
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-          <Card className="lg:col-span-2">
-            <CardHeader><CardTitle className="text-base">Liste {items ? `(${items.length})` : ""}</CardTitle></CardHeader>
-            <CardContent>
-              {error ? <ErrorState message={error} onRetry={load} /> : !items ? <LoadingState /> : items.length === 0 ? (
-                <EmptyState message="Aucun formateur." />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nom et prénoms</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead className="hidden md:table-cell">Ajouté le</TableHead>
-                        <TableHead><span className="sr-only">Actions</span></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((f) => (
-                        <TableRow key={f.id}>
-                          <TableCell>{f.nom} {f.prenoms}</TableCell>
-                          <TableCell>{f.contact}</TableCell>
-                          <TableCell className="hidden md:table-cell">{formatDate(f.created_at)}</TableCell>
-                          <TableCell>
-                            <Button size="icon" variant="ghost" className="text-destructive" aria-label={`Supprimer ${f.nom} ${f.prenoms}`}
-                              onClick={() => setToDelete(f)}><Trash2 className="h-4 w-4" /></Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+      <PageHeader title="Formateurs" description="Intervenants du séminaire." />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle className="text-base">Ajouter un formateur</CardTitle>
+            <CardDescription>Les champs marqués d&apos;un astérisque (*) sont obligatoires.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={submit} className="space-y-4" noValidate>
+              <Field id="formateur-nom" label="Nom *" error={errors.nom}>
+                {(p) => <Input {...p} maxLength={100} value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />}
+              </Field>
+              <Field id="formateur-prenoms" label="Prénoms *" error={errors.prenoms}>
+                {(p) => <Input {...p} maxLength={100} value={form.prenoms} onChange={(e) => setForm({ ...form, prenoms: e.target.value })} />}
+              </Field>
+              <Field id="formateur-contact" label="Contact (téléphone ou e-mail) *" error={errors.contact}>
+                {(p) => <Input {...p} maxLength={100} value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />}
+              </Field>
+              {errors._form && <p className="text-sm text-destructive" role="alert">{errors._form}</p>}
+              <Button type="submit" className="w-full" disabled={saving}>
+                {saving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Plus aria-hidden="true" />}
+                {saving ? "Enregistrement…" : "Ajouter le formateur"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="min-w-0 xl:col-span-2">
+          <FilterBar
+            search={search}
+            onSearchChange={setSearch}
+            searchLabel="Rechercher un formateur"
+            searchPlaceholder="Nom, prénoms ou contact…"
+            onReset={() => setSearch("")}
+            count={items ? countLabel(filtered.length, items.length, "formateur", "formateurs") : undefined}
+          />
+          <DataTable
+            caption="Liste des formateurs"
+            columns={columns}
+            rows={filtered}
+            getRowKey={(f) => String(f.id)}
+            loading={!items && !error}
+            error={error}
+            onRetry={load}
+            pageSize={25}
+            initialSort={{ id: "nom", direction: "asc" }}
+            empty={
+              <EmptyState
+                icon={GraduationCap}
+                title={query ? "Aucun résultat" : "Aucun formateur"}
+                message={query ? "Aucun formateur ne correspond à cette recherche." : "Ajoutez un premier formateur avec le formulaire."}
+                action={query ? <Button variant="outline" onClick={() => setSearch("")}>Effacer la recherche</Button> : undefined}
+              />
+            }
+            renderCard={(f) => (
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{f.nom} {f.prenoms}</p>
+                  <p className="text-sm text-muted-foreground">{f.contact || "—"}</p>
+                  <p className="text-xs text-muted-foreground">Ajouté le {formatDate(f.created_at)}</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {deleteButton(f)}
+              </div>
+            )}
+          />
         </div>
       </div>
       <ConfirmDialog open={!!toDelete} busy={deleting} onCancel={() => setToDelete(null)} onConfirm={remove}
