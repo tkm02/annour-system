@@ -83,7 +83,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
     >
       <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-secondary">Modifier l'Accès</h2>
+          <h2 className="text-xl font-bold text-secondary">Modifier l&apos;Accès</h2>
           <Button
             variant="ghost"
             size="sm"
@@ -123,7 +123,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="username">Nom d'utilisateur</Label>
+            <Label htmlFor="username">Nom d&apos;utilisateur</Label>
             <Input
               id="username"
               required

@@ -117,7 +117,7 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
           
           <div className="space-y-2">
             <Label htmlFor="username">
-              Nom d'utilisateur <span className="text-red-500">*</span>
+              Nom d&apos;utilisateur <span className="text-red-500">*</span>
             </Label>
             <Input
               id="username"

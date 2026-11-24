@@ -1,236 +1,215 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
-import { normalizeRole, roleLabel } from "@/lib/roles";
+import { activeHref, groupBySection } from "@/lib/nav-ui";
+import { homeFor, navigationFor, type IconName, type NavItem } from "@/lib/navigation";
+import { roleLabel } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import {
-    CreditCard,
-    FileText,
-    GraduationCap,
-    Heart,
-    LayoutDashboard,
-    LogOut,
-    MessageSquare,
-    Settings,
-    UserPlus,
-    Users,
-    X,
+  Award,
+  BadgeCheck,
+  BarChart3,
+  ClipboardCheck,
+  ClipboardList,
+  FileText,
+  FlaskConical,
+  GraduationCap,
+  Heart,
+  LayoutDashboard,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  Stethoscope,
+  TrendingDown,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Wallet,
+  type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
+import logoAnnour from "@/public/ANNOUR.png";
 import { usePathname } from "next/navigation";
 
-interface SidebarProps {
-  open: boolean;
-  setOpen: (open: boolean) => void;
-}
-
-const getNavigationByRole = (role: string) => {
-  const baseNavigation = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  ];
-
-  switch (normalizeRole(role)) {
-    case "admin":
-      return [
-        ...baseNavigation,
-        { name: "Séminaristes", href: "/seminaristes", icon: Users },
-        // { name: "Communication", href: "/communication", icon: MessageSquare },
-        { name: "Badges", href: "/badges", icon: UserPlus },
-        { name: "Certificats", href: "/certificats", icon: GraduationCap },
-        // { name: "Mini-Admins", href: "/mini-admins", icon: UserPlus },
-        { name: "Avis", href: "/feedback", icon: MessageSquare },
-        { name: "Gérer les accès", href: "/acces", icon: Settings },
-      ];
-
-    case "scientifique":
-      return [
-        ...baseNavigation,
-        { name: "Séminaristes", href: "/seminaristes", icon: Users },
-        { name: "Scientifique", href: "/scientifique", icon: GraduationCap },
-        { name: "Attributions", href: "/attributions", icon: Settings },
-        { name: "Bulletins", href: "/bulletins", icon: FileText },
-        { name: "Notes", href: "/notes", icon: FileText },
-        // { name: "Communication", href: "/communication", icon: MessageSquare },
-      ];
-
-    case "sante":
-      return [
-        ...baseNavigation,
-        { name: "Séminaristes", href: "/sante/seminaristes", icon: Users },
-        { name: "Santé", href: "/sante", icon: Heart },
-        { name: "Consultations", href: "/sante/consultations", icon: FileText },
-      ];
-
-    case "finances":
-      return [
-        ...baseNavigation,
-        { name: "Vente Tickets", href: "/finance/tickets", icon: CreditCard },
-        { name: "Paiements", href: "/finance/payments", icon: FileText },
-      ];
-
-    default:
-      return baseNavigation;
-  }
+export const NAV_ICONS: Record<IconName, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  users: Users,
+  badge: BadgeCheck,
+  certificate: Award,
+  message: MessageSquare,
+  settings: Settings,
+  finance: BarChart3,
+  health: Heart,
+  science: FlaskConical,
+  assign: ClipboardList,
+  file: FileText,
+  wallet: Wallet,
+  "trending-up": TrendingUp,
+  "trending-down": TrendingDown,
+  report: FileText,
+  teacher: GraduationCap,
+  visitor: UserCheck,
+  stethoscope: Stethoscope,
+  census: ClipboardCheck,
 };
 
-export default function Sidebar({ open, setOpen }: SidebarProps) {
-  const pathname = usePathname();
-  const { user, logout } = useAuth();
+interface SidebarProps {
+  /** Barre réduite aux icônes (bureau) */
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  /** Tiroir ouvert (< 1024 px) */
+  mobileOpen: boolean;
+  setMobileOpen: (open: boolean) => void;
+}
 
-  const navigation = user ? getNavigationByRole(user.role) : [];
+function NavLink({ item, isActive, collapsed, onNavigate }: {
+  item: NavItem;
+  isActive: boolean;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
+  const Icon = NAV_ICONS[item.icon];
+  const link = (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "relative flex h-9 items-center gap-3 rounded-md text-sm transition-colors",
+        collapsed ? "justify-center px-0" : "px-3",
+        isActive
+          ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-brand"
+          : "font-medium text-sidebar-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+      <span className={cn(collapsed && "sr-only")}>{item.name}</span>
+    </Link>
+  );
+  if (!collapsed) return link;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right">{item.name}</TooltipContent>
+    </Tooltip>
+  );
+}
 
-  const handleLogout = () => {
-    logout();
-    window.location.href = "/";
-  };
+function SidebarBody({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+  const pathname = usePathname() ?? "";
+  const { user } = useAuth();
+  const items = navigationFor(user?.role);
+  const active = activeHref(items, pathname);
+  const sections = groupBySection(items);
+
+  return (
+    <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label="Navigation principale">
+      {sections.map((section, index) => (
+        <div key={section.title} className={cn(index > 0 && "mt-4")}>
+          {collapsed ? (
+            index > 0 && <div className="mx-2 mb-3 border-t border-sidebar-border" aria-hidden="true" />
+          ) : (
+            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-subtle-foreground">
+              {section.title}
+            </p>
+          )}
+          <ul role="list" className="flex flex-col gap-0.5" aria-label={collapsed ? section.title : undefined}>
+            {section.items.map((item) => (
+              <li key={item.href}>
+                <NavLink item={item} isActive={item.href === active} collapsed={collapsed} onNavigate={onNavigate} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+function RoleFooter({ collapsed }: { collapsed: boolean }) {
+  const { user } = useAuth();
+  if (!user || collapsed) return null;
+  return (
+    <div className="rounded-md bg-muted px-3 py-2">
+      <p className="text-xs text-muted-foreground">Connecté en tant que</p>
+      <p className="text-sm font-semibold text-foreground">{roleLabel(user.role)}</p>
+    </div>
+  );
+}
+
+function Brand({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+  const { user } = useAuth();
+  return (
+    <Link
+      href={homeFor(user?.role)}
+      onClick={onNavigate}
+      className={cn("flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border", collapsed ? "justify-center px-2" : "px-5")}
+    >
+      <Image
+        src={logoAnnour}
+        alt={collapsed ? "An-Nour — accueil" : ""}
+        className={cn("w-auto object-contain", collapsed ? "h-8" : "h-10")}
+        sizes="80px"
+        priority
+      />
+      {!collapsed && (
+        <span className="min-w-0 leading-tight">
+          <span className="block text-sm font-bold text-foreground">An-Nour</span>
+          <span className="block truncate text-xs text-muted-foreground">Back-office des comités</span>
+        </span>
+      )}
+    </Link>
+  );
+}
+
+export default function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {
+  const close = () => setMobileOpen(false);
 
   return (
     <>
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-sidebar border-r border-sidebar-border px-6 py-4">
-          {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-              <div className="text-white text-sm font-bold">النور</div>
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-secondary">AN-NOUR</h2>
-              <p className="text-xs text-muted-foreground">
-                An Nour, pour une spiritualité étincelante.
-              </p>
-            </div>
-          </div>
-
-          {user && (
-            <div className="px-3 py-2 bg-sidebar-accent rounded-md">
-              <p className="text-xs text-muted-foreground" style={{color:"white"}}>
-                Connecté en tant que
-              </p>
-              <p
-                className="text-sm font-medium text-sidebar-foreground"
-                style={{ color: "white" }}
-              >
-                {roleLabel(user.role).toLocaleUpperCase()}
-              </p>
-            </div>
-          )}
-
-          {/* Navigation */}
-          <nav className="flex flex-1 flex-col">
-            <ul role="list" className="flex flex-1 flex-col gap-y-2">
-              {navigation.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "group flex gap-x-3 rounded-md p-3 text-sm font-medium transition-colors",
-                      pathname === item.href
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5 shrink-0" />
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-
-              {/* Logout */}
-              <li className="mt-auto">
-                <Button
-                  variant="ghost"
-                  onClick={handleLogout}
-                  className="w-full justify-start gap-x-3 text-sidebar-foreground hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  <LogOut className="h-5 w-5" />
-                  Déconnexion
-                </Button>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar */}
-      <div
+      {/* Bureau (≥ 1024 px) : barre fixe, dépliée ou réduite aux icônes */}
+      <aside
         className={cn(
-          "fixed inset-y-0 z-50 flex w-64 flex-col transition-transform duration-300 lg:hidden",
-          open ? "translate-x-0" : "-translate-x-full"
+          "hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+          collapsed ? "lg:w-16" : "lg:w-64"
         )}
       >
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-sidebar border-r border-sidebar-border px-6 py-4">
-          {/* Header with close button */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <div className="text-white text-xs font-bold">النور</div>
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-secondary">AN-NOUR</h2>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setOpen(false)}
-              className="text-sidebar-foreground"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {user && (
-            <div className="px-3 py-2 bg-sidebar-accent rounded-md">
-              <p
-                className="text-sm font-medium text-sidebar-foreground"
-                style={{ color: "white" }}
-              >
-                Connecté en tant que
-              </p>
-              <p className="text-sm font-medium text-sidebar-foreground" style={{ color: "white" }}>
-                {roleLabel(user.role).toLocaleUpperCase()}
-              </p>
-            </div>
-          )}
-
-          {/* Navigation */}
-          <nav className="flex flex-1 flex-col">
-            <ul role="list" className="flex flex-1 flex-col gap-y-2">
-              {navigation.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "group flex gap-x-3 rounded-md p-3 text-sm font-medium transition-colors",
-                      pathname === item.href
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5 shrink-0" />
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-
-              {/* Logout */}
-              <li className="mt-auto">
-                <Button
-                  variant="ghost"
-                  onClick={handleLogout}
-                  className="w-full justify-start gap-x-3 text-sidebar-foreground hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  <LogOut className="h-5 w-5" />
-                  Déconnexion
-                </Button>
-              </li>
-            </ul>
-          </nav>
+        <Brand collapsed={collapsed} />
+        <SidebarBody collapsed={collapsed} />
+        <div className={cn("flex flex-col gap-2 border-t border-sidebar-border p-3")}>
+          <RoleFooter collapsed={collapsed} />
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Déplier le menu" : "Réduire le menu"}
+            aria-expanded={!collapsed}
+            className={cn(
+              "flex h-9 items-center gap-3 rounded-md text-sm font-medium text-sidebar-foreground transition-colors hover:bg-muted hover:text-foreground",
+              collapsed ? "justify-center" : "px-3"
+            )}
+          >
+            {collapsed ? <PanelLeftOpen className="h-5 w-5" aria-hidden="true" /> : <PanelLeftClose className="h-5 w-5" aria-hidden="true" />}
+            {!collapsed && <span>Réduire le menu</span>}
+          </button>
         </div>
-      </div>
+      </aside>
+
+      {/* Mobile et tablette (< 1024 px) : tiroir modal (focus piégé, Échap, retour du focus) */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="w-72 max-w-[85vw] gap-0 bg-sidebar p-0 sm:max-w-72 lg:hidden">
+          <SheetTitle className="sr-only">Menu</SheetTitle>
+          <SheetDescription className="sr-only">Navigation principale du back-office</SheetDescription>
+          <Brand collapsed={false} onNavigate={close} />
+          <SidebarBody collapsed={false} onNavigate={close} />
+          <div className="border-t border-sidebar-border p-3">
+            <RoleFooter collapsed={false} />
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

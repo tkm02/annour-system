@@ -1,132 +1,158 @@
 "use client"
 
+import type React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { FileDown, Loader2, Pencil } from "lucide-react"
+import { toast } from "sonner"
+
+import { ErrorState, LoadingState, errorText } from "@/components/common/states"
+import ConsultationFields from "@/components/health/consultation-fields"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { X, Download } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useAuth } from "@/contexts/auth-context"
+import { santeApi, type Consultation } from "@/lib/api"
+import { diffConsultation, validateConsultation, type ConsultationFormValues, type Errors } from "@/lib/consultation-form"
+import { exportConsultationPdf } from "@/lib/consultation-pdf"
+import { formatDate, isoToLocalInput } from "@/lib/format"
 
-interface ConsultationModalProps {
-  consultation: any
+const toForm = (c: Consultation): ConsultationFormValues => ({
+  date_consultation: isoToLocalInput(c.date_consultation),
+  motif_consultation: c.motif_consultation,
+  observations_diagnostic: c.observations_diagnostic,
+  traitement_prescrit: c.traitement_prescrit,
+  notes_medicales_supplementaires: c.notes_medicales_supplementaires ?? "",
+  medecin_responsable_id: c.medecin_responsable_id,
+})
+
+/** F-S5 / F-S6 : détail, modification (patient inchangé, aucune suppression) et PDF depuis l'export tracé. */
+export default function ConsultationModal({ consultationId, onClose, onChanged }: {
+  consultationId: string | null
   onClose: () => void
-}
+  onChanged?: () => void
+}) {
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
+  const [consultation, setConsultation] = useState<Consultation | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [values, setValues] = useState<ConsultationFormValues | null>(null)
+  const [errors, setErrors] = useState<Errors>({})
+  const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  // F-20 : seule la dernière requête met à jour le détail (une réponse d'une consultation précédente est ignorée)
+  const lastRequest = useRef(0)
 
-export default function ConsultationModal({ consultation, onClose }: ConsultationModalProps) {
+  const load = useCallback(async () => {
+    const request = ++lastRequest.current
+    if (!consultationId) return
+    setConsultation(null)
+    setError(null)
+    setEditing(false)
+    try {
+      const data = await santeApi.getConsultation(consultationId)
+      if (request === lastRequest.current) setConsultation(data)
+    } catch (err) {
+      if (request === lastRequest.current) setError(errorText(err, "Consultation introuvable"))
+    }
+  }, [consultationId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const startEdit = () => {
+    if (!consultation) return
+    setValues(toForm(consultation))
+    setErrors({})
+    setEditing(true)
+  }
+
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!consultation || !values) return
+    const local = validateConsultation(values, false)
+    setErrors(local)
+    if (Object.keys(local).length) return
+    const update = diffConsultation(consultation, values, isAdmin)
+    if (Object.keys(update).length === 0) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      setConsultation(await santeApi.updateConsultation(consultation.id, update))
+      setEditing(false)
+      toast.success("Consultation modifiée")
+      onChanged?.()
+    } catch (err) {
+      setErrors({ _form: errorText(err, "Modification impossible") })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const exportPdf = async () => {
+    if (!consultation) return
+    setExporting(true)
+    try {
+      // Données exclusivement issues de l'export tracé côté serveur
+      exportConsultationPdf(await santeApi.exportConsultation(consultation.id))
+    } catch (err) {
+      toast.error(errorText(err, "Export impossible"))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-bold text-secondary">FICHE DE CONSULTATION</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* Photo placeholder */}
-          <div className="flex justify-center">
-            <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
-              <div className="text-center text-muted-foreground">
-                <div className="w-6 h-6 mx-auto mb-1 bg-muted-foreground/20 rounded"></div>
-                <div className="text-xs">Photo</div>
+    <Dialog open={!!consultationId} onOpenChange={(open) => !open && !saving && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Consultation</DialogTitle>
+          <DialogDescription>
+            {consultation ? `${consultation.patient_nom_prenoms ?? consultation.matricule} — ${formatDate(consultation.date_consultation, true)}` : "Chargement"}
+          </DialogDescription>
+        </DialogHeader>
+        {error ? <ErrorState message={error} onRetry={load} /> : !consultation ? <LoadingState /> : editing && values ? (
+          <form onSubmit={save} className="space-y-4" noValidate>
+            <ConsultationFields idPrefix="edit-consultation" values={values} errors={errors} showMedecin={isAdmin}
+              onChange={(field, value) => setValues((v) => (v ? { ...v, [field]: value } : v))} />
+            {errors._form && <p className="text-sm text-destructive whitespace-pre-line" role="alert">{errors._form}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditing(false)} disabled={saving}>Annuler</Button>
+              <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Enregistrer</Button>
+            </DialogFooter>
+          </form>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><dt className="text-muted-foreground">Matricule</dt><dd className="font-mono">{consultation.matricule}</dd></div>
+              <div><dt className="text-muted-foreground">Médecin responsable</dt><dd>{consultation.medecin_responsable ?? "—"}</dd></div>
+            </dl>
+            {([
+              ["Motif", consultation.motif_consultation],
+              ["Observations / diagnostic", consultation.observations_diagnostic],
+              ["Traitement prescrit", consultation.traitement_prescrit],
+              ["Notes supplémentaires", consultation.notes_medicales_supplementaires ?? "—"],
+            ] as const).map(([label, value]) => (
+              <div key={label}>
+                <p className="text-muted-foreground">{label}</p>
+                <p className="whitespace-pre-line">{value}</p>
               </div>
-            </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              Saisie par {consultation.created_by} le {formatDate(consultation.created_at, true)} · modifiée le {formatDate(consultation.updated_at, true)}.
+              L&apos;historique médical est conservé : aucune suppression possible.
+            </p>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={startEdit}><Pencil className="h-4 w-4" />Modifier</Button>
+              <Button className="gap-2" onClick={exportPdf} disabled={exporting}>
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}Fiche PDF
+              </Button>
+            </DialogFooter>
           </div>
-
-          {/* Informations générales */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">Informations générales</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Matricule</label>
-                <div className="text-foreground font-medium">{consultation.matricule}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Date de naissance</label>
-                <div className="text-foreground">00/00/0000</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Nom & Prénoms</label>
-                <div className="text-foreground font-medium">{consultation.nom}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Genre</label>
-                <div>
-                  <Badge variant={consultation.genre === "M" ? "default" : "secondary"}>{consultation.genre}</Badge>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Niveau</label>
-                <div className="text-foreground">{consultation.niveau}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Dortoir</label>
-                <div className="text-foreground">Dortoir 1</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Historique */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">Historique</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Date de la consultation</label>
-                <div className="text-foreground">0000/00/00</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Médecin Responsable</label>
-                <div className="text-foreground">XXXXXX XXXXXXXXX XXXXXXX</div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-muted-foreground">Motif de la Consultation</label>
-                <div className="text-foreground">XXXXXX XXXXXXX</div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-muted-foreground">Observations et Diagnostic</label>
-                <div className="text-foreground">XXXXXXXXXXX XXXXXXXXX XXXXXXXXX XXXXXXXXXXXX XXXXXXX XXXXXXXXXX</div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-muted-foreground">Traitement Prescrit</label>
-                <div className="text-foreground">XXXXXXX XXXXXXX XXXXXXXXXX XXXX</div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-muted-foreground">Notes Médicales Supplémentaires</label>
-                <div className="text-foreground">-</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Informations Médicales */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">Informations Médicales</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Contact Parent</label>
-                <div className="text-foreground">+225 00 00 00 00 00</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Antécédents Médicaux</label>
-                <div className="text-foreground">Exemple d'antécédents médicaux</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Allergies</label>
-                <div className="text-foreground">Exemple d'allergie</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" className="gap-2 bg-transparent">
-              <Download className="h-4 w-4" />
-              Exporter en PDF
-            </Button>
-            <Button onClick={onClose} className="bg-primary hover:bg-primary/90 ml-auto">
-              FERMER
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

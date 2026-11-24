@@ -139,9 +139,41 @@ Un système complet de gestion pour le séminaire intercommunal de formation isl
 ## 🚀 Installation et Démarrage
 
 1. Cloner le projet
-2. Installer les dépendances : `npm install`
-3. Lancer le serveur de développement : `npm run dev`
-4. Ouvrir [http://localhost:3000](http://localhost:3000)
+2. Installer les dépendances : `npm ci`
+3. Copier `.env.example` en `.env.local` et renseigner `NEXT_PUBLIC_API_URL`
+4. Lancer le serveur de développement : `npm run dev`
+5. Ouvrir [http://localhost:3000](http://localhost:3000)
+
+### Vérifications (lancées aussi par la CI)
+
+| Commande | Rôle |
+|---|---|
+| `npm run typecheck` | Vérification des types TypeScript |
+| `npm run lint` | ESLint (configuration `eslint.config.mjs`) : bloquant sur les erreurs, avertissements = dette suivie |
+| `npm test` | Tests unitaires (`tests/*.test.mjs`, Node `--test`) |
+| `npm run build` | Build de production Next.js |
+
+### Pages par rôle
+
+L'accès aux pages est décrit dans `lib/navigation.ts` (matrice route → rôles, menus par rôle, page d'accueil
+après connexion). Une page interdite affiche « Accès refusé » ; le serveur reste seul juge des droits.
+
+| Rôle | Pages |
+|---|---|
+| `admin` | Tableau de bord, Séminaristes (+ export Excel), Badges, Certificats, Membres CO, Visiteurs, Avis, Gérer les accès, Finances, Paiements, Santé |
+| `scientifique` | Tableau de bord, Séminaristes, Scientifique, Attributions, Notes, Bulletins, Formateurs |
+| `finances` | `/finance` (tableau de bord), Entrées, Sorties, Paiements, Rapports |
+| `sante` | `/sante` (tableau de bord), Séminaristes (fiche médicale), Consultations |
+
+La page publique `/inscription` (sans connexion) crée l'inscription puis envoie le reçu Wave. Son ouverture est
+contrôlée par le backend (variable `REGISTRATIONS_OPEN`, route `GET /registrations/status`).
+
+### Nouvelle édition du séminaire
+
+Les dates, le lieu, le numéro d'édition et l'année des bulletins utilisés dans les certificats, bulletins et
+fiches PDF sont dans `lib/edition.ts` (surcharge possible par les variables `NEXT_PUBLIC_EDITION_*`).
+**À mettre à jour avant chaque édition** ; `anneeScolaire` doit rester identique pendant toute l'édition
+(clé des rangs des bulletins côté serveur).
 
 ## 📝 Notes de Développement
 
@@ -154,13 +186,20 @@ Un système complet de gestion pour le séminaire intercommunal de formation isl
 
 ## 🔮 Prochaines Étapes
 
-- Intégration avec l'API Django
-- Authentification JWT
-- Génération de PDF réels
+- Tests de composants et parcours navigateur de bout en bout
+- Réduction des avertissements ESLint (règles React Compiler sur les pages historiques)
+- Token en cookie `httpOnly` + refresh token (décision d'architecture reportée)
 - Système de notifications
-- Sauvegarde automatique
-- Tests unitaires et d'intégration
 
 ---
 
 **An Nour, pour une spiritualité étincelante.**
+
+## 📚 Documentation et contribution
+
+- Règles de travail (humains et IA) : `CLAUDE.md`, `CONTRIBUTING.md` ; historique : `CHANGELOG.md`.
+- Référence technique : `docs/` (architecture, conventions, fonctionnalités réellement présentes, sécurité, tests,
+  environnements, déploiement, design system, lignes directrices UX, dette technique).
+- Écart connu : les couleurs réellement utilisées diffèrent en partie de celles annoncées ci-dessus, et certaines
+  fonctionnalités listées ne sont pas encore implémentées — voir `docs/DESIGN_SYSTEM.md` et `docs/FEATURES.md`.
+- Vue d'ensemble des 4 applications An-Nour : dépôt Backend, `docs/SYSTEME_GLOBAL.md`.

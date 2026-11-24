@@ -1,4 +1,6 @@
 "use client";
+import { EDITION } from "@/lib/edition";
+import { ApiError, bulletinsApi } from "@/lib/api";
 
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +55,26 @@ export default function BulletinGenerationPage() {
   const [numberOfNotes, setNumberOfNotes] = useState(4);
 
   const [previewBulletin, setPreviewBulletin] = useState<Bulletin | null>(null);
+  const [generationErrors, setGenerationErrors] = useState<string[]>([]);
+  const [recalculating, setRecalculating] = useState(false);
+
+  // F-A4 : après correction de notes, recalcul des moyennes et rangs de toute l'année
+  const recalculerAnnee = async () => {
+    try {
+      setRecalculating(true);
+      const r = await bulletinsApi.recalculer(EDITION.anneeScolaire);
+      toast.success(
+        `${r.bulletins} bulletin(s) : ${r.moyennes_modifiees} moyenne(s) et ${r.rangs_modifies} rang(s) mis à jour`
+      );
+      if (r.incomplets.length > 0) {
+        setGenerationErrors(r.incomplets.map((m) => `${m} : notes devenues incomplètes, rang retiré`));
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Recalcul impossible");
+    } finally {
+      setRecalculating(false);
+    }
+  };
 
   // ✅ FETCH SEMINARISTES WITH NOTES
   const fetchSeminaristes = async () => {
@@ -69,7 +91,7 @@ export default function BulletinGenerationPage() {
         if (!notesByMatricule[note.matricule]) {
           notesByMatricule[note.matricule] = {};
         }
-        notesByMatricule[note.matricule][note.libelle] = note.note;
+        if (note.libelle) notesByMatricule[note.matricule][note.libelle] = note.note;
       });
 
       // Associer les notes aux séminaristes
@@ -98,13 +120,11 @@ export default function BulletinGenerationPage() {
         const sem = seminaristes.find((s) => s.matricule === matricule);
         if (sem) {
           try {
-            const bulletin = await scientificApi.generateBulletin({
-              matricule,
-              annee_scolaire: "AnNour25",
-            });
-            setPreviewBulletin(bulletin);
-          } catch (err) {
-            // Ignore preview errors
+            // Lecture seule : l'aperçu montre le bulletin déjà généré (aucune écriture à la sélection)
+            const { data } = await bulletinsApi.list({ matricule, annee_scolaire: EDITION.anneeScolaire, limit: 1 });
+            setPreviewBulletin(data[0] ?? null);
+          } catch {
+            setPreviewBulletin(null);
           }
         }
       } else {
@@ -149,13 +169,13 @@ export default function BulletinGenerationPage() {
   // ✅ GÉNÉRER PDF - FORMAT PAYSAGE
   const generatePDF = async () => {
     if (selectedSeminaristes.length === 0) {
-      toast.warning("⚠️ Sélectionnez au moins un séminariste");
+      toast.warning("Sélectionnez au moins un séminariste");
       return;
     }
 
     try {
       setGenerating(true);
-      toast.info(`📄 Génération de ${selectedSeminaristes.length} bulletin(s)...`);
+      toast.info(`Génération de ${selectedSeminaristes.length} bulletin(s)...`);
 
       const pdf = new jsPDF({
         orientation: "landscape",  // ✅ FORMAT PAYSAGE
@@ -164,6 +184,8 @@ export default function BulletinGenerationPage() {
       });
 
       let isFirstPage = true;
+      const echecs: string[] = [];
+      let generes = 0;
 
       for (const matricule of selectedSeminaristes) {
         const sem = seminaristes.find((s) => s.matricule === matricule);
@@ -172,7 +194,7 @@ export default function BulletinGenerationPage() {
         try {
           const bulletin = await scientificApi.generateBulletin({
             matricule,
-            annee_scolaire: "AnNour25",
+            annee_scolaire: EDITION.anneeScolaire,
           });
 
           if (!isFirstPage) {
@@ -180,18 +202,30 @@ export default function BulletinGenerationPage() {
           }
           isFirstPage = false;
 
+          // Rang calculé par le serveur (ex æquo possibles : 1, 1, 3) : jamais renuméroté ici
           await drawBulletinLandscape(pdf, bulletin, sem);
+          generes += 1;
         } catch (err: any) {
-          if (!isFirstPage) {
-            pdf.addPage();
-          }
-          isFirstPage = false;
-          await drawBulletinLandscapeLocal(pdf, sem);
+          // 422 : notes incomplètes (detail = notes manquantes) ; 404 : aucune note
+          const raison = err instanceof ApiError && err.status === 404 ? "aucune note enregistrée" : err?.message || "erreur";
+          echecs.push(`${sem.nom} ${sem.prenom ?? ""} (${matricule}) : ${raison}`);
         }
       }
 
-      pdf.save(`bulletins-annour-${new Date().toISOString().split("T")[0]}.pdf`);
-      toast.success(`✅ ${selectedSeminaristes.length} bulletin(s) générés`);
+      if (generes > 0) {
+        pdf.save(`bulletins-annour-${new Date().toISOString().split("T")[0]}.pdf`);
+        toast.success(`${generes} bulletin(s) généré(s)`);
+      }
+      if (echecs.length > 0) {
+        setGenerationErrors(echecs);
+        toast.error(`${echecs.length} bulletin(s) non généré(s) : notes à compléter`);
+      } else {
+        setGenerationErrors([]);
+      }
+      if (previewBulletin === null && selectedSeminaristes.length > 0) {
+        bulletinsApi.list({ matricule: selectedSeminaristes[0], annee_scolaire: EDITION.anneeScolaire, limit: 1 })
+          .then(({ data }) => setPreviewBulletin(data[0] ?? null)).catch(() => {});
+      }
     } catch (error: any) {
       toast.error(error.message || "Erreur génération");
     } finally {
@@ -398,7 +432,7 @@ export default function BulletinGenerationPage() {
     pdf.setFontSize(11);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 128, 128);
-    pdf.text("AnNour 2025", col3X + label3Width, currentY + 24);
+    pdf.text(`AnNour ${EDITION.annee}`, col3X + label3Width, currentY + 24);
 
     // Année scolaire
     pdf.setFontSize(9);
@@ -408,7 +442,7 @@ export default function BulletinGenerationPage() {
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 0, 0);
-    pdf.text("2024-2025", col3X + label3Width, currentY + 36);
+    pdf.text(EDITION.anneeScolaireLibelle, col3X + label3Width, currentY + 36);
 
     currentY += bloc1Height + 6;
 
@@ -629,59 +663,6 @@ export default function BulletinGenerationPage() {
     pdf.text("AnNour, pour une spiritualité étincelante...", pageWidth / 2, pageHeight - 6, { align: "center" });
   };
 
-  // ✅ Fallback sans API
-  const drawBulletinLandscapeLocal = async (pdf: jsPDF, sem: SeminaristeWithNotes) => {
-    const pageWidth = 297;
-    const pageHeight = 210;
-    const margin = 8;
-
-    pdf.setFillColor(230, 240, 200);
-    pdf.rect(0, 0, pageWidth, pageHeight, "F");
-
-    try {
-      pdf.addImage(AEEMCI.src, "JPEG", margin, margin, 22, 22);
-    } catch (e) {}
-
-    try {
-      pdf.addImage(logoAnnour.src, "PNG", pageWidth - margin - 22, margin, 22, 13);
-    } catch (e) {}
-
-    pdf.setFontSize(16);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 128, 128);
-    pdf.text("AEEMCI", pageWidth / 2, 14, { align: "center" });
-
-    pdf.setFontSize(20);
-    pdf.text("BULLETIN DE SEMINARISTE", pageWidth / 2, 38, { align: "center" });
-
-    // Nom + Prénom
-    pdf.setFontSize(16);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(`${sem.nom} ${sem.prenom}`.toUpperCase(), pageWidth / 2, 70, { align: "center" });
-    
-    pdf.setFontSize(12);
-    pdf.text(sem.matricule, pageWidth / 2, 82, { align: "center" });
-
-    // Notes locales si disponibles
-    const notes = sem.notes || {};
-    let noteY = 100;
-    for (let i = 1; i <= numberOfNotes; i++) {
-      const noteKey = `note${i}`;
-      const noteValue = notes[noteKey];
-      const displayValue = (noteValue !== undefined) ? noteValue.toFixed(2) : "0.00";
-      
-      pdf.setFontSize(14);
-      pdf.text(`Note ${i}: ${displayValue}`, pageWidth / 2, noteY, { align: "center" });
-      noteY += 15;
-    }
-
-    // Footer
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 128, 128);
-    pdf.text("AEEMCI, pour une identité islamique !", pageWidth / 2, pageHeight - 10, { align: "center" });
-  };
-
   // ✅ BULLETIN PREVIEW COMPONENT - NOUVEAU DESIGN 3 BLOCS
   const BulletinPreview = ({ seminariste, bulletin, numberOfNotes }: { seminariste: SeminaristeWithNotes; bulletin: Bulletin | null; numberOfNotes: number }) => {
      // Helper function for mention
@@ -724,7 +705,7 @@ export default function BulletinGenerationPage() {
         {/* Center Text */}
         <div className="text-center">
             <h1 className="text-lg font-bold">AEEMCI</h1>
-            <p className="text-[9px] text-gray-600">Association des Elèves et Etudiants Musulmans de Côte d'Ivoire</p>
+            <p className="text-[9px] text-gray-600">Association des Elèves et Etudiants Musulmans de Côte d&apos;Ivoire</p>
             <p className="text-[9px] text-gray-600">Secrétariat Régional Abidjan-Est</p>
             <p className="text-[9px] text-gray-600">Sous-comités de Bingerville et de Cocody 1</p>
             <h2 className="text-xl font-bold mt-2">BULLETIN DE SÉMINARISTE</h2>
@@ -777,11 +758,11 @@ export default function BulletinGenerationPage() {
           </div>
           <div className="flex">
             <span className="text-gray-500 text-xs w-20">Année :</span>
-            <span className="font-bold text-[#008080]">An-Nour 2025</span>
+            <span className="font-bold text-[#008080]">An-Nour {EDITION.annee}</span>
           </div>
           <div className="flex">
             <span className="text-gray-500 text-xs w-20">Années Scolaire :</span>
-            <span className="font-bold text-black">2024-2025</span>
+            <span className="font-bold text-black">{EDITION.anneeScolaireLibelle}</span>
           </div>
         </div>
       </div>
@@ -909,10 +890,24 @@ export default function BulletinGenerationPage() {
               GÉNÉRATION DE BULLETINS AN-NOUR
             </h1>
             <p className="text-muted-foreground">
-              Bulletins de fin de séminaire avec notes et moyennes
+              Bulletins de fin de séminaire avec notes et moyennes ({EDITION.anneeScolaire})
             </p>
           </div>
+          <Button variant="outline" onClick={recalculerAnnee} disabled={recalculating} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${recalculating ? "animate-spin" : ""}`} />
+            Recalculer l&apos;année
+          </Button>
         </div>
+
+        {generationErrors.length > 0 && (
+          <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/5 p-4 text-sm space-y-1">
+            <p className="font-semibold text-destructive">Bulletins à compléter</p>
+            <ul className="list-disc pl-5">
+              {generationErrors.map((e) => <li key={e} className="whitespace-pre-line">{e}</li>)}
+            </ul>
+            <button type="button" className="text-xs underline" onClick={() => setGenerationErrors([])}>Masquer</button>
+          </div>
+        )}
 
         {/* Main Grid - Same as Badge Page */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

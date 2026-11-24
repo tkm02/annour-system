@@ -32,13 +32,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = authApi.getToken()
         
         if (storedUser && token) {
-          console.log("👤 Utilisateur chargé depuis le localStorage:", storedUser.username)
           setUser(withCanonicalRole(storedUser))
-        } else {
-          console.log("ℹ️ Aucun utilisateur connecté")
         }
-      } catch (error) {
-        console.error("❌ Erreur chargement utilisateur:", error)
+      } catch {
+        // Session locale illisible : l'utilisateur devra se reconnecter
+        authApi.logout()
       } finally {
         setIsLoading(false)
       }
@@ -52,25 +50,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const login = async (usernameOrEmail: string, password: string): Promise<boolean> => {
     try {
-      console.log("🔐 Appel API login pour:", usernameOrEmail)
       
       // Appel de l'API de connexion
       const response: LoginResponse = await authApi.login({ identifier: usernameOrEmail, password })
 
       // Vérifier que l'utilisateur est actif
       if (!response.user.is_active) {
-        console.warn("⚠️ Utilisateur désactivé:", usernameOrEmail)
         throw new Error("Votre compte a été désactivé. Contactez l'administrateur.")
       }
       
       // Mettre à jour l'état local
       setUser(withCanonicalRole(response.user))
       
-      console.log("✅ Utilisateur connecté:", response.user.username, "Rôle:", response.user.role)
       
       return true
     } catch (error: any) {
-      console.error("❌ Erreur lors de la connexion:", error)
       
       // Nettoyer en cas d'erreur
       setUser(null)
@@ -85,7 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Fonction de déconnexion
    */
   const logout = () => {
-    console.log("🚪 Déconnexion de l'utilisateur:", user?.username)
     
     authApi.logout()
     setUser(null)

@@ -7,7 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Search, Download, Plus, Edit, Loader2, AlertCircle } from "lucide-react"
+import { Search, Download, Plus, Edit, Loader2, AlertCircle, LogOut } from "lucide-react"
+import { toast } from "sonner"
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import dynamic from "next/dynamic"
 import { usersApi } from "@/lib/api"
 import { normalizeRole, roleLabel } from "@/lib/roles"
@@ -45,6 +50,23 @@ export default function AccessManagementPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalUsers, setTotalUsers] = useState(0)
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null)
+  const [revokeTarget, setRevokeTarget] = useState<AccessUser | null>(null)
+  const [revoking, setRevoking] = useState(false)
+
+  // F-A3 : fermer toutes les sessions d'un compte (appareil perdu, compte compromis)
+  const handleRevokeSessions = async () => {
+    if (!revokeTarget) return
+    setRevoking(true)
+    try {
+      await usersApi.revokeSessions(revokeTarget.id)
+      toast.success(`Sessions de ${revokeTarget.username} fermées`)
+      setRevokeTarget(null)
+    } catch (err: any) {
+      toast.error(err.message || "Fermeture des sessions impossible")
+    } finally {
+      setRevoking(false)
+    }
+  }
 
   useEffect(() => {
     setIsMounted(true)
@@ -61,37 +83,10 @@ export default function AccessManagementPage() {
       setLoading(true)
       setError(null)
       
-      const response = await usersApi.getUsers(currentPage, 10)
-      
-      console.log("📦 Réponse API complète:", response)
-      
-      let usersArray: AccessUser[] = []
-      let total = 0
-      
-      if (response && typeof response === 'object') {
-        if ('data' in response && Array.isArray((response as any).data)) {
-          usersArray = (response as any).data
-          total = (response as any).total || (response as any).data.length
-        } else if (Array.isArray(response)) {
-          usersArray = response as AccessUser[]
-          total = (response as AccessUser[]).length
-        }
-      } else if (Array.isArray(response)) {
-        usersArray = response as AccessUser[]
-        total = (response as AccessUser[]).length
-      }
-      
-      if (Array.isArray(usersArray)) {
-        console.log(`✅ ${usersArray.length} utilisateur(s) chargé(s)`)
-        setUsers(usersArray)
-        setTotalUsers(total)
-      } else {
-        setUsers([])
-        setTotalUsers(0)
-      }
-      
+      const { data, total } = await usersApi.getUsers(currentPage, 10)
+      setUsers(data as AccessUser[])
+      setTotalUsers(total)
     } catch (err: any) {
-      console.error("❌ Erreur lors du chargement:", err)
       setError(err.message || "Erreur lors du chargement des utilisateurs")
       setUsers([])
       setTotalUsers(0)
@@ -133,11 +128,8 @@ const formatFullName = (nom: string, prenom: string) => {
         )
       )
       
-      console.log(`✅ Statut modifié: ${user.username} -> ${newStatus ? 'Activé' : 'Désactivé'}`)
-      
     } catch (err: any) {
-      console.error("❌ Erreur toggle status:", err)
-      alert(`Erreur lors de la modification du statut: ${err.message}`)
+      toast.error(`Modification du statut impossible : ${err.message}`)
     } finally {
       setTogglingUserId(null)
     }
@@ -321,7 +313,7 @@ const formatFullName = (nom: string, prenom: string) => {
                     <thead>
                       <tr className="border-b">
                         <th className="text-left py-3 px-4 font-semibold text-foreground">COMMISSION</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">NOM D'UTILISATEUR</th>
+                        <th className="text-left py-3 px-4 font-semibold text-foreground">NOM D&apos;UTILISATEUR</th>
                         <th className="text-left py-3 px-4 font-semibold text-foreground">EMAIL</th>
                         <th className="text-left py-3 px-4 font-semibold text-foreground">NOM COMPLET</th>
                         <th className="text-center py-3 px-4 font-semibold text-foreground">STATUS</th>
@@ -363,6 +355,17 @@ const formatFullName = (nom: string, prenom: string) => {
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setRevokeTarget(user)}
+                                  title="Fermer les sessions"
+                                  aria-label={`Fermer les sessions de ${user.username}`}
+                                  disabled={togglingUserId === user.id}
+                                >
+                                  <LogOut className="h-4 w-4" />
+                                </Button>
+
                                 <div className="flex items-center gap-2">
                                   <Switch
                                     checked={user.is_active ?? true}
@@ -392,7 +395,7 @@ const formatFullName = (nom: string, prenom: string) => {
                               </p>
                               {!searchTerm && (
                                 <p className="text-sm mt-2">
-                                  Cliquez sur "CRÉER UN ACCÈS" pour ajouter un utilisateur
+                                  Cliquez sur &quot;CRÉER UN ACCÈS&quot; pour ajouter un utilisateur
                                 </p>
                               )}
                             </div>
@@ -487,6 +490,22 @@ const formatFullName = (nom: string, prenom: string) => {
           }}
         />
       )}
+      <AlertDialog open={!!revokeTarget} onOpenChange={(open) => !open && !revoking && setRevokeTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fermer les sessions de {revokeTarget?.username} ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Toutes les sessions ouvertes de ce compte seront fermées ; l&apos;utilisateur devra se reconnecter.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={revoking}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleRevokeSessions() }} disabled={revoking}>
+              {revoking && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Fermer les sessions
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }

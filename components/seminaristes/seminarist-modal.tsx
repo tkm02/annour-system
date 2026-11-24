@@ -93,7 +93,7 @@ export default function SeminaristModal({ seminarist, onClose }: SeminaristModal
                 <div className="text-foreground">Élève</div>
               </div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Niveau d'étude</label>
+                <label className="text-sm font-medium text-muted-foreground">Niveau d&apos;étude</label>
                 <div className="text-foreground">Terminale</div>
               </div>
               <div>
@@ -113,11 +113,11 @@ export default function SeminaristModal({ seminarist, onClose }: SeminaristModal
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Antécédents Médicaux</label>
-                <div className="text-foreground">Exemple d'antécédents médicaux</div>
+                <div className="text-foreground">Exemple d&apos;antécédents médicaux</div>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Allergies</label>
-                <div className="text-foreground">Exemple d'allergie</div>
+                <div className="text-foreground">Exemple d&apos;allergie</div>
               </div>
             </div>
           </div>

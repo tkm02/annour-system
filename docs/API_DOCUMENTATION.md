@@ -1,5 +1,11 @@
 # Documentation API - Système de Gestion An-Nour
 
+> ⚠️ **Document historique, obsolète.** Il décrit une API Django prévue à l'origine, pas l'API réelle
+> (FastAPI). Plusieurs routes citées ici n'existent pas (`/auth/refresh`, `/seminarists/import-csv/`…).
+> Références à jour : documentation interactive `GET /docs` sur l'URL du backend, client typé `lib/api.ts`
+> et `An Nour Doc/Taches_Frontend_AnNour.md`.
+
+
 ## Vue d'ensemble
 
 Cette documentation décrit toutes les APIs nécessaires pour le backend Django du système de gestion du séminaire An-Nour.

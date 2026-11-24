@@ -72,7 +72,7 @@ export default function NotesManagement() {
         if (!notesByMatricule[note.matricule]) {
           notesByMatricule[note.matricule] = {};
         }
-        notesByMatricule[note.matricule][note.libelle] = note;
+        if (note.libelle) notesByMatricule[note.matricule][note.libelle] = note;
       });
       
       // Associer les notes aux séminaristes
@@ -87,7 +87,7 @@ export default function NotesManagement() {
       // Détecter le nombre max de colonnes utilisées SEULEMENT au premier chargement
       if (noteColumns === 3 && notesResponse.length > 0) {
         const maxColumn = Math.max(1, ...notesResponse.map((n: Note) => {
-          const num = parseInt(n.libelle.replace('note', ''));
+          const num = parseInt((n.libelle ?? "").replace("note", ""));
           return isNaN(num) ? 1 : num;
         }));
         // Seulement augmenter, jamais diminuer automatiquement
@@ -133,12 +133,12 @@ export default function NotesManagement() {
   const handleRefresh = () => {
     scientificApi.invalidateCache();
     fetchData();
-    toast.success("🔄 Liste actualisée");
+    toast.success("Liste actualisée");
   };
 
   // ✅ EXPORTER
   const handleExport = () => {
-    toast.info("📥 Export en développement...");
+    toast.info("Export en développement...");
   };
 
   // ✅ AJOUTER COLONNE (NOTE 4)
@@ -148,7 +148,7 @@ export default function NotesManagement() {
       return;
     }
     setNoteColumns(prev => prev + 1);
-    toast.success(`✅ Colonne NOTE ${noteColumns + 1} ajoutée`);
+    toast.success(`Colonne NOTE ${noteColumns + 1} ajoutée`);
   };
 
   // ✅ SUPPRIMER COLONNE (avec confirmation)
@@ -171,7 +171,7 @@ export default function NotesManagement() {
       setNoteColumns(prev => prev - 1);
       setShowDeleteConfirm(false);
       
-      toast.success(`✅ ${deletedCount} note(s) "${libelleToDelete}" supprimée(s)`);
+      toast.success(`${deletedCount} note(s) "${libelleToDelete}" supprimée(s)`);
       
       // Rafraîchir les données
       await fetchData();
@@ -453,7 +453,7 @@ export default function NotesManagement() {
         onClose={() => setShowNotesEntryModal(false)}
         onSuccess={() => {
           fetchData();
-          toast.success("✅ Notes mises à jour");
+          toast.success("Notes mises à jour");
         }}
         currentNoteColumns={noteColumns}
       />

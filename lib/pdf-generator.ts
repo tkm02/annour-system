@@ -1,8 +1,11 @@
 import jsPDF, { GState } from 'jspdf';
+import { EDITION, sansAccents } from './edition';
 
 // Interface matching the structure used in the PDF generator
 export interface SeminaristData {
   matricule?: string;
+  /** Statut du paiement renvoyé par le serveur (verifie, en_attente, rejete, erreur, completed) */
+  paymentStatus?: string;
   personalInfo: {
     nom: string;
     prenom: string;
@@ -72,11 +75,9 @@ const PDFGenerator = {
     for (let i = 0; i < 50; i++) {
       const opacity = 1 - (i / 50);
       doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      // @ts-ignore
-      doc.setGState(new doc.GState({ opacity: opacity * 0.1 }));
+      doc.setGState(new GState({ opacity: opacity * 0.1 }));
       doc.rect(0, i, pageWidth, 1, 'F');
     }
-    // @ts-ignore
     doc.setGState(new GState({ opacity: 1 }));
 
     doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
@@ -132,7 +133,7 @@ const PDFGenerator = {
 
     doc.setFontSize(28);
     doc.setTextColor(colors.accent[0], colors.accent[1], colors.accent[2]);
-    doc.text('7.0', pageWidth / 2, 28, { align: 'center' });
+    doc.text(EDITION.version, pageWidth / 2, 28, { align: 'center' });
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(15);
@@ -158,7 +159,6 @@ const PDFGenerator = {
         doc.setLineWidth(0.5);
         doc.rect(pageWidth - margin - 48, yPos + 5, 40, 40, 'S');
       } catch (error) {
-         console.warn('Erreur QR:', error);
       }
     }
 
@@ -173,12 +173,24 @@ const PDFGenerator = {
     doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
     doc.text(matricule, margin + 10, yPos + 28);
 
-    // Badge paiement
-    doc.setFillColor(colors.success[0], colors.success[1], colors.success[2]);
+    // Badge paiement (statut serveur ; sans statut fourni, comportement historique conservé)
+    const badge: { label: string; color: number[] } = (() => {
+      switch (data.paymentStatus) {
+        case undefined:
+        case 'verifie':
+        case 'completed':
+          return { label: 'PAIEMENT VALIDE', color: colors.success };
+        case 'rejete':
+          return { label: 'PAIEMENT REJETE', color: [220, 38, 38] };
+        default:
+          return { label: 'PAIEMENT EN ATTENTE', color: [217, 119, 6] };
+      }
+    })();
+    doc.setFillColor(badge.color[0], badge.color[1], badge.color[2]);
     doc.roundedRect(margin + 10, yPos + 35, 60, 8, 3, 3, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
-    doc.text('PAIEMENT VALIDE', margin + 13, yPos + 41);
+    doc.text(badge.label, margin + 13, yPos + 41);
 
     // ===== INFORMATIONS PARTICIPANT =====
 
@@ -298,12 +310,12 @@ const PDFGenerator = {
 
     // Liste des informations
     const importantInfo = [
-      { label: 'Dates', value: '20 au 25 Decembre 2025' },
-      { label: 'Lieu', value: 'Lycee Moderne de Cocody, Abidjan' },
-      { label: 'Heure d\'arrivee', value: 'Samedi 20 Decembre a partir de 14h00' },
+      { label: 'Dates', value: sansAccents(EDITION.dates) },
+      { label: 'Lieu', value: sansAccents(`${EDITION.lieu}, Abidjan`) },
+      { label: 'Heure d\'arrivee', value: sansAccents(EDITION.arrivee) },
       { label: 'A apporter', value: 'Effets personnels, vetements, toilette, Coran, cahier' },
       { label: 'QR Code', value: 'Presentez cette fiche a l\'entree le jour J' },
-      { label: 'Contacts', value: "+225 0545844135/ +225 0142080535 / +2250787944973" },
+      { label: 'Contacts', value: EDITION.contacts },
 
     ];
 
@@ -337,7 +349,7 @@ const PDFGenerator = {
     doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      'AN NOUR 2025 - 7eme edition | (c) 2025 Tous droits réservés',
+      sansAccents(`AN NOUR ${EDITION.annee} - ${EDITION.libelle} | (c) ${EDITION.annee} Tous droits reserves`),
       pageWidth / 2,
       yPos,
       { align: 'center' }

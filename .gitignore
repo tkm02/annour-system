@@ -55,3 +55,6 @@ Thumbs.db
 *.env.production.local
 
 .next
+
+# Claude Code : réglages personnels (non partagés)
+.claude/settings.local.json

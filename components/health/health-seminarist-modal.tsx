@@ -1,135 +1,226 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { X } from "lucide-react"
+import type React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Loader2, Pencil, Plus, User } from "lucide-react"
+import { toast } from "sonner"
 
-interface HealthSeminaristModalProps {
-  seminarist: any
-  onClose: () => void
+import Pager from "@/components/common/pager"
+import { EmptyState, ErrorState, LoadingState, errorText } from "@/components/common/states"
+import Field from "@/components/finance/field"
+import AddConsultationModal from "@/components/health/add-consultation-modal"
+import ConsultationModal from "@/components/health/consultation-modal"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { santeApi, type Consultation, type FicheMedicale } from "@/lib/api"
+import { diffInformations, type InfosFormValues } from "@/lib/consultation-form"
+import { formatDate } from "@/lib/format"
+
+const LIMIT = 10
+
+function InfosForm({ fiche, onSaved, onCancel }: { fiche: FicheMedicale; onSaved: (f: FicheMedicale) => void; onCancel: () => void }) {
+  const [values, setValues] = useState<InfosFormValues>({
+    contact_parent: fiche.informations_medicales.contact_parent,
+    allergies: fiche.informations_medicales.allergies ?? "",
+    antecedents_medicaux: fiche.informations_medicales.antecedents_medicaux ?? "",
+    date_naissance: fiche.patient.date_naissance ?? "",
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const set = (field: keyof InfosFormValues, value: string) => setValues((v) => ({ ...v, [field]: value }))
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const { update, error: problem } = diffInformations(
+      { ...fiche.informations_medicales, date_naissance: fiche.patient.date_naissance },
+      values,
+    )
+    if (problem) {
+      if (problem === "Aucune modification") onCancel()
+      else setError(problem)
+      return
+    }
+    setSaving(true)
+    try {
+      onSaved(await santeApi.updateInformations(fiche.patient.matricule, update))
+      toast.success("Informations médicales mises à jour")
+    } catch (err) {
+      setError(errorText(err, "Mise à jour impossible"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3" noValidate>
+      <Field id="infos-contact" label="Contact du parent *">
+        {(p) => <Input {...p} type="tel" maxLength={30} value={values.contact_parent} onChange={(e) => set("contact_parent", e.target.value)} />}
+      </Field>
+      <Field id="infos-naissance" label="Date de naissance">
+        {(p) => <Input {...p} type="date" max={new Date().toISOString().slice(0, 10)} value={values.date_naissance} onChange={(e) => set("date_naissance", e.target.value)} />}
+      </Field>
+      <Field id="infos-allergies" label="Allergies" hint="Vider le champ pour effacer">
+        {(p) => <Textarea {...p} rows={2} maxLength={2000} value={values.allergies} onChange={(e) => set("allergies", e.target.value)} />}
+      </Field>
+      <Field id="infos-antecedents" label="Antécédents médicaux" hint="Vider le champ pour effacer">
+        {(p) => <Textarea {...p} rows={2} maxLength={2000} value={values.antecedents_medicaux} onChange={(e) => set("antecedents_medicaux", e.target.value)} />}
+      </Field>
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>Annuler</Button>
+        <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Enregistrer</Button>
+      </div>
+    </form>
+  )
 }
 
-export default function HealthSeminaristModal({ seminarist, onClose }: HealthSeminaristModalProps) {
+/** F-S2 / F-S3 / F-S4 : fiche médicale du patient, informations médicales et historique des consultations. */
+export default function HealthSeminaristModal({ matricule, onClose }: { matricule: string | null; onClose: () => void }) {
+  const [fiche, setFiche] = useState<FicheMedicale | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [editingInfos, setEditingInfos] = useState(false)
+  const [consultations, setConsultations] = useState<Consultation[] | null>(null)
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [consultError, setConsultError] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [selected, setSelected] = useState<string | null>(null)
+  // F-18 : patient affiché et numéro de la dernière requête de chaque type ; une réponse arrivée après un changement
+  // de patient ou de page (ou un rappel d'un patient précédent) est ignorée.
+  const shownMatricule = useRef<string | null>(null)
+  const ficheRequest = useRef(0)
+  const consultRequest = useRef(0)
+
+  const loadFiche = useCallback(async () => {
+    if (matricule !== shownMatricule.current) return
+    const request = ++ficheRequest.current
+    if (!matricule) return
+    setFiche(null)
+    setError(null)
+    setEditingInfos(false)
+    try {
+      const data = await santeApi.getFiche(matricule)
+      if (request === ficheRequest.current) setFiche(data)
+    } catch (err) {
+      if (request === ficheRequest.current) setError(errorText(err, "Fiche médicale indisponible"))
+    }
+  }, [matricule])
+
+  const loadConsultations = useCallback(async () => {
+    if (matricule !== shownMatricule.current) return
+    const request = ++consultRequest.current
+    if (!matricule) return
+    setConsultError(null)
+    try {
+      const res = await santeApi.getPatientConsultations(matricule, page, LIMIT)
+      if (request !== consultRequest.current) return
+      setConsultations(res.data)
+      setTotal(res.total)
+    } catch (err) {
+      if (request === consultRequest.current) setConsultError(errorText(err, "Historique indisponible"))
+    }
+  }, [matricule, page])
+
+  useEffect(() => {
+    // F-18 : rien du patient précédent ne reste affiché ni cliquable sous le nouveau
+    shownMatricule.current = matricule
+    setPage(1)
+    setConsultations(null)
+    setTotal(0)
+    setConsultError(null)
+    setSelected(null)
+    setAdding(false)
+    loadFiche()
+  }, [matricule, loadFiche])
+
+  useEffect(() => {
+    loadConsultations()
+  }, [loadConsultations])
+
+  const p = fiche?.patient
+  const infos = fiche?.informations_medicales
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-bold text-secondary">SÉMINARISTE</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* Photo placeholder */}
-          <div className="flex justify-center">
-            <div className="w-32 h-32 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
-              <div className="text-center text-muted-foreground">
-                <div className="w-8 h-8 mx-auto mb-2 bg-muted-foreground/20 rounded"></div>
-                <div className="text-xs">Photo</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Informations générales */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">Informations générales</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Matricule</label>
-                <div className="text-foreground font-medium">{seminarist.matricule}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Date de naissance</label>
-                <div className="text-foreground">00/00/0000</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Nom</label>
-                <div className="text-foreground font-medium">{seminarist.nom}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Genre</label>
-                <div>
-                  <Badge variant={seminarist.genre === "M" ? "default" : "secondary"}>{seminarist.genre}</Badge>
+    <Dialog open={!!matricule} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Fiche médicale</DialogTitle>
+          <DialogDescription>{p ? `${p.nom_prenoms} — ${p.matricule}` : matricule}</DialogDescription>
+        </DialogHeader>
+        {error ? <ErrorState message={error} onRetry={loadFiche} /> : !fiche || !p || !infos ? <LoadingState /> : (
+          <div className="space-y-6">
+            <section className="flex flex-col sm:flex-row gap-4">
+              {p.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.photo_url} alt={`Photo de ${p.nom_prenoms}`} className="w-24 h-28 object-cover rounded-md border" />
+              ) : (
+                <div className="w-24 h-28 rounded-md border bg-muted flex items-center justify-center" aria-label="Aucune photo">
+                  <User className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
                 </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Prénoms</label>
-                <div className="text-foreground">{seminarist.prenoms}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Commune</label>
-                <div className="text-foreground">Bingerville</div>
-              </div>
-            </div>
-          </div>
+              )}
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm flex-1">
+                <div><dt className="text-muted-foreground">Sexe</dt><dd>{p.sexe === "F" ? "Féminin" : "Masculin"}</dd></div>
+                <div>
+                  <dt className="text-muted-foreground">{p.date_naissance ? "Date de naissance" : "Âge"}</dt>
+                  <dd>{p.date_naissance ? `${formatDate(p.date_naissance)} (${p.age} ans)` : `${p.age} ans`}</dd>
+                </div>
+                <div><dt className="text-muted-foreground">Niveau (séminaire)</dt><dd>{p.niveau || "Non attribué"}</dd></div>
+                <div><dt className="text-muted-foreground">Niveau scolaire</dt><dd>{p.niveau_scolaire}</dd></div>
+                <div><dt className="text-muted-foreground">Dortoir</dt><dd>{p.dortoir ?? p.dortoir_code}</dd></div>
+                <div><dt className="text-muted-foreground">Consultations</dt><dd>{fiche.nombre_consultations}</dd></div>
+              </dl>
+            </section>
 
-          {/* Coordonnées */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">Coordonnées</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Contact</label>
-                <div className="text-foreground">+225 00 00 00 00 00</div>
+            <section className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Informations médicales</h3>
+                {!editingInfos && (
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => setEditingInfos(true)}><Pencil className="h-4 w-4" />Modifier</Button>
+                )}
               </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Contact Parent</label>
-                <div className="text-foreground">+225 00 00 00 00 00</div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-muted-foreground">Email</label>
-                <div className="text-foreground">XXXXXXX@gmail.com</div>
-              </div>
-            </div>
-          </div>
+              {editingInfos ? (
+                <InfosForm fiche={fiche} onCancel={() => setEditingInfos(false)} onSaved={(f) => { if (f.patient.matricule === shownMatricule.current) { setFiche(f); setEditingInfos(false) } }} />
+              ) : (
+                <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div><dt className="text-muted-foreground">Contact du parent</dt><dd>{infos.contact_parent}</dd></div>
+                  <div><dt className="text-muted-foreground">Allergies</dt><dd className="whitespace-pre-line">{infos.allergies || "—"}</dd></div>
+                  <div><dt className="text-muted-foreground">Antécédents</dt><dd className="whitespace-pre-line">{infos.antecedents_medicaux || "—"}</dd></div>
+                </dl>
+              )}
+            </section>
 
-          {/* Catégorie */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">Catégorie</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Statut</label>
-                <div className="text-foreground">Élève</div>
+            <section className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Consultations (plus récente d&apos;abord)</h3>
+                <Button size="sm" className="gap-1" onClick={() => setAdding(true)}><Plus className="h-4 w-4" />Nouvelle consultation</Button>
               </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Niveau d'étude</label>
-                <div className="text-foreground">Terminale</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Dortoir</label>
-                <div className="text-foreground">{seminarist.dortoir}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Niveau</label>
-                <div className="text-foreground">{seminarist.niveau}</div>
-              </div>
-            </div>
+              {consultError ? <ErrorState message={consultError} onRetry={loadConsultations} /> : !consultations ? <LoadingState /> : consultations.length === 0 ? (
+                <EmptyState message="Aucune consultation." />
+              ) : (
+                <ul className="divide-y">
+                  {consultations.map((c) => (
+                    <li key={c.id}>
+                      <button type="button" onClick={() => setSelected(c.id)} className="w-full text-left py-2 px-2 rounded-md hover:bg-muted/50">
+                        <p className="font-medium">{formatDate(c.date_consultation, true)} — {c.medecin_responsable ?? "—"}</p>
+                        <p className="text-sm text-muted-foreground truncate">{c.motif_consultation}</p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {total > LIMIT && <Pager page={page} limit={LIMIT} total={total} onPageChange={setPage} />}
+            </section>
           </div>
-
-          {/* Informations Médicales */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">Informations Médicales</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Antécédents Médicaux</label>
-                <div className="text-foreground">Exemple d'antécédents médicaux</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Allergies</label>
-                <div className="text-foreground">Exemple d'allergie</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-center">
-            <Button onClick={onClose} className="bg-primary hover:bg-primary/90">
-              FERMER
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+        <AddConsultationModal
+          patient={adding && p ? { matricule: p.matricule, nom: p.nom_prenoms } : null}
+          onClose={() => setAdding(false)}
+          onCreated={() => { loadConsultations(); loadFiche() }}
+        />
+        <ConsultationModal consultationId={selected} onClose={() => setSelected(null)} onChanged={loadConsultations} />
+      </DialogContent>
+    </Dialog>
   )
 }

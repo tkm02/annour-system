@@ -1,186 +1,89 @@
 "use client"
 
 import type React from "react"
+import { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
-import { useState } from "react"
+import { errorText } from "@/components/common/states"
+import ConsultationFields from "@/components/health/consultation-fields"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { X } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useAuth } from "@/contexts/auth-context"
+import { ApiError, santeApi } from "@/lib/api"
+import { buildConsultation, validateConsultation, type ConsultationFormValues, type Errors } from "@/lib/consultation-form"
+import { nowLocalInput } from "@/lib/format"
 
-interface AddConsultationModalProps {
+const empty = (): ConsultationFormValues => ({
+  date_consultation: nowLocalInput(),
+  motif_consultation: "",
+  observations_diagnostic: "",
+  traitement_prescrit: "",
+  notes_medicales_supplementaires: "",
+  medecin_responsable_id: "",
+})
+
+/** F-S4 : nouvelle consultation. Un admin doit désigner le médecin ; un utilisateur « sante » l'est par défaut. */
+export default function AddConsultationModal({ patient, onClose, onCreated }: {
+  patient: { matricule: string; nom: string } | null
   onClose: () => void
-}
+  onCreated: () => void
+}) {
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
+  const [values, setValues] = useState<ConsultationFormValues>(empty)
+  const [errors, setErrors] = useState<Errors>({})
+  const [saving, setSaving] = useState(false)
 
-export default function AddConsultationModal({ onClose }: AddConsultationModalProps) {
-  const [formData, setFormData] = useState({
-    matricule: "",
-    dateConsultation: "",
-    medecinResponsable: "",
-    motifConsultation: "",
-    observations: "",
-    traitement: "",
-    notesMedicales: "",
-    contactParent: "",
-    antecedents: "",
-    allergies: "",
-  })
+  useEffect(() => {
+    if (patient) {
+      setValues(empty())
+      setErrors({})
+    }
+  }, [patient])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Handle form submission
-    console.log("Consultation submitted:", formData)
-    onClose()
-  }
-
-  const handleVerify = () => {
-    // Handle matricule verification
-    console.log("Verifying matricule:", formData.matricule)
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!patient) return
+    const local = validateConsultation(values, isAdmin)
+    setErrors(local)
+    if (Object.keys(local).length) return
+    setSaving(true)
+    try {
+      await santeApi.createConsultation(patient.matricule, buildConsultation(values, isAdmin))
+      toast.success("Consultation enregistrée")
+      onCreated()
+      onClose()
+    } catch (err) {
+      if (err instanceof ApiError && Object.keys(err.fieldErrors).length) {
+        const mapped: Errors = {}
+        for (const [path, msg] of Object.entries(err.fieldErrors)) mapped[path.split(".").pop() || "_form"] = msg
+        setErrors(mapped)
+      } else {
+        setErrors({ _form: errorText(err, "Enregistrement impossible") })
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-bold text-secondary">ENREGISTREMENT CONSULTATION</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Informations générales */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-foreground border-b border-border pb-2">Informations générales</h3>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Label htmlFor="matricule">Matricule</Label>
-                  <Input
-                    id="matricule"
-                    value={formData.matricule}
-                    onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
-                    placeholder="AN06-XXXX"
-                    className="flex-1"
-                  />
-                </div>
-                <Button type="button" onClick={handleVerify} className="bg-primary hover:bg-primary/90 text-white mt-6">
-                  VÉRIFIER
-                </Button>
-              </div>
-            </div>
-
-            {/* Historique */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-foreground border-b border-border pb-2">Historique</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="dateConsultation">Date de la consultation</Label>
-                  <Input
-                    id="dateConsultation"
-                    type="date"
-                    value={formData.dateConsultation}
-                    onChange={(e) => setFormData({ ...formData, dateConsultation: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="medecinResponsable">Médecin Responsable</Label>
-                  <Input
-                    id="medecinResponsable"
-                    value={formData.medecinResponsable}
-                    onChange={(e) => setFormData({ ...formData, medecinResponsable: e.target.value })}
-                    placeholder="Nom du médecin"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="motifConsultation">Motif de la Consultation</Label>
-                <Input
-                  id="motifConsultation"
-                  value={formData.motifConsultation}
-                  onChange={(e) => setFormData({ ...formData, motifConsultation: e.target.value })}
-                  placeholder="Motif de la consultation"
-                />
-              </div>
-              <div>
-                <Label htmlFor="observations">Observations et Diagnostic</Label>
-                <textarea
-                  id="observations"
-                  value={formData.observations}
-                  onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
-                  className="w-full min-h-[80px] px-3 py-2 border border-input bg-background rounded-md text-sm"
-                  placeholder="Observations et diagnostic..."
-                />
-              </div>
-              <div>
-                <Label htmlFor="traitement">Traitement Prescrit</Label>
-                <textarea
-                  id="traitement"
-                  value={formData.traitement}
-                  onChange={(e) => setFormData({ ...formData, traitement: e.target.value })}
-                  className="w-full min-h-[60px] px-3 py-2 border border-input bg-background rounded-md text-sm"
-                  placeholder="Traitement prescrit..."
-                />
-              </div>
-              <div>
-                <Label htmlFor="notesMedicales">Notes Médicales Supplémentaires</Label>
-                <textarea
-                  id="notesMedicales"
-                  value={formData.notesMedicales}
-                  onChange={(e) => setFormData({ ...formData, notesMedicales: e.target.value })}
-                  className="w-full min-h-[60px] px-3 py-2 border border-input bg-background rounded-md text-sm"
-                  placeholder="Notes médicales supplémentaires..."
-                />
-              </div>
-            </div>
-
-            {/* Informations Médicales */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-foreground border-b border-border pb-2">Informations Médicales</h3>
-              <div>
-                <Label htmlFor="contactParent">Contact Parent</Label>
-                <Input
-                  id="contactParent"
-                  value={formData.contactParent}
-                  onChange={(e) => setFormData({ ...formData, contactParent: e.target.value })}
-                  placeholder="+225"
-                />
-              </div>
-              <div>
-                <Label htmlFor="antecedents">Antécédents Médicaux</Label>
-                <textarea
-                  id="antecedents"
-                  value={formData.antecedents}
-                  onChange={(e) => setFormData({ ...formData, antecedents: e.target.value })}
-                  className="w-full min-h-[60px] px-3 py-2 border border-input bg-background rounded-md text-sm"
-                  placeholder="Antécédents médicaux..."
-                />
-              </div>
-              <div>
-                <Label htmlFor="allergies">Allergies</Label>
-                <textarea
-                  id="allergies"
-                  value={formData.allergies}
-                  onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
-                  className="w-full min-h-[60px] px-3 py-2 border border-input bg-background rounded-md text-sm"
-                  placeholder="Allergies..."
-                />
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
-                ANNULER
-              </Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white">
-                ENREGISTRER
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <Dialog open={!!patient} onOpenChange={(open) => !open && !saving && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Nouvelle consultation</DialogTitle>
+          <DialogDescription>{patient ? `${patient.nom} — ${patient.matricule}` : ""}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4" noValidate>
+          <ConsultationFields idPrefix="new-consultation" values={values} errors={errors} showMedecin={isAdmin}
+            onChange={(field, value) => setValues((v) => ({ ...v, [field]: value }))} />
+          {errors._form && <p className="text-sm text-destructive whitespace-pre-line" role="alert">{errors._form}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Annuler</Button>
+            <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Enregistrer</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

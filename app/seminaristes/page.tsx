@@ -17,12 +17,10 @@ export default function SeminaristesPage() {
   const fetchSeminaristes = async () => {
     try {
       setLoading(true);
-      console.log("🔄 Fetch séminaristes...");
       const response = await scientificApi.getSeminaristes(1, 10000);
       
       setSeminaristes(response.data);
       setTotal(response.total);
-      console.log(`✅ ${response.total} séminaristes chargés`);
     } catch (error: any) {
       console.error("❌ Erreur fetch séminaristes:", error);
       toast.error(error.message || "Erreur chargement séminaristes");
@@ -40,7 +38,7 @@ export default function SeminaristesPage() {
   const handleRefresh = () => {
     scientificApi.invalidateCache();
     fetchSeminaristes();
-    toast.success("🔄 Liste actualisée");
+    toast.success("Liste actualisée");
   };
 
   return (

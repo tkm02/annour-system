@@ -53,7 +53,6 @@ export default function AddNotesModal({ seminarist, onClose }: AddNotesModalProp
 
   const handleSubmit = () => {
     // Handle notes submission
-    console.log("Notes submitted:", notes)
     onClose()
   }
 
@@ -119,7 +118,7 @@ export default function AddNotesModal({ seminarist, onClose }: AddNotesModalProp
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div>
-                    <div className="font-medium text-foreground">TEST D'ENTRÉE</div>
+                    <div className="font-medium text-foreground">TEST D&apos;ENTRÉE</div>
                     <div className="text-sm text-muted-foreground">XXXX</div>
                   </div>
                   <div className="text-right">

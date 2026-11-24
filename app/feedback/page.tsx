@@ -1,488 +1,398 @@
-"use client";
+"use client"
 
-import DashboardLayout from "@/components/layout/dashboard-layout";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Feedback, FeedbackAnalytics, feedbackApi } from "@/lib/api";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import {
-    Eye,
-    Loader2,
-    MessageSquare,
-    Star,
-    ThumbsUp,
-    Trash2,
-    Users,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useState } from "react"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { Eye, MessageSquare, Star, ThumbsDown, ThumbsUp, Trash2, Users } from "lucide-react"
+import { toast } from "sonner"
+
+import ConfirmDialog from "@/components/common/confirm-dialog"
+import { DataTable, type Column } from "@/components/common/data-table"
+import { FilterBar, type ActiveFilter } from "@/components/common/filter-bar"
+import { PageHeader } from "@/components/common/page-header"
+import { StatCard, StatGrid, StatGridSkeleton } from "@/components/common/stat-card"
+import { EmptyState, ErrorState, ListSkeleton, errorText } from "@/components/common/states"
+import { StatusBadge, type StatusTone } from "@/components/common/status-badge"
+import DashboardLayout from "@/components/layout/dashboard-layout"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Feedback, FeedbackAnalytics, feedbackApi } from "@/lib/api"
+import { countLabel } from "@/lib/table"
+
+const SEXE_LABELS: Record<string, string> = { M: "Masculin", F: "Féminin" }
+const RECOMMANDE_LABELS: Record<string, string> = { true: "oui", false: "non" }
 
 export default function FeedbackPage() {
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [analytics, setAnalytics] = useState<FeedbackAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingList, setLoadingList] = useState(false);
-  
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
+  const [analytics, setAnalytics] = useState<FeedbackAnalytics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadingList, setLoadingList] = useState(false)
+  // Erreurs affichées dans la page (ErrorState) en plus des notifications existantes
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
+
   // Filters
-  const [filterSexe, setFilterSexe] = useState<string>("all");
-  const [filterRecommande, setFilterRecommande] = useState<string>("all");
-  
+  const [filterSexe, setFilterSexe] = useState<string>("all")
+  const [filterRecommande, setFilterRecommande] = useState<string>("all")
+
   // Pagination
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const LIMIT = 50;
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const LIMIT = 50
 
   // Selection for details
-  const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
-  // Initial Data Load
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  // Fetch list when filters or page change
-  useEffect(() => {
-    fetchFeedbacks();
-  }, [page, filterSexe, filterRecommande]);
+  // Suppression (confirmation)
+  const [toDelete, setToDelete] = useState<Feedback | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchInitialData = async () => {
     try {
-      setLoading(true);
-      const [analyticsData, feedbackData] = await Promise.all([
+      setLoading(true)
+      setAnalyticsError(null)
+      const [analyticsData] = await Promise.all([
         feedbackApi.getAnalytics(),
         fetchFeedbacks(true), // Direct fetch for first load
-      ]);
-      setAnalytics(analyticsData);
+      ])
+      setAnalytics(analyticsData)
     } catch (error) {
-      console.error("Error fetching data:", error);
-      toast.error("Impossible de charger les données");
+      console.error("Error fetching data:", error)
+      setAnalyticsError(errorText(error, "Indicateurs indisponibles"))
+      toast.error("Impossible de charger les données")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const fetchFeedbacks = async (isInitial = false) => {
-    if (!isInitial) setLoadingList(true);
+    if (!isInitial) setLoadingList(true)
     try {
-      const filters: any = {};
-      if (filterSexe !== "all") filters.sexe = filterSexe;
-      if (filterRecommande !== "all")
-        filters.recommande = filterRecommande === "true";
+      setListError(null)
+      const filters: { sexe?: string; recommande?: boolean } = {}
+      if (filterSexe !== "all") filters.sexe = filterSexe
+      if (filterRecommande !== "all") filters.recommande = filterRecommande === "true"
 
-      const res = await feedbackApi.getAll(page, LIMIT, filters);
-      setFeedbacks(res.data);
-      setTotal(res.total);
-      return res;
+      const res = await feedbackApi.getAll(page, LIMIT, filters)
+      setFeedbacks(res.data)
+      setTotal(res.total)
+      return res
     } catch (error) {
-      console.error("Error fetching feedbacks:", error);
-      if (!isInitial) toast.error("Erreur lors du chargement des avis");
+      console.error("Error fetching feedbacks:", error)
+      setListError(errorText(error, "Liste des avis indisponible"))
+      if (!isInitial) toast.error("Erreur lors du chargement des avis")
     } finally {
-      if (!isInitial) setLoadingList(false);
+      if (!isInitial) setLoadingList(false)
     }
-  };
+  }
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cet avis ?")) return;
+  // Initial Data Load
+  useEffect(() => {
+    fetchInitialData()
+  }, [])
 
+  // Fetch list when filters or page change
+  useEffect(() => {
+    fetchFeedbacks()
+  }, [page, filterSexe, filterRecommande])
+
+  const handleDelete = async () => {
+    if (!toDelete) return
+    setDeleting(true)
     try {
-      await feedbackApi.delete(id);
-      toast.success("Avis supprimé avec succès");
-      
+      await feedbackApi.delete(toDelete.id)
+      toast.success("Avis supprimé avec succès")
+      setToDelete(null)
+
       // Refresh list and analytics
-      fetchFeedbacks();
-      const newAnalytics = await feedbackApi.getAnalytics();
-      setAnalytics(newAnalytics);
+      fetchFeedbacks()
+      const newAnalytics = await feedbackApi.getAnalytics()
+      setAnalytics(newAnalytics)
     } catch (error) {
-      console.error("Error deleting feedback:", error);
-      toast.error("Erreur lors de la suppression");
+      console.error("Error deleting feedback:", error)
+      toast.error("Erreur lors de la suppression")
+    } finally {
+      setDeleting(false)
     }
-  };
+  }
 
   const openDetails = (feedback: Feedback) => {
-    setSelectedFeedback(feedback);
-    setIsDetailOpen(true);
-  };
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex h-[80vh] items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        </div>
-      </DashboardLayout>
-    );
+    setSelectedFeedback(feedback)
+    setIsDetailOpen(true)
   }
+
+  const filteredOut = filterSexe !== "all" || filterRecommande !== "all"
+  const resetFilters = () => {
+    setFilterSexe("all")
+    setFilterRecommande("all")
+  }
+  const activeFilters: ActiveFilter[] = [
+    ...(filterSexe !== "all" ? [{ label: `Sexe : ${SEXE_LABELS[filterSexe]}`, onRemove: () => setFilterSexe("all") }] : []),
+    ...(filterRecommande !== "all"
+      ? [{ label: `Recommande : ${RECOMMANDE_LABELS[filterRecommande]}`, onRemove: () => setFilterRecommande("all") }]
+      : []),
+  ]
+
+  const displayName = (f: Feedback) => f.nom || "Anonyme"
+  const shortDate = (f: Feedback) => format(new Date(f.created_at), "dd MMM HH:mm", { locale: fr })
+
+  const nameButton = (f: Feedback) => (
+    <button
+      type="button"
+      onClick={() => openDetails(f)}
+      className="rounded-sm text-left font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+    >
+      {displayName(f)}
+    </button>
+  )
+
+  const rowActions = (f: Feedback) => (
+    <div className="flex justify-end gap-1">
+      <Button size="icon" variant="ghost" aria-label={`Voir l'avis de ${displayName(f)}`} onClick={() => openDetails(f)}>
+        <Eye className="h-4 w-4" aria-hidden="true" />
+      </Button>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+        aria-label={`Supprimer l'avis de ${displayName(f)}`}
+        onClick={() => setToDelete(f)}
+      >
+        <Trash2 className="h-4 w-4" aria-hidden="true" />
+      </Button>
+    </div>
+  )
+
+  const columns: Column<Feedback>[] = [
+    { id: "date", header: "Date", cell: (f) => <span className="whitespace-nowrap">{shortDate(f)}</span> },
+    { id: "nom", header: "Nom", cell: nameButton },
+    { id: "sexe", header: "Sexe", cell: (f) => <StatusBadge icon={null}>{f.sexe}</StatusBadge>, hideBelow: "lg" },
+    {
+      id: "globale", header: "Note globale", align: "center",
+      cell: (f) => <span className="font-semibold tabular-nums">{f.note_globale}</span>,
+    },
+    { id: "organisation", header: "Organisation", align: "center", cell: (f) => <NoteBadge note={f.note_organisation} /> },
+    { id: "contenu", header: "Contenu", align: "center", cell: (f) => <NoteBadge note={f.qualite_formations} /> },
+    { id: "dortoir", header: "Confort dortoir", align: "center", cell: (f) => <NoteBadge note={f.confort_dortoirs} />, hideBelow: "lg" },
+    { id: "repas", header: "Qualité repas", align: "center", cell: (f) => <NoteBadge note={f.qualite_nourriture} />, hideBelow: "lg" },
+    { id: "actions", header: <span className="sr-only">Actions</span>, cell: rowActions, align: "right" },
+  ]
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Avis & Feedbacks</h1>
-          <p className="text-muted-foreground">
-            Consultez les retours des séminaristes
-          </p>
+      <PageHeader title="Avis des séminaristes" description="Consultez les retours des séminaristes." />
+
+      {/* Indicateurs */}
+      {loading ? (
+        <StatGridSkeleton />
+      ) : analytics ? (
+        <StatGrid label="Indicateurs des avis">
+          <StatCard label="Total des avis" value={analytics.total_responses} icon={MessageSquare} tone="brand" />
+          <StatCard label="Note globale" value={`${analytics.moyenne_globale.toFixed(1)}/5`} icon={Star} tone="warning" />
+          <StatCard label="Recommandation" value={`${analytics.pourcentage_recommande.toFixed(0)} %`} icon={ThumbsUp} tone="success" />
+          <StatCard
+            label="Participation féminine"
+            value={analytics.repartition_sexe.F || 0}
+            hint={`sur ${analytics.total_responses} au total`}
+            icon={Users}
+            tone="info"
+          />
+        </StatGrid>
+      ) : analyticsError ? (
+        <div className="rounded-lg border border-border bg-card">
+          <ErrorState message={analyticsError} onRetry={fetchInitialData} />
         </div>
+      ) : null}
 
-        {/* Analytics Cards */}
-        {analytics && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Avis
-                </CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analytics.total_responses}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Note Globale
-                </CardTitle>
-                <Star className="h-4 w-4 text-yellow-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analytics.moyenne_globale.toFixed(1)}/5
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Recommandation
-                </CardTitle>
-                <ThumbsUp className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analytics.pourcentage_recommande.toFixed(0)}%
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Participation F
-                </CardTitle>
-                <Users className="h-4 w-4 text-pink-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analytics.repartition_sexe.F || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                   sur {analytics.total_responses} total
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Filters & Actions */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-card p-4 rounded-lg border">
-          <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center">
-            <Select value={filterSexe} onValueChange={setFilterSexe}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Sexe" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les sexes</SelectItem>
-                <SelectItem value="M">Masculin</SelectItem>
-                <SelectItem value="F">Féminin</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={filterRecommande}
-              onValueChange={setFilterRecommande}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Recommandation" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tout</SelectItem>
-                <SelectItem value="true">Recommande</SelectItem>
-                <SelectItem value="false">Ne recommande pas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {total} résultat(s)
-          </div>
-        </div>
+      <div className="mt-6">
+        <FilterBar
+          filters={
+            <>
+              <Select value={filterSexe} onValueChange={setFilterSexe}>
+                <SelectTrigger className="w-full bg-card sm:w-48" aria-label="Filtrer par sexe">
+                  <SelectValue placeholder="Sexe" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les sexes</SelectItem>
+                  <SelectItem value="M">Masculin</SelectItem>
+                  <SelectItem value="F">Féminin</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterRecommande} onValueChange={setFilterRecommande}>
+                <SelectTrigger className="w-full bg-card sm:w-56" aria-label="Filtrer par recommandation">
+                  <SelectValue placeholder="Recommandation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les recommandations</SelectItem>
+                  <SelectItem value="true">Recommande</SelectItem>
+                  <SelectItem value="false">Ne recommande pas</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
+          }
+          activeFilters={activeFilters}
+          onReset={resetFilters}
+          count={!loading && !loadingList && !listError ? countLabel(feedbacks.length, total, "avis", "avis") : undefined}
+        />
 
         {/* Légende */}
-        <div className="flex flex-wrap items-center gap-4 text-sm bg-card p-3 rounded-lg border">
-          <span className="font-semibold text-muted-foreground">Légende Notes :</span>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Excellent (≥ 4/5)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Correct (≥ 3/5)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Insuffisant (&lt; 3/5)</span>
-          </div>
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm" aria-label="Légende des notes" role="group">
+          <span className="text-muted-foreground">Légende des notes :</span>
+          <StatusBadge tone="success">Excellent (≥ 4/5)</StatusBadge>
+          <StatusBadge tone="warning">Correct (≥ 3/5)</StatusBadge>
+          <StatusBadge tone="danger">Insuffisant (&lt; 3/5)</StatusBadge>
         </div>
 
-        {/* Table */}
-        <div className="rounded-md border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Nom</TableHead>
-                <TableHead>Sexe</TableHead>
-                <TableHead className="text-center">Note Globale</TableHead>
-                <TableHead className="text-center">Organisation</TableHead>
-                <TableHead className="text-center">Contenu</TableHead>
-                <TableHead className="text-center">Confort Dortoir</TableHead>
-                <TableHead className="text-center">Qualité Repas</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loadingList ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              ) : feedbacks.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    Aucun avis trouvé
-                  </TableCell>
-                </TableRow>
-              ) : (
-                feedbacks.map((f) => (
-                  <TableRow
-                    key={f.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => openDetails(f)}
-                  >
-                    <TableCell className="font-medium whitespace-nowrap">
-                      {format(new Date(f.created_at), "dd MMM HH:mm", {
-                        locale: fr,
-                      })}
-                    </TableCell>
-                    <TableCell>{f.nom || "Anonyme"}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={
-                          f.sexe === "M"
-                            ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
-                            : "bg-pink-100 text-pink-700 hover:bg-pink-100"
-                        }
-                      >
-                        {f.sexe}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center font-bold">
-                      {f.note_globale}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <NoteBadge note={f.note_organisation} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <NoteBadge note={f.qualite_formations} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <NoteBadge note={f.confort_dortoirs} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <NoteBadge note={f.qualite_nourriture} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDetails(f);
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={(e) => handleDelete(f.id, e)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Pagination Controls could go here if needed */}
+        {loading ? (
+          <ListSkeleton label="Chargement des avis…" />
+        ) : (
+          <DataTable
+            caption="Avis des séminaristes"
+            columns={columns}
+            rows={feedbacks}
+            getRowKey={(f) => f.id}
+            loading={loadingList}
+            error={listError}
+            onRetry={() => fetchFeedbacks()}
+            empty={
+              <EmptyState
+                icon={MessageSquare}
+                title={filteredOut ? "Aucun résultat" : "Aucun avis"}
+                message={filteredOut ? "Aucun avis ne correspond à ces filtres." : "Les avis envoyés par les séminaristes apparaîtront ici."}
+                action={filteredOut ? <Button variant="outline" onClick={resetFilters}>Réinitialiser les filtres</Button> : undefined}
+              />
+            }
+            renderCard={(f) => (
+              <div className="rounded-lg border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p>{nameButton(f)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {shortDate(f)} · {SEXE_LABELS[f.sexe] ?? f.sexe}
+                    </p>
+                    <p className="mt-1 text-sm">
+                      Note globale : <span className="font-semibold tabular-nums">{f.note_globale}</span>
+                    </p>
+                  </div>
+                  {rowActions(f)}
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <NoteCardItem label="Organisation" note={f.note_organisation} />
+                  <NoteCardItem label="Contenu" note={f.qualite_formations} />
+                  <NoteCardItem label="Confort dortoir" note={f.confort_dortoirs} />
+                  <NoteCardItem label="Qualité repas" note={f.qualite_nourriture} />
+                </dl>
+              </div>
+            )}
+          />
+        )}
       </div>
 
-      {/* Details Modal */}
+      {/* Détail d'un avis */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Détails de l'avis</DialogTitle>
+            <DialogTitle>Détails de l&apos;avis</DialogTitle>
+            <DialogDescription>
+              {selectedFeedback
+                ? `Envoyé le ${format(new Date(selectedFeedback.created_at), "dd MMMM yyyy à HH:mm", { locale: fr })}`
+                : ""}
+            </DialogDescription>
           </DialogHeader>
           {selectedFeedback && (
-            <div className="grid gap-6 py-4">
-              {/* Header Info */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid gap-6 py-2">
+              <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
                 <div>
-                  <label className="font-semibold text-muted-foreground">Nom</label>
-                  <p className="text-lg">{selectedFeedback.nom || "Anonyme"}</p>
+                  <dt className="font-medium text-muted-foreground">Nom</dt>
+                  <dd className="mt-0.5 text-base font-medium text-foreground">{displayName(selectedFeedback)}</dd>
                 </div>
                 <div>
-                  <label className="font-semibold text-muted-foreground">Date</label>
-                  <p>
-                    {format(
-                      new Date(selectedFeedback.created_at),
-                      "dd MMMM yyyy à HH:mm",
-                      { locale: fr }
-                    )}
-                  </p>
+                  <dt className="font-medium text-muted-foreground">Sexe</dt>
+                  <dd className="mt-0.5 text-foreground">{selectedFeedback.sexe === "M" ? "Masculin" : "Féminin"}</dd>
                 </div>
                 <div>
-                  <label className="font-semibold text-muted-foreground">Sexe</label>
-                  <p>{selectedFeedback.sexe === "M" ? "Masculin" : "Féminin"}</p>
-                </div>
-                <div>
-                  <label className="font-semibold text-muted-foreground">
-                    Recommande
-                  </label>
-                  <p>
+                  <dt className="font-medium text-muted-foreground">Recommande</dt>
+                  <dd className="mt-1">
                     {selectedFeedback.recommande ? (
-                      <span className="flex items-center gap-1 text-green-600 font-medium">
-                        <ThumbsUp className="h-4 w-4" /> Oui
-                      </span>
+                      <StatusBadge tone="success" icon={ThumbsUp}>Oui</StatusBadge>
                     ) : (
-                      <span className="text-red-500 font-medium">Non</span>
+                      <StatusBadge tone="danger" icon={ThumbsDown}>Non</StatusBadge>
                     )}
-                  </p>
+                  </dd>
                 </div>
-              </div>
+              </dl>
 
-              <div className="border-t pt-4">
-                <h3 className="font-semibold mb-3">Notes Détaillées</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <NoteItem
-                    label="Globale"
-                    value={selectedFeedback.note_globale}
-                    isMain
-                  />
-                  <NoteItem
-                    label="Organisation"
-                    value={selectedFeedback.note_organisation}
-                  />
-                  <NoteItem
-                    label="Contenu / Kiam"
-                    value={selectedFeedback.qualite_contenu}
-                  />
-                  <NoteItem
-                    label="Formations"
-                    value={selectedFeedback.qualite_formations}
-                  />
-                  <NoteItem
-                    label="Dortoirs"
-                    value={selectedFeedback.confort_dortoirs}
-                  />
-                  <NoteItem
-                    label="Nourriture"
-                    value={selectedFeedback.qualite_nourriture}
-                  />
-                </div>
-              </div>
+              <section className="border-t border-border pt-4">
+                <h3 className="mb-3 font-semibold text-foreground">Notes détaillées</h3>
+                <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  <NoteItem label="Globale" value={selectedFeedback.note_globale} isMain />
+                  <NoteItem label="Organisation" value={selectedFeedback.note_organisation} />
+                  <NoteItem label="Contenu / Kiam" value={selectedFeedback.qualite_contenu} />
+                  <NoteItem label="Formations" value={selectedFeedback.qualite_formations} />
+                  <NoteItem label="Dortoirs" value={selectedFeedback.confort_dortoirs} />
+                  <NoteItem label="Nourriture" value={selectedFeedback.qualite_nourriture} />
+                </dl>
+              </section>
 
-              <div className="border-t pt-4 space-y-4">
+              <section className="space-y-4 border-t border-border pt-4">
                 <div>
-                  <h3 className="font-semibold mb-1">Points Appréciés</h3>
-                  <p className="bg-muted p-3 rounded-md text-sm whitespace-pre-wrap">
+                  <h3 className="mb-1 font-semibold text-foreground">Points appréciés</h3>
+                  <p className="whitespace-pre-wrap rounded-md bg-muted p-3 text-sm text-foreground">
                     {selectedFeedback.points_apprecies || "Aucun commentaire"}
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Suggestions</h3>
-                  <p className="bg-muted p-3 rounded-md text-sm whitespace-pre-wrap">
+                  <h3 className="mb-1 font-semibold text-foreground">Suggestions</h3>
+                  <p className="whitespace-pre-wrap rounded-md bg-muted p-3 text-sm text-foreground">
                     {selectedFeedback.suggestions || "Aucune suggestion"}
                   </p>
                 </div>
-              </div>
+              </section>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!toDelete}
+        busy={deleting}
+        onCancel={() => setToDelete(null)}
+        onConfirm={handleDelete}
+        title="Supprimer cet avis ?"
+        description={`Êtes-vous sûr de vouloir supprimer l'avis de ${toDelete ? displayName(toDelete) : ""} ? Cette action est définitive.`}
+      />
     </DashboardLayout>
-  );
+  )
+}
+
+// Ton de la note : la légende associe chaque ton (icône + couleur) à un seuil ; 0 = non noté (neutre)
+function noteTone(note: number): StatusTone {
+  if (note >= 4) return "success"
+  if (note >= 3) return "warning"
+  if (note > 0) return "danger"
+  return "neutral"
 }
 
 function NoteBadge({ note }: { note: number }) {
-  let color = "bg-gray-100 text-gray-800";
-  if (note >= 4) color = "bg-green-100 text-green-800";
-  else if (note >= 3) color = "bg-yellow-100 text-yellow-800";
-  else if (note > 0) color = "bg-red-100 text-red-800";
-
-  return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${color}`}>
-      {note}/5
-    </span>
-  );
+  return <StatusBadge tone={noteTone(note)} className="tabular-nums">{note}/5</StatusBadge>
 }
 
-function NoteItem({
-  label,
-  value,
-  isMain = false,
-}: {
-  label: string;
-  value: number;
-  isMain?: boolean;
-}) {
+function NoteCardItem({ label, note }: { label: string; note: number }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd><NoteBadge note={note} /></dd>
+    </div>
+  )
+}
+
+function NoteItem({ label, value, isMain = false }: { label: string; value: number; isMain?: boolean }) {
   return (
     <div className="flex flex-col">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`font-bold ${isMain ? "text-xl" : "text-base"}`}>
-        {value}/5
-      </span>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={`font-semibold tabular-nums text-foreground ${isMain ? "text-xl" : "text-base"}`}>{value}/5</dd>
     </div>
-  );
+  )
 }
