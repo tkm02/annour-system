@@ -37,5 +37,8 @@ export const EDITION = {
   anneeScolaireLibelle: env(process.env.NEXT_PUBLIC_EDITION_ANNEE_SCOLAIRE_LIBELLE, "2024-2025"),
 } as const
 
+/** Adresse du site public imprimée sur les badges (domaine de production depuis 2026-11). */
+export const SITE_PUBLIC = "annour.ci"
+
 /** Texte sans accents pour les PDF dont la mise en page historique n'en utilise pas. */
 export const sansAccents = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "")

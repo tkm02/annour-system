@@ -5,7 +5,7 @@
 |---|---|---|---|
 | Développement | `npm run dev` (http://localhost:3000) | `NEXT_PUBLIC_API_URL` de `.env.local` (API locale recommandée) | `.env.local`, ignoré par Git |
 | CI | GitHub Actions (`ci.yml`) | aucune (build et tests unitaires) | — |
-| Production | Vercel *(à confirmer : projet, domaine)* | API Render, via `NEXT_PUBLIC_API_URL` (**obligatoire**) | variables du projet Vercel |
+| Production | Vercel, domaine `https://backoffice.annour.ci` (depuis 2026-11 ; l'origine doit figurer dans `CORS_ORIGINS` de l'API, procédure : Backend `docs/DEPLOYMENT.md` §6) | API Render, via `NEXT_PUBLIC_API_URL` (**obligatoire**) | variables du projet Vercel |
 
 Pas de préproduction identifiée. Depuis F-17 (2026-11-19), `lib/api.ts` n'a plus de repli sur l'API de production :
 sans `NEXT_PUBLIC_API_URL`, un build de production (Vercel Production **et** Preview, `NODE_ENV=production`) refuse
