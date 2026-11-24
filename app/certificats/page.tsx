@@ -1,11 +1,23 @@
 "use client";
 import { EDITION } from "@/lib/edition";
 
+import { DataTable, type Column } from "@/components/common/data-table";
+import Field from "@/components/common/field";
+import { FilterBar } from "@/components/common/filter-bar";
+import { PageHeader } from "@/components/common/page-header";
+import { EmptyState, errorText } from "@/components/common/states";
+import { StatusBadge } from "@/components/common/status-badge";
+import {
+  GeneratePanel,
+  ListPanel,
+  NiveauFilter,
+  niveauxOf,
+  PreviewPanel,
+  SelectionActions,
+  seminaristeColumns,
+} from "@/components/documents/document-panels";
 import DashboardLayout from "@/components/layout/dashboard-layout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,29 +26,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { addToSelection, applySelection, isAllSelected } from "@/lib/selection";
+import { countLabel, matchesSearch } from "@/lib/table";
 import { scientificApi, Seminariste } from "@/lib/api";
 import logoAnnour from "@/public/ANNOUR.png";
 import certBgDonateur from "@/public/cert-bg-donateur.png";
 import AEEMCI from "@/public/Logo_AEEMCI.jpeg";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import jsPDF from "jspdf";
 import {
   Award,
   Download,
-  Eye,
-  Loader2,
   Printer,
-  Search,
   Trash2,
   UserPlus,
+  Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -179,7 +184,9 @@ export default function CertificatePage() {
   // STATE SEMINARISTES
   const [seminaristes, setSeminaristes] = useState<Seminariste[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const query = useDebouncedValue(searchTerm);
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
   const [selectedSeminaristes, setSelectedSeminaristes] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -196,10 +203,11 @@ export default function CertificatePage() {
   const fetchSeminaristes = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await scientificApi.getSeminaristes(1, 10000);
       setSeminaristes(response.data);
-    } catch (error: any) {
-      toast.error(error.message || "Erreur chargement");
+    } catch (error) {
+      setLoadError(errorText(error, "Chargement des séminaristes impossible"));
     } finally {
       setLoading(false);
     }
@@ -209,31 +217,12 @@ export default function CertificatePage() {
     fetchSeminaristes();
   }, []);
 
-  const filteredSeminaristes = useMemo(() => {
-    return seminaristes.filter((sem) => {
-      const fullName = `${sem.nom} ${sem.prenom || ""}`.toLowerCase();
-      const matchesSearch =
-        !searchTerm ||
-        fullName.includes(searchTerm.toLowerCase()) ||
-        sem.matricule.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesNiveau = selectedNiveau === "tous" || sem.niveau === selectedNiveau;
-      return matchesSearch && matchesNiveau;
-    });
-  }, [seminaristes, searchTerm, selectedNiveau]);
-
-  const handleSelectAll = () => {
-    if (selectedSeminaristes.length === filteredSeminaristes.length) {
-      setSelectedSeminaristes([]);
-    } else {
-      setSelectedSeminaristes(filteredSeminaristes.map((s) => s.matricule));
-    }
-  };
-
-  const handleSelectOne = (matricule: string) => {
-    setSelectedSeminaristes((prev) =>
-      prev.includes(matricule) ? prev.filter((m) => m !== matricule) : [...prev, matricule]
-    );
-  };
+  const niveaux = useMemo(() => niveauxOf(seminaristes), [seminaristes]);
+  const filteredSeminaristes = useMemo(() => seminaristes.filter((sem) =>
+    (selectedNiveau === "tous" || sem.niveau === selectedNiveau) &&
+    matchesSearch(query, [sem.nom, sem.prenom, sem.matricule])
+  ), [seminaristes, query, selectedNiveau]);
+  const filteredKeys = filteredSeminaristes.map((s) => s.matricule);
 
   // ✅ GESTION STAFF
   const handleAddStaff = () => {
@@ -260,10 +249,6 @@ export default function CertificatePage() {
   };
 
   const removeStaff = (id: string) => setStaffList(staffList.filter((s) => s.id !== id));
-
-  const toggleStaffSelection = (id: string) => {
-    setStaffList(staffList.map((s) => (s.id === id ? { ...s, selected: !s.selected } : s)));
-  };
 
   // =================================================================================================
   // ✅ PARTICIPATION DESIGN (NOUVEAU CADRE SIMPLE + LOGOS)
@@ -1096,293 +1081,189 @@ export default function CertificatePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <Card>
-          <CardContent className="p-12 text-center">Chargement...</CardContent>
-        </Card>
-      </DashboardLayout>
-    );
-  }
+  const filteredOut = selectedNiveau !== "tous" || !!query.trim();
+  const resetFilters = () => {
+    setSearchTerm("");
+    setSelectedNiveau("tous");
+  };
+  const firstSelected = seminaristes.find((s) => s.matricule === selectedSeminaristes[0]);
+  const count = selectedSeminaristes.length;
+  const selectedStaff = staffList.filter((s) => s.selected);
+  const plural = (n: number) => (n > 1 ? "s" : "");
+
+  const staffColumns: Column<StaffMember>[] = [
+    { id: "nom", header: "Nom et prénom", cell: (s) => <span className="font-medium">{s.nom} {s.prenom}</span>, sortValue: (s) => `${s.nom} ${s.prenom}` },
+    { id: "fonction", header: "Type d'attestation", cell: (s) => <StatusBadge icon={null}>{s.fonction}</StatusBadge>, sortValue: (s) => s.fonction },
+    { id: "telephone", header: "Téléphone", cell: (s) => s.telephone || "—", hideBelow: "md" },
+    {
+      id: "actions", header: <span className="sr-only">Actions</span>, align: "right",
+      cell: (s) => (
+        <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+          aria-label={`Retirer ${s.nom} ${s.prenom} de la liste`} onClick={() => removeStaff(s.id)}>
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Award className="h-7 w-7 text-[#A6C33C]" />
-              GÉNÉRATION D&apos;ATTESTATIONS
-            </h1>
-            <p className="text-muted-foreground">Certificats de Participation & Remerciements</p>
-          </div>
-        </div>
+      <PageHeader
+        title="Attestations"
+        description="Attestations de participation des séminaristes et de remerciement du comité, des formateurs et des donateurs."
+      />
 
-        <Tabs defaultValue="seminaristes" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger
-              value="seminaristes"
-              className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
-            >
-              Séminaristes
-            </TabsTrigger>
-            <TabsTrigger
-              value="staff"
-              className="mr-2 border border-[#A6C33C] p-2 rounded data-[state=active]:bg-[#A6C33C] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#A6C33C]"
-            >
-              Comité, Formateurs & Donateurs
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="seminaristes" className="gap-4">
+        <TabsList className="w-full sm:w-fit">
+          <TabsTrigger value="seminaristes">Séminaristes</TabsTrigger>
+          <TabsTrigger value="staff">Comité, formateurs et donateurs</TabsTrigger>
+        </TabsList>
 
-          {/* TAB SÉMINARISTES */}
-          <TabsContent value="seminaristes">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sélection ({selectedSeminaristes.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2 mb-4">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Rechercher..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-
-                      <Select value={selectedNiveau} onValueChange={setSelectedNiveau}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tous">Tous niveaux</SelectItem>
-                          {Array.from(new Set(seminaristes.map((s) => s.niveau).filter(Boolean))).map((n) => (
-                            <SelectItem key={n} value={n || ""}>
-                              {n}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="border rounded-lg max-h-[500px] overflow-y-auto">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-background">
-                          <TableRow>
-                            <TableHead className="w-12">
-                              <Checkbox
-                                className="border-[#AC3]"
-                                checked={
-                                  selectedSeminaristes.length === filteredSeminaristes.length &&
-                                  filteredSeminaristes.length > 0
-                                }
-                                onCheckedChange={handleSelectAll}
-                              />
-                            </TableHead>
-                            <TableHead>Identité</TableHead>
-                            <TableHead>Niveau</TableHead>
-                          </TableRow>
-                        </TableHeader>
-
-                        <TableBody>
-                          {filteredSeminaristes.map((sem) => (
-                            <TableRow key={sem.id}>
-                              <TableCell>
-                                <Checkbox
-                                  className="border-[#AC3]"
-                                  checked={selectedSeminaristes.includes(sem.matricule)}
-                                  onCheckedChange={() => handleSelectOne(sem.matricule)}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-bold">
-                                  {sem.nom} {sem.prenom}
-                                </div>
-                                <div className="text-xs text-gray-500">{sem.matricule}</div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{sem.niveau}</Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Eye className="h-5 w-5" /> Aperçu
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {selectedSeminaristes.length > 0 ? (
-                      <div className="scale-75 origin-top border shadow">
-                        <CertificateParticipationPreview
-                          data={seminaristes.find((s) => s.matricule === selectedSeminaristes[0])!}
-                        />
-                      </div>
-                    ) : (
-                      <div className="h-48 border-2 border-dashed flex items-center justify-center text-muted-foreground">
-                        Sélectionnez un séminariste
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Button
-                  onClick={generateCertificates}
-                  disabled={selectedSeminaristes.length === 0 || generating}
-                  className="w-full bg-[#AC3] hover:bg-[#9B2] text-white"
-                  size="lg"
-                >
-                  {generating ? <Loader2 className="animate-spin" /> : <Download className="mr-2" />} Télécharger PDF
-                </Button>
-              </div>
+        <TabsContent value="seminaristes">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
+              <ListPanel title="Séminaristes" description="Cochez les séminaristes qui recevront une attestation de participation.">
+                <FilterBar
+                  search={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  searchLabel="Rechercher un séminariste"
+                  searchPlaceholder="Nom, prénom ou matricule…"
+                  filters={<NiveauFilter value={selectedNiveau} onChange={setSelectedNiveau} niveaux={niveaux} />}
+                  activeFilters={selectedNiveau !== "tous" ? [{ label: `Niveau : ${selectedNiveau}`, onRemove: () => setSelectedNiveau("tous") }] : []}
+                  onReset={resetFilters}
+                  count={seminaristes.length > 0 ? countLabel(filteredSeminaristes.length, seminaristes.length, "séminariste", "séminaristes") : undefined}
+                  actions={
+                    <SelectionActions
+                      filteredCount={filteredKeys.length}
+                      allFilteredSelected={isAllSelected(selectedSeminaristes, filteredKeys)}
+                      selectedCount={count}
+                      onSelectFiltered={() => setSelectedSeminaristes((prev) => addToSelection(prev, filteredKeys))}
+                      onClear={() => setSelectedSeminaristes([])}
+                    />
+                  }
+                />
+                <DataTable
+                  caption="Séminaristes à sélectionner pour les attestations"
+                  columns={seminaristeColumns<Seminariste>()}
+                  rows={filteredSeminaristes}
+                  getRowKey={(s) => s.matricule}
+                  loading={loading}
+                  error={loadError}
+                  onRetry={fetchSeminaristes}
+                  pageSize={25}
+                  selection={{
+                    selected: new Set(selectedSeminaristes),
+                    onChange: (next) => setSelectedSeminaristes((prev) => applySelection(prev, next)),
+                    label: (s) => `${s.nom} ${s.prenom ?? ""}`.trim(),
+                  }}
+                  empty={
+                    <EmptyState
+                      icon={Users}
+                      title={filteredOut ? "Aucun résultat" : "Aucun séminariste"}
+                      message={filteredOut ? "Aucun séminariste ne correspond à ces filtres." : "Aucun séminariste n'est encore inscrit."}
+                      action={filteredOut ? <Button variant="outline" onClick={resetFilters}>Réinitialiser les filtres</Button> : undefined}
+                    />
+                  }
+                />
+              </ListPanel>
             </div>
-          </TabsContent>
 
-          {/* TAB STAFF */}
-          <TabsContent value="staff">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Ajouter un bénéficiaire</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        placeholder="Nom"
-                        value={newStaff.nom}
-                        onChange={(e) => setNewStaff({ ...newStaff, nom: e.target.value })}
-                      />
-                      <Input
-                        placeholder="Prénom"
-                        value={newStaff.prenom}
-                        onChange={(e) => setNewStaff({ ...newStaff, prenom: e.target.value })}
-                      />
+            <div className="space-y-6">
+              <PreviewPanel title="Aperçu de l'attestation" emptyIcon={Award} emptyMessage="Sélectionnez un séminariste pour afficher l'aperçu.">
+                {firstSelected ? (
+                  <div className="scale-75 origin-top border shadow">
+                    <CertificateParticipationPreview data={firstSelected} />
+                  </div>
+                ) : null}
+              </PreviewPanel>
+              <GeneratePanel
+                label={`Télécharger ${count} attestation${plural(count)} (PDF)`}
+                icon={Download}
+                count={count}
+                generating={generating}
+                onGenerate={generateCertificates}
+                notes={["Attestation de participation", "A4 paysage, une attestation par page"]}
+              />
+            </div>
+          </div>
+        </TabsContent>
 
-                      <div className="col-span-2">
-                        <label className="text-sm font-medium mb-1 block">Type d&apos;attestation</label>
-                        <Select
-                          value={newStaff.fonction}
-                          onValueChange={(v) => setNewStaff({ ...newStaff, fonction: v })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+        <TabsContent value="staff">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="min-w-0 space-y-6 lg:col-span-2">
+              <ListPanel title="Ajouter un bénéficiaire" description="La liste reste dans cette page : elle n'est pas enregistrée.">
+                <form
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddStaff();
+                  }}
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field id="cert-nom" label="Nom *">
+                      {(f) => <Input {...f} value={newStaff.nom} onChange={(e) => setNewStaff({ ...newStaff, nom: e.target.value })} />}
+                    </Field>
+                    <Field id="cert-prenom" label="Prénom *">
+                      {(f) => <Input {...f} value={newStaff.prenom} onChange={(e) => setNewStaff({ ...newStaff, prenom: e.target.value })} />}
+                    </Field>
+                    <Field id="cert-fonction" label="Type d'attestation">
+                      {(f) => (
+                        <Select value={newStaff.fonction} onValueChange={(v) => setNewStaff({ ...newStaff, fonction: v })}>
+                          <SelectTrigger {...f} className="w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Comité d'Organisation">
-                              Comité d&apos;Organisation (Remerciement)
-                            </SelectItem>
-                            <SelectItem value="Formateur">Formateur (Contribution Pédagogique)</SelectItem>
-                            <SelectItem value="Donateur">Donateur (Soutien généreux)</SelectItem>
+                            <SelectItem value="Comité d'Organisation">Comité d&apos;organisation (remerciement)</SelectItem>
+                            <SelectItem value="Formateur">Formateur (contribution pédagogique)</SelectItem>
+                            <SelectItem value="Donateur">Donateur (soutien)</SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
+                      )}
+                    </Field>
+                    <Field id="cert-telephone" label="Téléphone (facultatif)">
+                      {(f) => <Input {...f} type="tel" value={newStaff.telephone} onChange={(e) => setNewStaff({ ...newStaff, telephone: e.target.value })} />}
+                    </Field>
+                  </div>
+                  <Button type="submit" variant="outline">
+                    <UserPlus aria-hidden="true" /> Ajouter à la liste
+                  </Button>
+                </form>
+              </ListPanel>
 
-                      <Input
-                        placeholder="Téléphone (Optionnel)"
-                        value={newStaff.telephone}
-                        onChange={(e) => setNewStaff({ ...newStaff, telephone: e.target.value })}
-                      />
-                    </div>
-
-                    <Button onClick={handleAddStaff} className="w-full bg-[#AC3] hover:bg-[#9B2]">
-                      <UserPlus className="mr-2 h-4 w-4" /> Ajouter à la liste
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Liste ({staffList.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-10">Select</TableHead>
-                          <TableHead>Nom & Prénom</TableHead>
-                          <TableHead>Rôle / Type</TableHead>
-                          <TableHead className="w-10">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {staffList.map((s) => (
-                          <TableRow key={s.id}>
-                            <TableCell>
-                              <Checkbox checked={s.selected} onCheckedChange={() => toggleStaffSelection(s.id)} />
-                            </TableCell>
-                            <TableCell className="font-bold">
-                              {s.nom} {s.prenom}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{s.fonction}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Button variant="ghost" size="sm" onClick={() => removeStaff(s.id)}>
-                                <Trash2 className="text-red-500 h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {staffList.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                              Aucun membre ajouté
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Eye className="h-5 w-5" /> Aperçu
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {staffList.filter((s) => s.selected).length > 0 ? (
-                      <div className="scale-75 origin-top border shadow">
-                        <CertificateRemerciementPreview data={staffList.find((s) => s.selected)!} />
-                      </div>
-                    ) : (
-                      <div className="h-48 border-2 border-dashed flex items-center justify-center text-muted-foreground">
-                        Sélectionnez un membre
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Button
-                  onClick={generateStaffCertificates}
-                  disabled={staffList.filter((s) => s.selected).length === 0 || generating}
-                  className="w-full bg-[#AC3] hover:bg-[#9B2] text-white"
-                  size="lg"
-                >
-                  {generating ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />} Générer Certificats
-                </Button>
-              </div>
+              <ListPanel title="Bénéficiaires" description={staffList.length > 0 ? `${staffList.length} dans la liste, ${selectedStaff.length} sélectionné${plural(selectedStaff.length)}` : undefined}>
+                <DataTable
+                  caption="Bénéficiaires des attestations de remerciement"
+                  columns={staffColumns}
+                  rows={staffList}
+                  getRowKey={(s) => s.id}
+                  selection={{
+                    selected: new Set(selectedStaff.map((s) => s.id)),
+                    onChange: (next) => setStaffList(staffList.map((s) => ({ ...s, selected: next.has(s.id) }))),
+                    label: (s) => `${s.nom} ${s.prenom}`,
+                  }}
+                  empty={<EmptyState icon={UserPlus} title="Liste vide" message="Ajoutez un bénéficiaire avec le formulaire ci-dessus." />}
+                />
+              </ListPanel>
             </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+
+            <div className="space-y-6">
+              <PreviewPanel title="Aperçu de l'attestation" emptyIcon={Award} emptyMessage="Sélectionnez un bénéficiaire pour afficher l'aperçu.">
+                {selectedStaff.length > 0 ? (
+                  <div className="scale-75 origin-top border shadow">
+                    <CertificateRemerciementPreview data={selectedStaff[0]} />
+                  </div>
+                ) : null}
+              </PreviewPanel>
+              <GeneratePanel
+                label={`Générer ${selectedStaff.length} attestation${plural(selectedStaff.length)} (PDF)`}
+                icon={Printer}
+                count={selectedStaff.length}
+                generating={generating}
+                onGenerate={generateStaffCertificates}
+                notes={["Attestation de remerciement selon le type choisi", "A4 paysage, une attestation par page"]}
+              />
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 }
