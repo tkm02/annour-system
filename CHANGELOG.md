@@ -4,6 +4,23 @@ Toutes les évolutions notables de ce dépôt sont consignées ici.
 Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
+### Modifié — refonte UI, socle (TAF lot 5, ADR 0002)
+- Design system : bleu `#004576` en couleur principale (boutons lisibles : 9,94:1 au lieu de 2,16:1, F-02), vert
+  An-Nour réservé à la marque, couleurs sémantiques succès / alerte / erreur / info, anneau de focus visible
+  (4,42:1 au lieu de 1,11:1, F-17), police Plus Jakarta Sans (`next/font`, sans dépendance ajoutée).
+- Coque : barre latérale groupée par domaine et repliable (préférence mémorisée), tiroir mobile accessible (focus
+  piégé, Échap), fil d'Ariane, badge de l'édition, menu utilisateur, palette « Aller à… » (Ctrl+K, navigation
+  seule), lien « Aller au contenu », pages d'erreur et 404. Le logo renvoie à l'accueil du rôle (finances et
+  santé n'aboutissent plus sur une page refusée).
+- Menu admin : pages Scientifique, Attributions, Notes, Bulletins et Formateurs ajoutées (droits inchangés).
+- Notifications unifiées sur sonner, messages sans emoji (F-11).
+- Composants communs : en-tête de page, indicateurs, badges de statut, états vides et squelettes, tableau de
+  données (tri, pagination, vue cartes sous 768 px) et barre de filtres (recherche insensible aux accents).
+- Écrans migrés : tableau de bord (4 indicateurs, répartition par niveau, état d'erreur au lieu de « 000 »),
+  Scientifique, Visiteurs, Formateurs, Membres CO (archives), Recensement CO, Avis (confirmation accessible au lieu
+  de `confirm()`), Attributions. `Field` déplacé dans `components/common/` (F-22).
+- Aucun appel d'API ajouté, retiré ou modifié.
+
 ### Sécurité
 - `next` et `eslint-config-next` 16.4.3 → 16.4.5 (avis GHSA-mfr8-8qww-v76h et GHSA-vc7v-qv4w-wrv8) : le build ne
   s'interrompt plus sur `SecurityFatalError` (F-01).
