@@ -189,6 +189,7 @@ export default function NotesEntryModal({
             onChange={(e) => handleNoteChange(sem.matricule, libelle, e.target.value)}
             className="w-16 text-center"
             placeholder="—"
+            aria-label={`Note ${i} de ${sem.nom} ${sem.prenom ?? ""}`.trim()}
           />
         </TableCell>
       );
@@ -201,7 +202,7 @@ export default function NotesEntryModal({
     for (let i = 1; i <= currentNoteColumns; i++) {
       headers.push(
         <TableHead key={`header-${i}`} className="text-center w-20">
-          NOTE {i}
+          Note {i}
         </TableHead>
       );
     }
@@ -213,21 +214,21 @@ export default function NotesEntryModal({
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {step === "level" ? "Sélectionner le niveau (test d'entrée)" : `Saisie des notes - ${selectedNiveau}`}
+            {step === "level" ? "Sélectionner le niveau (test d'entrée)" : `Saisie des notes — ${selectedNiveau}`}
           </DialogTitle>
           <DialogDescription>
             {step === "level"
               ? "Choisissez le niveau attribué après le test d'entrée pour les séminaristes"
-              : `Entrez les notes pour chaque séminariste (colonnes NOTE 1 à NOTE ${currentNoteColumns})`}
+              : `Entrez les notes pour chaque séminariste (colonnes Note 1 à Note ${currentNoteColumns})`}
           </DialogDescription>
         </DialogHeader>
 
         {step === "level" ? (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Niveau (attribué après test d&apos;entrée) *</label>
+              <label htmlFor="notes-niveau" className="text-sm font-medium">Niveau (attribué après test d&apos;entrée) *</label>
               <Select value={selectedNiveau} onValueChange={setSelectedNiveau}>
-                <SelectTrigger>
+                <SelectTrigger id="notes-niveau">
                   <SelectValue placeholder="Sélectionnez un niveau" />
                 </SelectTrigger>
                 <SelectContent>
@@ -256,12 +257,11 @@ export default function NotesEntryModal({
               <Button
                 onClick={handleLevelConfirm}
                 disabled={!selectedNiveau || loading}
-                className="bg-primary hover:bg-primary/90"
               >
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Chargement...
+                    Chargement…
                   </>
                 ) : (
                   "Continuer"
@@ -280,7 +280,7 @@ export default function NotesEntryModal({
                 size="sm"
                 onClick={() => setStep("level")}
               >
-                ← Changer de niveau
+                Changer de niveau
               </Button>
             </div>
 
@@ -294,9 +294,9 @@ export default function NotesEntryModal({
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">N°</TableHead>
-                      <TableHead>MATRICULE</TableHead>
-                      <TableHead>NOM & PRÉNOM</TableHead>
-                      <TableHead className="w-16">GENRE</TableHead>
+                      <TableHead>Matricule</TableHead>
+                      <TableHead>Nom et prénom</TableHead>
+                      <TableHead className="w-16">Genre</TableHead>
                       {renderNoteHeaders()}
                     </TableRow>
                   </TableHeader>
@@ -316,9 +316,7 @@ export default function NotesEntryModal({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={sem.sexe === "M" ? "default" : "secondary"}>
-                            {sem.sexe}
-                          </Badge>
+                          {sem.sexe}
                         </TableCell>
                         {renderNoteInputs(sem)}
                       </TableRow>
@@ -336,12 +334,11 @@ export default function NotesEntryModal({
               <Button
                 onClick={handleSaveNotes}
                 disabled={saving || seminaristes.length === 0}
-                className="bg-primary hover:bg-primary/90"
               >
                 {saving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enregistrement...
+                    Enregistrement…
                   </>
                 ) : (
                   <>

@@ -1,89 +1,90 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ClipboardList, Minus, PenLine, Plus, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+
+import ConfirmDialog from "@/components/common/confirm-dialog";
+import { DataTable, type Column } from "@/components/common/data-table";
+import { FilterBar, type ActiveFilter } from "@/components/common/filter-bar";
+import { PageHeader } from "@/components/common/page-header";
+import { EmptyState, errorText } from "@/components/common/states";
+import { StatusBadge } from "@/components/common/status-badge";
+import { NiveauFilter, niveauxOf } from "@/components/documents/document-panels";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Note, scientificApi, Seminariste } from "@/lib/api";
-import { AlertTriangle, ChevronDown, Download, Loader2, Minus, Plus, RefreshCw, Search } from "lucide-react";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { countLabel, matchesSearch } from "@/lib/table";
 import NotesEntryModal from "./notes-entry-modal";
 
 interface SeminaristeWithNotes extends Seminariste {
   notesMap?: Record<string, Note>; // { "note1": Note, "note2": Note, ... }
 }
 
+const PAGE_SIZE = 50;
+const GENRES: Record<string, string> = { M: "Masculin", F: "Féminin" };
+
 export default function NotesManagement() {
-  // ✅ ÉTATS
   const [seminaristes, setSeminaristes] = useState<SeminaristeWithNotes[]>([]);
   const [allNotes, setAllNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const query = useDebouncedValue(searchTerm);
   const [selectedGenre, setSelectedGenre] = useState("tous");
   const [selectedDortoir, setSelectedDortoir] = useState("tous");
   const [selectedNiveau, setSelectedNiveau] = useState("tous");
-  // ✅ MODAL ENTRÉE NOTES
   const [showNotesEntryModal, setShowNotesEntryModal] = useState(false);
-  
-  // ✅ COLONNES DYNAMIQUES (1-4)
+
+  // Colonnes de notes affichées (1 à 10)
   const [noteColumns, setNoteColumns] = useState(3);
-  
-  // ✅ MODAL CONFIRMATION SUPPRESSION
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // ✅ FILTRES DYNAMIQUES
-  const dynamicFilters = {
-    niveaux: Array.from(new Set(seminaristes.map(s => s.niveau).filter(Boolean))),
-    dortoirs: Array.from(new Set(seminaristes.map(s => s.dortoir).filter(Boolean))),
-  };
+  const niveaux = useMemo(() => niveauxOf(seminaristes), [seminaristes]);
+  const dortoirs = useMemo(
+    () => Array.from(new Set(seminaristes.map((s) => s.dortoir).filter(Boolean))).sort((a, b) => a.localeCompare(b, "fr")),
+    [seminaristes]
+  );
 
-  // ✅ FETCH SÉMINARISTES ET NOTES
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+      setLoadError(null);
+
       const [semResponse, notesResponse] = await Promise.all([
         scientificApi.getSeminaristes(1, 10000),
         scientificApi.getNotes()
       ]);
-      
+
       // Grouper les notes par matricule
       const notesByMatricule: Record<string, Record<string, Note>> = {};
-      
+
       notesResponse.forEach((note: Note) => {
         if (!notesByMatricule[note.matricule]) {
           notesByMatricule[note.matricule] = {};
         }
         if (note.libelle) notesByMatricule[note.matricule][note.libelle] = note;
       });
-      
+
       // Associer les notes aux séminaristes
       const semWithNotes: SeminaristeWithNotes[] = semResponse.data.map((sem: Seminariste) => ({
         ...sem,
         notesMap: notesByMatricule[sem.matricule] || {}
       }));
-      
+
       setSeminaristes(semWithNotes);
       setAllNotes(notesResponse);
-      
+
       // Détecter le nombre max de colonnes utilisées SEULEMENT au premier chargement
       if (noteColumns === 3 && notesResponse.length > 0) {
         const maxColumn = Math.max(1, ...notesResponse.map((n: Note) => {
@@ -95,63 +96,54 @@ export default function NotesManagement() {
           setNoteColumns(maxColumn);
         }
       }
-    } catch (error: any) {
-      console.error("❌ Erreur fetch:", error);
-      toast.error(error.message || "Erreur chargement données");
+    } catch (error) {
+      setLoadError(errorText(error, "Chargement des notes impossible"));
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ FETCH INITIAL
   useEffect(() => {
     fetchData();
   }, []);
 
-  // ✅ FILTRER SÉMINARISTES
-  const filteredSeminaristes = seminaristes.filter((sem) => {
-    const fullName = `${sem.nom} ${sem.prenom || ''}`.toLowerCase();
-    const matchesSearch = 
-      !searchTerm || 
-      fullName.includes(searchTerm.toLowerCase()) ||
-      sem.matricule.toLowerCase().includes(searchTerm.toLowerCase());
-
+  const filteredSeminaristes = useMemo(() => seminaristes.filter((sem) => {
     const matchesGenre = selectedGenre === "tous" || sem.sexe === selectedGenre;
-    
-    const matchesDortoir = 
-      selectedDortoir === "tous" || 
-      sem.dortoir.toLowerCase().includes(selectedDortoir.toLowerCase());
-    
-    const matchesNiveau = 
-      selectedNiveau === "tous" || 
-      sem.niveau === selectedNiveau;
+    const matchesDortoir =
+      selectedDortoir === "tous" ||
+      (sem.dortoir ?? "").toLowerCase().includes(selectedDortoir.toLowerCase());
+    const matchesNiveau = selectedNiveau === "tous" || sem.niveau === selectedNiveau;
+    return matchesGenre && matchesDortoir && matchesNiveau && matchesSearch(query, [sem.nom, sem.prenom, sem.matricule]);
+  }), [seminaristes, query, selectedGenre, selectedDortoir, selectedNiveau]);
 
-    return matchesSearch && matchesGenre && matchesDortoir && matchesNiveau;
-  });
+  const activeFilters: ActiveFilter[] = [
+    ...(selectedGenre !== "tous" ? [{ label: `Genre : ${GENRES[selectedGenre] ?? selectedGenre}`, onRemove: () => setSelectedGenre("tous") }] : []),
+    ...(selectedDortoir !== "tous" ? [{ label: `Dortoir : ${selectedDortoir}`, onRemove: () => setSelectedDortoir("tous") }] : []),
+    ...(selectedNiveau !== "tous" ? [{ label: `Niveau : ${selectedNiveau}`, onRemove: () => setSelectedNiveau("tous") }] : []),
+  ];
+  const filteredOut = activeFilters.length > 0 || !!query.trim();
+  const resetFilters = () => {
+    setSearchTerm("");
+    setSelectedGenre("tous");
+    setSelectedDortoir("tous");
+    setSelectedNiveau("tous");
+  };
 
-  // ✅ REFRESH
   const handleRefresh = () => {
     scientificApi.invalidateCache();
     fetchData();
     toast.success("Liste actualisée");
   };
 
-  // ✅ EXPORTER
-  const handleExport = () => {
-    toast.info("Export en développement...");
-  };
-
-  // ✅ AJOUTER COLONNE (NOTE 4)
   const handleAddColumn = () => {
     if (noteColumns >= 10) {
       toast.warning("Maximum 10 colonnes de notes");
       return;
     }
     setNoteColumns(prev => prev + 1);
-    toast.success(`Colonne NOTE ${noteColumns + 1} ajoutée`);
+    toast.success(`Colonne Note ${noteColumns + 1} ajoutée`);
   };
 
-  // ✅ SUPPRIMER COLONNE (avec confirmation)
   const handleRemoveColumn = async () => {
     if (noteColumns <= 1) {
       toast.warning("Minimum 1 colonne de notes");
@@ -160,294 +152,172 @@ export default function NotesManagement() {
     setShowDeleteConfirm(true);
   };
 
-  // ✅ CONFIRMER SUPPRESSION
   const confirmDeleteColumn = async () => {
     try {
       setDeleting(true);
       const libelleToDelete = `note${noteColumns}`;
-      
+
       const deletedCount = await scientificApi.deleteNotesByLibelle(libelleToDelete);
-      
+
       setNoteColumns(prev => prev - 1);
       setShowDeleteConfirm(false);
-      
-      toast.success(`${deletedCount} note(s) "${libelleToDelete}" supprimée(s)`);
-      
-      // Rafraîchir les données
+
+      toast.success(`${deletedCount} note(s) « Note ${noteColumns} » supprimée(s)`);
+
       await fetchData();
-    } catch (error: any) {
-      console.error("❌ Erreur suppression:", error);
-      toast.error(error.message || "Erreur lors de la suppression");
+    } catch (error) {
+      toast.error(errorText(error, "Suppression impossible"));
     } finally {
       setDeleting(false);
     }
   };
 
-  // ✅ HANDLE ADD NOTES - Open modal
-  const handleOpenNotesEntry = () => {
-    setShowNotesEntryModal(true);
-  };
+  const noteColumnIds = Array.from({ length: noteColumns }, (_, i) => i + 1);
+  const noteOf = (sem: SeminaristeWithNotes, i: number) => sem.notesMap?.[`note${i}`]?.note;
 
-  // ✅ GÉNÉRER LES COLONNES DE NOTES DYNAMIQUEMENT
-  const renderNoteColumns = () => {
-    const columns = [];
-    for (let i = 1; i <= noteColumns; i++) {
-      columns.push(
-        <TableHead key={`note-header-${i}`} className="w-[80px] text-center">
-          NOTE {i}
-        </TableHead>
-      );
-    }
-    return columns;
-  };
-
-  const renderNoteCells = (seminarist: SeminaristeWithNotes) => {
-    const cells = [];
-    for (let i = 1; i <= noteColumns; i++) {
-      const noteKey = `note${i}`;
-      const note = seminarist.notesMap?.[noteKey];
-      cells.push(
-        <TableCell key={`note-cell-${i}`} className="text-center font-bold font-mono">
-          {note?.note?.toFixed(0) || "—"}
-        </TableCell>
-      );
-    }
-    return cells;
-  };
-
-  // ✅ LOADING STATE
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-12">
-          <div className="flex flex-col items-center justify-center space-y-4">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <div className="text-lg font-semibold">Chargement des notes...</div>
-            <p className="text-sm text-muted-foreground">Veuillez patienter</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const columns: Column<SeminaristeWithNotes>[] = [
+    { id: "matricule", header: "Matricule", cell: (s) => <span className="font-mono text-xs">{s.matricule}</span>, sortValue: (s) => s.matricule },
+    {
+      id: "nom", header: "Nom et prénom", sortValue: (s) => `${s.nom} ${s.prenom ?? ""}`,
+      cell: (s) => (
+        <div className="min-w-0">
+          <div className="font-medium">{s.nom}</div>
+          <div className="text-sm text-muted-foreground">{s.prenom}</div>
+        </div>
+      ),
+    },
+    { id: "genre", header: "Genre", cell: (s) => s.sexe, sortValue: (s) => s.sexe, hideBelow: "lg" },
+    {
+      id: "niveau", header: "Niveau", sortValue: (s) => s.niveau, hideBelow: "md",
+      cell: (s) => s.niveau ?? <StatusBadge tone="warning">Non classé</StatusBadge>,
+    },
+    ...noteColumnIds.map((i): Column<SeminaristeWithNotes> => ({
+      id: `note${i}`,
+      header: `Note ${i}`,
+      align: "center",
+      sortValue: (s) => noteOf(s, i),
+      className: "font-mono font-semibold tabular-nums",
+      cell: (s) => noteOf(s, i)?.toFixed(0) || <span className="font-normal text-muted-foreground" aria-label="Aucune note">—</span>,
+    })),
+  ];
 
   return (
     <>
-      <Card className="border-border">
-        <CardHeader className="space-y-4">
-          {/* ✅ SEARCH AND FILTERS */}
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher par nom, prénom ou matricule..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Genre" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">TOUS</SelectItem>
-                  <SelectItem value="M">Masculin</SelectItem>
-                  <SelectItem value="F">Féminin</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedDortoir} onValueChange={setSelectedDortoir}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Dortoir" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">TOUS</SelectItem>
-                  {dynamicFilters.dortoirs.map((dortoir) => (
-                    <SelectItem key={dortoir} value={dortoir}>
-                      {dortoir}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedNiveau} onValueChange={setSelectedNiveau}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Niveau" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">TOUS</SelectItem>
-                  {dynamicFilters.niveaux.map((niveau) => (
-                    <SelectItem key={niveau} value={niveau || ''}>
-                      {niveau || 'Non classé'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* ✅ ACTION BUTTONS */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:justify-between sm:items-center">
-            <div className="flex gap-2 flex-wrap">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                TOTAL {seminaristes.length.toString().padStart(3, "0")}
-              </Badge>
-              <Badge variant="outline" className="bg-secondary/10 text-secondary border-secondary/20">
-                FILTRES {filteredSeminaristes.length.toString().padStart(3, "0")}
-              </Badge>
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                NOTES {allNotes.length.toString().padStart(3, "0")}
-              </Badge>
-              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
-                COLONNES {noteColumns}
-              </Badge>
-            </div>
-
-            <div className="flex gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleRefresh}
-                className="gap-2 h-9"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Actualiser
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2 h-9"
-                onClick={handleExport}
-              >
-                <Download className="h-4 w-4" />
-                EXPORTER
-              </Button>
-              
-              {/* ✅ DROPDOWN AJOUTER/SUPPRIMER NOTE */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90 h-9">
-                    <Plus className="h-4 w-4" />
-                    GÉRER NOTES
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem 
-                    onClick={handleOpenNotesEntry}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Saisir des notes
+      <PageHeader
+        title="Notes"
+        description="Saisie et suivi des évaluations des séminaristes."
+        actions={
+          <>
+            <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+              <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
+              Actualiser
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <PenLine aria-hidden="true" />
+                  Gérer les notes
+                  <ChevronDown aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowNotesEntryModal(true)} className="gap-2">
+                  <PenLine className="h-4 w-4" aria-hidden="true" />
+                  Saisir des notes
+                </DropdownMenuItem>
+                {noteColumns < 10 && (
+                  <DropdownMenuItem onClick={handleAddColumn} className="gap-2">
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Ajouter la colonne Note {noteColumns + 1}
                   </DropdownMenuItem>
-                  {noteColumns < 10 && (
-                    <DropdownMenuItem 
-                      onClick={handleAddColumn}
-                      className="gap-2"
-                    >
-                      <Plus className="h-4 w-4 text-green-600" />
-                      Ajouter colonne NOTE {noteColumns + 1}
-                    </DropdownMenuItem>
-                  )}
-                  {noteColumns > 1 && (
-                    <DropdownMenuItem 
-                      onClick={handleRemoveColumn}
-                      className="gap-2 text-destructive focus:text-destructive"
-                    >
-                      <Minus className="h-4 w-4" />
-                      Supprimer colonne NOTE {noteColumns}
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {/* ✅ RESULTS COUNT */}
-          <div className="text-sm text-muted-foreground">
-            {filteredSeminaristes.length > 0 
-              ? `Affichage de ${filteredSeminaristes.length} séminariste(s)`
-              : "Aucun résultat"}
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          {/* ✅ TABLE */}
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">N°</TableHead>
-                  <TableHead className="w-[120px]">MATRICULE</TableHead>
-                  <TableHead>NOM & PRÉNOM</TableHead>
-                  <TableHead className="w-[70px]">GENRE</TableHead>
-                  <TableHead className="w-[200px]">NIVEAU</TableHead>
-                  {renderNoteColumns()}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSeminaristes.map((seminarist, index) => (
-                  <TableRow key={seminarist.id}>
-                    <TableCell className="font-mono text-muted-foreground w-[50px]">
-                      {index + 1}
-                    </TableCell>
-                    <TableCell className="font-medium font-mono">
-                      {seminarist.matricule}
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-semibold">{seminarist.nom}</div>
-                      <div className="text-sm text-muted-foreground">{seminarist.prenom}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={seminarist.sexe === "M" ? "default" : "secondary"}>
-                        {seminarist.sexe}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {seminarist.niveau ? (
-                        <Badge variant="outline" className="font-semibold">
-                          {seminarist.niveau}
-                        </Badge>
-                      ) : (
-                        <Badge variant="destructive">Non classé</Badge>
-                      )}
-                    </TableCell>
-                    {renderNoteCells(seminarist)}
-                  </TableRow>
-                ))}
-                
-                {filteredSeminaristes.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5 + noteColumns} className="h-24 text-center">
-                      <div className="text-muted-foreground">
-                        Aucun séminariste trouvé
-                      </div>
-                    </TableCell>
-                  </TableRow>
                 )}
-              </TableBody>
-            </Table>
-          </div>
+                {noteColumns > 1 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleRemoveColumn} className="gap-2 text-destructive focus:text-destructive">
+                      <Minus className="h-4 w-4" aria-hidden="true" />
+                      Supprimer la colonne Note {noteColumns}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
 
-          {/* ✅ PAGINATION PLACEHOLDER */}
-          {filteredSeminaristes.length > 50 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <Button variant="outline" size="sm">Précédent</Button>
-              <Button variant="outline" size="sm" className="bg-primary text-primary-foreground">
-                1
-              </Button>
-              <Button variant="outline" size="sm">2</Button>
-              <Button variant="outline" size="sm">3</Button>
-              <span className="text-muted-foreground">...</span>
-              <Button variant="outline" size="sm">Suivant</Button>
+      <FilterBar
+        search={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchLabel="Rechercher un séminariste"
+        searchPlaceholder="Nom, prénom ou matricule…"
+        filters={
+          <>
+            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+              <SelectTrigger className="w-full bg-card sm:w-36" aria-label="Filtrer par genre"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tous">Tous les genres</SelectItem>
+                <SelectItem value="M">Masculin</SelectItem>
+                <SelectItem value="F">Féminin</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedDortoir} onValueChange={setSelectedDortoir}>
+              <SelectTrigger className="w-full bg-card sm:w-40" aria-label="Filtrer par dortoir"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tous">Tous les dortoirs</SelectItem>
+                {dortoirs.map((dortoir) => <SelectItem key={dortoir} value={dortoir}>{dortoir}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <NiveauFilter value={selectedNiveau} onChange={setSelectedNiveau} niveaux={niveaux} />
+          </>
+        }
+        activeFilters={activeFilters}
+        onReset={resetFilters}
+        count={
+          seminaristes.length > 0
+            ? `${countLabel(filteredSeminaristes.length, seminaristes.length, "séminariste", "séminaristes")} · ${allNotes.length.toLocaleString("fr-FR")} note${allNotes.length > 1 ? "s" : ""} saisie${allNotes.length > 1 ? "s" : ""}`
+            : undefined
+        }
+      />
+
+      <DataTable
+        caption="Notes des séminaristes par évaluation"
+        columns={columns}
+        rows={filteredSeminaristes}
+        getRowKey={(s) => s.id}
+        loading={loading && seminaristes.length === 0}
+        error={loadError}
+        onRetry={fetchData}
+        pageSize={PAGE_SIZE}
+        empty={
+          <EmptyState
+            icon={ClipboardList}
+            title={filteredOut ? "Aucun résultat" : "Aucun séminariste"}
+            message={filteredOut ? "Aucun séminariste ne correspond à ces filtres." : "Aucun séminariste n'est encore inscrit."}
+            action={filteredOut ? <Button variant="outline" onClick={resetFilters}>Réinitialiser les filtres</Button> : undefined}
+          />
+        }
+        renderCard={(s) => (
+          <div className="rounded-lg border border-border bg-card p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium">{s.nom} {s.prenom}</p>
+                <p className="font-mono text-xs text-muted-foreground">{s.matricule}</p>
+              </div>
+              {s.niveau ? <span className="text-sm text-muted-foreground">{s.niveau}</span> : <StatusBadge tone="warning">Non classé</StatusBadge>}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {noteColumnIds.map((i) => (
+                <div key={i} className="flex gap-1">
+                  <dt className="text-muted-foreground">Note {i}</dt>
+                  <dd className="font-mono font-semibold tabular-nums">{noteOf(s, i)?.toFixed(0) || "—"}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+      />
 
-      {/* ✅ MODAL SAISIE NOTES */}
       <NotesEntryModal
         open={showNotesEntryModal}
         onClose={() => setShowNotesEntryModal(false)}
@@ -458,47 +328,15 @@ export default function NotesManagement() {
         currentNoteColumns={noteColumns}
       />
 
-      {/* ✅ MODAL CONFIRMATION SUPPRESSION */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              Confirmer la suppression
-            </DialogTitle>
-            <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer <span className="font-semibold">toutes les notes de la colonne NOTE {noteColumns}</span> ? 
-              Cette action est irréversible et supprimera les données de tous les séminaristes.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteConfirm(false)}
-              disabled={deleting}
-            >
-              Annuler
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDeleteColumn}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Suppression...
-                </>
-              ) : (
-                <>
-                  <Minus className="mr-2 h-4 w-4" />
-                  Supprimer NOTE {noteColumns}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        busy={deleting}
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDeleteColumn}
+        title={`Supprimer la colonne Note ${noteColumns} ?`}
+        description={`Toutes les notes « Note ${noteColumns} » de tous les séminaristes seront définitivement supprimées.`}
+        confirmLabel="Supprimer la colonne"
+      />
     </>
   );
 }
