@@ -13,6 +13,22 @@ export const QUALITE_LABELS: Record<QualiteCO, string> = {
   membre: "Membre",
   responsable: "Responsable",
   responsable_adjoint: "Responsable adjoint",
+  manager_general: "Manager Général",
+  manager_general_adjoint: "Manager Général Adjoint",
+}
+
+/** Libellé de commission → codes de qualité proposés ([] : commission sans qualité) ; null : API antérieure. */
+export type QualitesParCommission = Record<string, string[]> | null
+
+const QUALITES_STANDARD = ["membre", "responsable", "responsable_adjoint"]
+
+/**
+ * Codes de qualité acceptés par le serveur pour une commission (même règle que QUALITES_PAR_COMMISSION du Backend) :
+ * ceux de la table ; commission absente de la table (hors référentiel) : qualités standard ; sans table : toutes.
+ */
+export function qualitesPourCommission(commission: string, table: QualitesParCommission): string[] {
+  if (!table) return Object.keys(QUALITE_LABELS)
+  return Object.hasOwn(table, commission) ? table[commission] ?? [] : QUALITES_STANDARD
 }
 
 export const STATUTS = ["soumise", "a_verifier", "validee", "rejetee"] as const
@@ -241,7 +257,9 @@ export function santeEffacee(form: CorrectionForm, initial: CorrectionForm): Arr
  * diffCorrection ; une fiche 2025 incomplète reste corrigeable champ par champ). Un champ déjà renseigné ne peut pas
  * être vidé : le serveur ignore les valeurs nulles (identité, contact) ou effacerait la date de naissance.
  */
-export function validateCorrection(form: CorrectionForm, initial: CorrectionForm, today = new Date()): Errors {
+export function validateCorrection(
+  form: CorrectionForm, initial: CorrectionForm, today = new Date(), qualitesParCommission: QualitesParCommission = null,
+): Errors {
   const errors: Errors = {}
   const changed = (field: keyof CorrectionForm) => isChanged(form, initial, field)
   for (const field of ["nom", "prenoms"] as const) {
@@ -277,7 +295,13 @@ export function validateCorrection(form: CorrectionForm, initial: CorrectionForm
     if (!form.commission.trim()) errors.commission = "La commission est obligatoire."
     else if (form.commission.trim().length > 100) errors.commission = "100 caractères maximum."
   }
-  if (changed("qualite") && !QUALITES_VALIDES.includes(form.qualite)) errors.qualite = "La qualité est obligatoire."
+  if (changed("commission") || changed("qualite")) {
+    // La qualité doit convenir à la commission (une commission sans qualité n'en demande aucune)
+    const proposees = qualitesPourCommission(form.commission.trim(), qualitesParCommission)
+    if (proposees.length > 0 && !proposees.includes(form.qualite)) {
+      errors.qualite = form.qualite ? "Qualité non valable pour cette commission." : "La qualité est obligatoire."
+    }
+  }
   for (const field of ["allergies", "antecedents_medicaux"] as const) {
     if (changed(field) && form[field].trim().length > SANTE_MAX) errors[field] = `${SANTE_MAX} caractères maximum.`
   }
@@ -285,7 +309,9 @@ export function validateCorrection(form: CorrectionForm, initial: CorrectionForm
 }
 
 /** Corps du PATCH : uniquement les champs modifiés (chaîne vide pour effacer une donnée de santé). */
-export function diffCorrection(form: CorrectionForm, initial: CorrectionForm): ParticipationCOUpdate {
+export function diffCorrection(
+  form: CorrectionForm, initial: CorrectionForm, qualitesParCommission: QualitesParCommission = null,
+): ParticipationCOUpdate {
   const update: ParticipationCOUpdate = {}
   const changed = (field: keyof CorrectionForm) => isChanged(form, initial, field)
   for (const field of ["nom", "prenoms", "telephone", "commission"] as const) {
@@ -294,7 +320,11 @@ export function diffCorrection(form: CorrectionForm, initial: CorrectionForm): P
   if (changed("email") && form.email.trim()) update.email = form.email.trim().toLowerCase()
   if (changed("date_naissance") && form.date_naissance) update.date_naissance = form.date_naissance
   if (changed("sexe") && (form.sexe === "M" || form.sexe === "F")) update.sexe = form.sexe
-  if (changed("qualite") && QUALITES_VALIDES.includes(form.qualite)) update.qualite = form.qualite as QualiteCO
+  // Commission changée : la qualité retenue est envoyée avec elle (aucune pour une commission sans qualité)
+  const proposees = qualitesPourCommission(form.commission.trim(), qualitesParCommission)
+  if ((changed("qualite") || changed("commission")) && proposees.includes(form.qualite)) {
+    update.qualite = form.qualite as QualiteCO
+  }
   for (const field of ["allergies", "antecedents_medicaux"] as const) {
     if (changed(field)) update[field] = form[field].trim()
   }

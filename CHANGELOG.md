@@ -4,6 +4,13 @@ Toutes les évolutions notables de ce dépôt sont consignées ici.
 Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
+### Modifié — recensement CO, qualités selon la commission (2026-11-24)
+- Qualités Manager Général / Manager Général Adjoint (Comité Managérial) ajoutées aux libellés et au filtre ;
+  qualité vide (« — ») pour les commissions sans qualité. Formulaire de correction : qualités proposées selon la
+  commission (`qualites_par_commission` de `/co/configuration`), champ remplacé par une mention pour une commission
+  sans qualité, qualité envoyée avec un changement de commission. Nécessite le backend
+  `feature/co-qualites-par-commission`.
+
 ### Modifié — refonte UI, socle (TAF lot 5, ADR 0002)
 - Design system : bleu `#004576` en couleur principale (boutons lisibles : 9,94:1 au lieu de 2,16:1, F-02), vert
   An-Nour réservé à la marque, couleurs sémantiques succès / alerte / erreur / info, anneau de focus visible
