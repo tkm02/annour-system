@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { ShieldAlert } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -47,22 +47,17 @@ export function AccessDenied({ home }: { home: string }) {
 }
 
 export default function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [isMounted, setIsMounted] = useState(false)
 
+  // F-24 : redirection seulement une fois la session locale lue (indépendant de l'ordre des effets)
   useEffect(() => {
-    setIsMounted(true)
-  }, [])
+    if (!isLoading && !isAuthenticated) router.push("/")
+  }, [isLoading, isAuthenticated, router])
 
-  // Non connecté : retour à la connexion
-  useEffect(() => {
-    if (isMounted && !isAuthenticated) router.push("/")
-  }, [isMounted, isAuthenticated, router])
-
-  // Rendu serveur et premier rendu client identiques
-  if (!isMounted || !isAuthenticated || !user) return <Loader />
+  // Rendu serveur et premier rendu client identiques : isLoading vaut true tant que la session n'est pas lue
+  if (isLoading || !isAuthenticated || !user) return <Loader />
 
   const allowed = roles ?? allowedRolesFor(pathname ?? "")
   if (allowed && !(allowed as string[]).includes(user.role)) {

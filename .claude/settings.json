@@ -5,15 +5,16 @@
       "Bash(npm test:*)",
       "Bash(npm run test:*)",
       "Bash(npm run lint:*)",
-      "Bash(npm run typecheck:*)",
-      "Bash(npm run build:*)",
-      "Bash(npx eslint:*)",
       "Bash(npx lint-staged:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch --show-current)",
+      "Bash(git branch --list:*)",
+      "Bash(git branch -a)",
+      "Bash(git branch -v)",
+      "Bash(git branch -vv)"
     ],
     "ask": [
       "Bash(npm install:*)",
@@ -31,7 +32,21 @@
       "Bash(git checkout --:*)",
       "Bash(rm:*)",
       "Bash(vercel:*)",
-      "Bash(netlify:*)"
+      "Bash(netlify:*)",
+      "Bash(npm run lint -- --fix:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(git branch -d:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git branch -f:*)",
+      "Bash(git branch -m:*)",
+      "Bash(git branch -M:*)",
+      "Bash(git branch --delete:*)",
+      "Bash(git branch --force:*)",
+      "Bash(git diff --output:*)",
+      "Bash(git log --output:*)",
+      "Bash(git show --output:*)"
     ],
     "deny": [
       "Read(./.env)",
@@ -67,7 +82,35 @@
       "Bash(cat .env.test:*)",
       "Bash(type .env.test:*)",
       "Bash(cat .env.test.local:*)",
-      "Bash(type .env.test.local:*)"
+      "Bash(type .env.test.local:*)",
+      "Bash(git diff --no-index:*)",
+      "Read(./.env.staging)",
+      "Read(./.env.staging.local)",
+      "Read(./.env.prod)",
+      "Read(./.env.preview)",
+      "Read(**/.env.staging)",
+      "Read(**/.env.staging.local)",
+      "Read(**/.env.prod)",
+      "Read(**/.env.preview)",
+      "Read(**/*.xlsx)",
+      "Read(**/*.xls)",
+      "Read(**/*.csv)",
+      "Read(**/*.cms)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|MultiEdit|Write|NotebookEdit|Grep|Glob|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-secrets.mjs\""
+          }
+        ]
+      }
     ]
   }
 }

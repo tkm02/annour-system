@@ -210,9 +210,13 @@ function AuditDialog({ reference, onClose }: { reference: string | null; onClose
 
   useEffect(() => {
     if (!reference) return
+    let cancelled = false // F-20 : réponse ignorée si l'historique d'une autre sortie est affiché entre-temps
     setLogs(null)
     setError(null)
-    financeApi.getAudit(reference).then(setLogs).catch((err) => setError(errorText(err, "Historique indisponible")))
+    financeApi.getAudit(reference)
+      .then((data) => { if (!cancelled) setLogs(data) })
+      .catch((err) => { if (!cancelled) setError(errorText(err, "Historique indisponible")) })
+    return () => { cancelled = true }
   }, [reference])
 
   return (

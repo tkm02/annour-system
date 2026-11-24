@@ -20,4 +20,5 @@ Push → typecheck → lint → tests → build → e2e (à venir) → scans
 - **Actions manuelles** : staging = déploiement de prévisualisation Vercel de `mdev` ; production depuis `main`
   (vérifier la branche de production dans Vercel).
 - **Étape 2** : e2e (ADR, ex. Playwright), tags SemVer à chaque mise en production, seuil de couverture.
-- Le build peut s'interrompre sur `SecurityFatalError` tant que F-01 n'est pas traité : l'échec n'est pas masqué.
+- F-01 traité (`next` 16.4.5) : le build ne s'interrompt plus sur `SecurityFatalError`. Si l'outil signale à nouveau
+  une version vulnérable, mettre à jour `next` plutôt que relancer : l'échec n'est pas masqué.

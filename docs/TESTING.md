@@ -19,6 +19,8 @@
 | `npm run build` (1ʳᵉ exécution) | **Échoué** — `SecurityFatalError` (Next.js vulnérable) après compilation | 16 s |
 | `npm run build` (2ᵉ exécution) | **Réussi** | 15 s |
 | `npm audit --omit=dev` | 1 vulnérabilité modérée (`next` 16.2.0–16.4.4) | 4 s |
+| Après F-01 (`next` 16.4.5) : `npm run build` | **Réussi** dès la 1ʳᵉ exécution | 29 s |
+| Après F-01 : `npm audit --omit=dev` | 0 vulnérabilité (`npm audit` complet : 7 modérées `minimatch` via `typescript-eslint`, outillage de dev, préexistantes) | — |
 | Couverture | **Non mesurée** | — |
 
 ## 3. Stratégie et plan de rattrapage

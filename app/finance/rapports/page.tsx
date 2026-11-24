@@ -105,9 +105,13 @@ function RapportDialog({ numero, onClose }: { numero: string | null; onClose: ()
 
   useEffect(() => {
     if (!numero) return
+    let cancelled = false // F-20 : réponse ignorée si un autre rapport est affiché entre-temps
     setDetail(null)
     setError(null)
-    financeApi.getRapport(numero).then(setDetail).catch((err) => setError(errorText(err, "Rapport introuvable")))
+    financeApi.getRapport(numero)
+      .then((data) => { if (!cancelled) setDetail(data) })
+      .catch((err) => { if (!cancelled) setError(errorText(err, "Rapport introuvable")) })
+    return () => { cancelled = true }
   }, [numero])
 
   const repartition = (detail?.repartition_categories ?? {}) as { entrees?: Record<string, number>; sorties?: Record<string, number> }

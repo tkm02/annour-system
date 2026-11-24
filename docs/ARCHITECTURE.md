@@ -42,7 +42,8 @@ Utilisateur ─► page (client component) ─► lib/api.ts ──fetch + Autho
   `contexts/auth-context.tsx` recharge la session au montage. Pas de `middleware.ts` : la protection des pages est
   côté client (`components/auth/protected-route.tsx`) ; l'autorisation réelle est faite par l'API.
 - **Rôles** : `lib/navigation.ts` construit les menus par rôle (admin, scientifique, finances, sante).
-- **Base URL** : `NEXT_PUBLIC_API_URL`, sinon l'API de production (`lib/api.ts`).
+- **Base URL** : `NEXT_PUBLIC_API_URL` (`lib/api.ts`) ; absente : appels refusés en production, API locale
+  `http://localhost:8000/api/v1` sinon (F-17).
 - **Génération de documents** (badges, certificats, bulletins, reçus, rapports) : côté navigateur (jspdf, canvas,
   qrcode) ; les QR des badges pointent vers le site public (URL écrite en dur).
 
