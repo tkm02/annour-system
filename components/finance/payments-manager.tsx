@@ -24,7 +24,9 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   ApiError, paymentsApi, type PaiementListItem, type PaymentDecision, type PaymentDetail,
 } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 import { MOTIF_MAX, validateDecision } from "@/lib/finance-forms"
+import { canWriteFinance } from "@/lib/roles"
 import { formatDate } from "@/lib/format"
 import { isPaymentVerified, paymentStatusInfo } from "@/lib/payment-status"
 
@@ -140,6 +142,8 @@ function PaymentDetailDialog({ matricule, onClose, onChanged }: {
 }) {
   const [detail, setDetail] = useState<PaymentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { user } = useAuth()
+  const canDecide = canWriteFinance(user?.role)   // TAF lot 3 : l'administration consulte sans décider
   // F-20 : seule la dernière requête met à jour le détail (une réponse d'un matricule précédent est ignorée)
   const lastRequest = useRef(0)
 
@@ -205,6 +209,10 @@ function PaymentDetailDialog({ matricule, onClose, onChanged }: {
             {isPaymentVerified(detail.statut) ? (
               <p className="text-sm text-green-700 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4" /> Paiement déjà vérifié : aucune décision possible.
+              </p>
+            ) : !canDecide ? (
+              <p className="text-sm text-muted-foreground" role="note">
+                Consultation seule : la validation ou le rejet d&apos;un paiement est réservé à la commission Finance.
               </p>
             ) : (
               // key : formulaire de décision réinitialisé pour chaque paiement affiché (F-20)

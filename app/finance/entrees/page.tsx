@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/contexts/auth-context"
+import { canWriteFinance } from "@/lib/roles"
 import { ApiError, financeApi, type TransactionResponse } from "@/lib/api"
 import { MODES_PAIEMENT, buildDon, buildVente, validateEntree, type EntreeForm, type Errors } from "@/lib/finance-forms"
 import { formatDate, formatMontant } from "@/lib/format"
@@ -152,6 +154,8 @@ function EntreeDetail({ reference, onClose }: { reference: string | null; onClos
 }
 
 export default function EntreesPage() {
+  const { user } = useAuth()
+  const canWrite = canWriteFinance(user?.role)
   const [categorie, setCategorie] = useState("toutes")
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<TransactionResponse[]>([])
@@ -189,10 +193,13 @@ export default function EntreesPage() {
             <h1 className="text-2xl font-bold text-foreground">Entrées</h1>
             <p className="text-muted-foreground">Inscriptions, dons et ventes (plus récentes d&apos;abord).</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={() => setCreating("vente")}><ShoppingCart className="h-4 w-4" />Vente</Button>
-            <Button className="gap-2" onClick={() => setCreating("don")}><Gift className="h-4 w-4" />Don</Button>
-          </div>
+          {/* TAF lot 3 : l'administration consulte les finances sans les modifier (l'API refuse aussi : 403) */}
+          {canWrite && (
+            <div className="flex gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => setCreating("vente")}><ShoppingCart className="h-4 w-4" />Vente</Button>
+              <Button className="gap-2" onClick={() => setCreating("don")}><Gift className="h-4 w-4" />Don</Button>
+            </div>
+          )}
         </div>
 
         <Card>

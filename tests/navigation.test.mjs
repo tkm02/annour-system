@@ -6,10 +6,10 @@ import { NAVIGATION, allowedRolesFor, canAccess, homeFor, navigationFor } from "
 import { ROLES } from "../lib/roles.ts";
 
 test("matrice : préfixe le plus précis, pages publiques hors matrice", () => {
-  assert.deepEqual(allowedRolesFor("/seminaristes/ajouter"), ["admin"]);
-  assert.deepEqual(allowedRolesFor("/seminaristes"), ["admin", "scientifique"]);
-  assert.deepEqual(allowedRolesFor("/finance/sorties"), ["admin", "finances"]);
-  assert.deepEqual(allowedRolesFor("/sante/consultations"), ["admin", "sante"]);
+  assert.deepEqual(allowedRolesFor("/seminaristes/ajouter"), ["super_admin", "admin"]);
+  assert.deepEqual(allowedRolesFor("/seminaristes"), ["super_admin", "admin", "scientifique"]);
+  assert.deepEqual(allowedRolesFor("/finance/sorties"), ["super_admin", "admin", "finances"]);
+  assert.deepEqual(allowedRolesFor("/sante/consultations"), ["super_admin", "admin", "sante"]);
   assert.equal(allowedRolesFor("/inscription"), null);
   assert.equal(allowedRolesFor("/"), null);
   // « /notes-x » ne doit pas hériter de « /notes »
@@ -26,6 +26,19 @@ test("accès refusé aux rôles non prévus (ex. finances sur la liste des sémi
   assert.equal(canAccess("admin", "/finance/paiements"), true);
   assert.equal(canAccess(null, "/acces"), false);
   assert.equal(canAccess(undefined, "/inscription"), true);
+});
+
+test("TAF lot 3 : gestion des accès réservée au super_admin, qui garde toutes les pages de l'administration", () => {
+  assert.deepEqual(allowedRolesFor("/acces"), ["super_admin"]);
+  for (const role of ["admin", "scientifique", "finances", "sante"]) assert.equal(canAccess(role, "/acces"), false, role);
+  assert.ok(navigationFor("super_admin").some((i) => i.href === "/acces"));
+  assert.ok(!navigationFor("admin").some((i) => i.href === "/acces"));
+  const admin = navigationFor("admin").map((i) => i.href);
+  assert.deepEqual(navigationFor("super_admin").map((i) => i.href).filter((h) => h !== "/acces"), admin);
+  for (const [prefix] of [["/dashboard"], ["/finance"], ["/sante"], ["/scientifique"], ["/badges"]]) {
+    assert.equal(canAccess("super_admin", prefix), true, prefix);
+  }
+  assert.equal(homeFor("super_admin"), "/dashboard");
 });
 
 test("aucun lien de menu vers une page interdite au rôle", () => {
@@ -49,7 +62,7 @@ test("menus cibles : liens morts retirés, tableau de bord par rôle", () => {
 });
 
 test("recensement CO : page et menu réservés à l'administration, ancienne page Membres CO conservée", () => {
-  assert.deepEqual(allowedRolesFor("/recensement-co"), ["admin"]);
+  assert.deepEqual(allowedRolesFor("/recensement-co"), ["super_admin", "admin"]);
   for (const role of ["scientifique", "finances", "sante"]) assert.equal(canAccess(role, "/recensement-co"), false, role);
   assert.equal(canAccess(null, "/recensement-co"), false);
   const hrefs = navigationFor("admin").map((i) => i.href);

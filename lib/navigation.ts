@@ -15,30 +15,33 @@ export interface NavItem {
   section: string
 }
 
+const SUPER: UserRole = "super_admin"
 const ADMIN: UserRole = "admin"
 const SCI: UserRole = "scientifique"
 const FIN: UserRole = "finances"
 const SANTE: UserRole = "sante"
 
-// Préfixe de chemin → rôles autorisés (le préfixe le plus long l'emporte). Aligné sur les routes de l'API.
+// Préfixe de chemin → rôles autorisés (le préfixe le plus long l'emporte). Aligné sur les routes de l'API :
+// super_admin partout ; gestion des accès réservée au super_admin (TAF lot 3) ; finances lisibles par l'administration
+// (les écritures sont masquées par canWriteFinance et refusées par l'API).
 export const ROUTE_ROLES: Array<[string, UserRole[]]> = [
-  ["/dashboard", [ADMIN, SCI]],
-  ["/seminaristes/ajouter", [ADMIN]],
-  ["/seminaristes", [ADMIN, SCI]],
-  ["/badges", [ADMIN]],
-  ["/certificats", [ADMIN]],
-  ["/feedback", [ADMIN]],
-  ["/acces", [ADMIN]],
-  ["/visiteurs", [ADMIN]],
-  ["/membres-co", [ADMIN]],
-  ["/recensement-co", [ADMIN]],
-  ["/scientifique", [ADMIN, SCI]],
-  ["/attributions", [ADMIN, SCI]],
-  ["/notes", [ADMIN, SCI]],
-  ["/bulletins", [ADMIN, SCI]],
-  ["/formateurs", [ADMIN, SCI]],
-  ["/sante", [ADMIN, SANTE]],
-  ["/finance", [ADMIN, FIN]],
+  ["/dashboard", [SUPER, ADMIN, SCI]],
+  ["/seminaristes/ajouter", [SUPER, ADMIN]],
+  ["/seminaristes", [SUPER, ADMIN, SCI]],
+  ["/badges", [SUPER, ADMIN]],
+  ["/certificats", [SUPER, ADMIN]],
+  ["/feedback", [SUPER, ADMIN]],
+  ["/acces", [SUPER]],
+  ["/visiteurs", [SUPER, ADMIN]],
+  ["/membres-co", [SUPER, ADMIN]],
+  ["/recensement-co", [SUPER, ADMIN]],
+  ["/scientifique", [SUPER, ADMIN, SCI]],
+  ["/attributions", [SUPER, ADMIN, SCI]],
+  ["/notes", [SUPER, ADMIN, SCI]],
+  ["/bulletins", [SUPER, ADMIN, SCI]],
+  ["/formateurs", [SUPER, ADMIN, SCI]],
+  ["/sante", [SUPER, ADMIN, SANTE]],
+  ["/finance", [SUPER, ADMIN, FIN]],
 ]
 
 const matches = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`)
@@ -70,26 +73,31 @@ export function homeFor(role: string | null | undefined): string {
   }
 }
 
+const NAV_ADMINISTRATION: NavItem[] = [
+  { name: "Tableau de bord", href: "/dashboard", icon: "dashboard", section: "Pilotage" },
+  { name: "Séminaristes", href: "/seminaristes", icon: "users", section: "Séminaristes" },
+  { name: "Badges", href: "/badges", icon: "badge", section: "Séminaristes" },
+  { name: "Certificats", href: "/certificats", icon: "certificate", section: "Séminaristes" },
+  { name: "Recensement CO", href: "/recensement-co", icon: "census", section: "Comité d'organisation" },
+  { name: "Membres CO 2025 (archives)", href: "/membres-co", icon: "users", section: "Comité d'organisation" },
+  { name: "Visiteurs", href: "/visiteurs", icon: "visitor", section: "Accueil" },
+  { name: "Avis", href: "/feedback", icon: "message", section: "Accueil" },
+  { name: "Scientifique", href: "/scientifique", icon: "science", section: "Pédagogie" },
+  { name: "Attributions", href: "/attributions", icon: "assign", section: "Pédagogie" },
+  { name: "Notes", href: "/notes", icon: "file", section: "Pédagogie" },
+  { name: "Bulletins", href: "/bulletins", icon: "file", section: "Pédagogie" },
+  { name: "Formateurs", href: "/formateurs", icon: "teacher", section: "Pédagogie" },
+  { name: "Vue d'ensemble", href: "/finance", icon: "finance", section: "Finances" },
+  { name: "Paiements", href: "/finance/paiements", icon: "wallet", section: "Finances" },
+  { name: "Vue d'ensemble", href: "/sante", icon: "health", section: "Santé" },
+]
+
 export const NAVIGATION: Record<UserRole, NavItem[]> = {
-  admin: [
-    { name: "Tableau de bord", href: "/dashboard", icon: "dashboard", section: "Pilotage" },
-    { name: "Séminaristes", href: "/seminaristes", icon: "users", section: "Séminaristes" },
-    { name: "Badges", href: "/badges", icon: "badge", section: "Séminaristes" },
-    { name: "Certificats", href: "/certificats", icon: "certificate", section: "Séminaristes" },
-    { name: "Recensement CO", href: "/recensement-co", icon: "census", section: "Comité d'organisation" },
-    { name: "Membres CO 2025 (archives)", href: "/membres-co", icon: "users", section: "Comité d'organisation" },
-    { name: "Visiteurs", href: "/visiteurs", icon: "visitor", section: "Accueil" },
-    { name: "Avis", href: "/feedback", icon: "message", section: "Accueil" },
-    { name: "Scientifique", href: "/scientifique", icon: "science", section: "Pédagogie" },
-    { name: "Attributions", href: "/attributions", icon: "assign", section: "Pédagogie" },
-    { name: "Notes", href: "/notes", icon: "file", section: "Pédagogie" },
-    { name: "Bulletins", href: "/bulletins", icon: "file", section: "Pédagogie" },
-    { name: "Formateurs", href: "/formateurs", icon: "teacher", section: "Pédagogie" },
-    { name: "Vue d'ensemble", href: "/finance", icon: "finance", section: "Finances" },
-    { name: "Paiements", href: "/finance/paiements", icon: "wallet", section: "Finances" },
-    { name: "Vue d'ensemble", href: "/sante", icon: "health", section: "Santé" },
+  super_admin: [
+    ...NAV_ADMINISTRATION,
     { name: "Gérer les accès", href: "/acces", icon: "settings", section: "Administration" },
   ],
+  admin: NAV_ADMINISTRATION,
   scientifique: [
     { name: "Tableau de bord", href: "/dashboard", icon: "dashboard", section: "Pilotage" },
     { name: "Séminaristes", href: "/seminaristes", icon: "users", section: "Séminaristes" },
