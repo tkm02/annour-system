@@ -11,7 +11,9 @@
 | Expiration | 401 avec token, ou 403 « Compte désactivé » avec token (F-21) → `logout()` et retour à la connexion (`lib/api.ts`) ; tout autre 403 garde la session | conserver ce comportement pour tout nouvel appel |
 | Autorisation | menus filtrés par rôle, garde client `protected-route.tsx` | confort uniquement : l'API reste juge ; afficher proprement les 403 |
 | Données sensibles à l'écran | santé, finances, identité, photos | pas de `console.log` de données, pas de données dans les URL, PDF générés côté client sans stockage |
-| Analytics | `@vercel/analytics` | ne transmettre aucune donnée personnelle dans les événements |
+| Analytics | `@vercel/analytics` (`components/layout/analytics.tsx`) | ne transmettre aucune donnée personnelle dans les événements ; le paramètre `jeton` est retiré des adresses (`beforeSend`) |
+| Liens d'activation / réinitialisation (TAF lot 3) | jeton dans `?jeton=` | lu une fois, retiré de la barre d'adresse et de l'historique, jamais stocké ; pages `/activer`, `/reinitialiser` en `noindex` et `referrer: no-referrer` |
+| Rôles (TAF lot 3) | `super_admin` seul à gérer les accès ; `admin` lit les finances sans les modifier | boutons masqués par `canManageAccess` / `canWriteFinance` (`lib/roles.ts`) : confort, l'API renvoie 403 |
 | Secrets Git | gitleaks en CI (diff bloquant), `.next/` exclu | — |
 
 ## 2. Constats ouverts (audit du 2026-11-19)

@@ -4,6 +4,18 @@ Toutes les évolutions notables de ce dépôt sont consignées ici.
 Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
+### Ajouté — comptes du back-office (TAF lot 3, 2026-11-27)
+- Rôle `super_admin` : seul à voir « Gérer les accès » ; l'administration (`admin`) consulte les finances sans
+  pouvoir les modifier (boutons d'écriture et décision de paiement masqués) et garde la santé.
+- Pages publiques `/activer`, `/mot-de-passe-oublie`, `/reinitialiser` : choix du mot de passe par lien reçu par
+  email (règles cochées en direct, 10 caractères minimum), écrans lien expiré / déjà utilisé, jeton retiré de
+  l'adresse et des mesures d'audience.
+- Connexion par nom d'utilisateur ou email, lien « Mot de passe oublié ? ».
+- `/acces` : statut « En attente d'activation », (r)envoi des liens, génération en lot des comptes des membres du
+  CO (aperçu, sélection, rapport), journal des connexions ; création d'un accès avec lien d'activation par défaut.
+- Nécessite le backend `feature/lot3-comptes-co` (contrat : `docs/features/comptes-co.md` du dépôt Backend) ;
+  déployer **après** l'API.
+
 ### Modifié — domaine de production (2026-11-24)
 - Badges : l'adresse du site public imprimée devient `annour.ci` (constante `SITE_PUBLIC` de `lib/edition.ts` au lieu
   de 12 copies de `https://an-nour25.vercel.app`, F-13). Back-office servi sur `https://backoffice.annour.ci`
