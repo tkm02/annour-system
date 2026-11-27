@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import { usersApi } from "@/lib/api"
+import { MOT_DE_PASSE_MIN } from "@/lib/mot-de-passe"
 import { ROLES, ROLE_LABELS } from "@/lib/roles"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,46 +24,54 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
     prenom: "",
     role: "scientifique",
   })
+  // TAF lot 3 : par défaut, la personne choisit son mot de passe via le lien d'activation reçu par email
+  const [definirMotDePasse, setDefinirMotDePasse] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validation simple
-    if (!formData.email || !formData.username || !formData.password) {
+
+    // Validation simple (la politique complète est vérifiée par l'API)
+    if (!formData.email || !formData.username || !formData.nom || !formData.prenom
+        || (definirMotDePasse && !formData.password)) {
       setError("Veuillez remplir tous les champs obligatoires")
       return
     }
 
-    if (formData.password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères")
+    if (definirMotDePasse && formData.password.length < MOT_DE_PASSE_MIN) {
+      setError(`Le mot de passe doit contenir au moins ${MOT_DE_PASSE_MIN} caractères`)
       return
     }
-    
+
     try {
       setLoading(true)
       setError(null)
-      
-      await usersApi.createUser(formData)
-      
+
+      const { password, ...sansMotDePasse } = formData
+      const cree = await usersApi.createUser(definirMotDePasse ? { ...sansMotDePasse, password } : sansMotDePasse)
+      if (cree.email_envoye === false) {
+        toast.warning("Compte créé, mais l'email d'activation n'a pas pu être envoyé : renvoyez le lien depuis la liste.")
+      } else if (cree.email_envoye) {
+        toast.success(`Lien d'activation envoyé à ${cree.email}`)
+      }
+
       setSuccess(true)
-      
+
       // Fermer après 1.5 secondes
       setTimeout(() => {
         onSuccess()
       }, 1500)
     } catch (err: any) {
       setError(err.message || "Erreur lors de la création de l'utilisateur")
-      console.error("Erreur:", err)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
@@ -81,7 +91,7 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
             <X className="h-4 w-4" />
           </Button>
         </div>
-        
+
         {/* Success Message */}
         {success && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 flex items-center gap-2">
@@ -89,7 +99,7 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
             <span>Utilisateur créé avec succès!</span>
           </div>
         )}
-        
+
         {/* Error Message */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -97,7 +107,7 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
             <span className="block sm:inline">{error}</span>
           </div>
         )}
-        
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -114,7 +124,7 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
               disabled={loading || success}
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="username">
               Nom d&apos;utilisateur <span className="text-red-500">*</span>
@@ -128,23 +138,38 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
               disabled={loading || success}
             />
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="password">
-              Mot de passe <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="password"
-              placeholder="Minimum 8 caractères"
-              type="password"
-              required
-              minLength={8}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              disabled={loading || success}
-            />
+
+          <div className="space-y-2 rounded-md border p-3">
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-1" checked={definirMotDePasse}
+                onChange={(e) => setDefinirMotDePasse(e.target.checked)} disabled={loading || success} />
+              <span>
+                Définir le mot de passe moi-même
+                <span className="block text-xs text-muted-foreground">
+                  Par défaut, un lien d&apos;activation (72 h) est envoyé par email et la personne choisit son mot de passe.
+                </span>
+              </span>
+            </label>
+            {definirMotDePasse && (
+              <div className="space-y-2 pt-2">
+                <Label htmlFor="password">
+                  Mot de passe <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="password"
+                  placeholder={`Minimum ${MOT_DE_PASSE_MIN} caractères`}
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={MOT_DE_PASSE_MIN}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  disabled={loading || success}
+                />
+              </div>
+            )}
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nom">
@@ -159,7 +184,7 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
                 disabled={loading || success}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="prenom">
                 Prénom <span className="text-red-500">*</span>
@@ -174,7 +199,7 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
               />
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="role">
               Commission <span className="text-red-500">*</span>
@@ -191,19 +216,19 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
               ))}
             </select>
           </div>
-          
+
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onClose} 
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
               disabled={loading || success}
             >
               Annuler
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading || success}
               className="bg-primary hover:bg-primary/90 text-white min-w-[120px]"
             >

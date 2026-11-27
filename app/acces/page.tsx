@@ -1,511 +1,271 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import DashboardLayout from "@/components/layout/dashboard-layout"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
-import { Search, Download, Plus, Edit, Loader2, AlertCircle, LogOut } from "lucide-react"
-import { toast } from "sonner"
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { useCallback, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
-import { usersApi } from "@/lib/api"
+import { Download, Edit, Loader2, LogOut, Mail, Plus, Search } from "lucide-react"
+import { toast } from "sonner"
+
+import ComptesCOGenerator from "@/components/access/comptes-co-generator"
+import ConnexionsJournal from "@/components/access/connexions-journal"
+import ConfirmDialog from "@/components/common/confirm-dialog"
+import { PageHeader } from "@/components/common/page-header"
+import Pager from "@/components/common/pager"
+import { EmptyState, ErrorState, LoadingState, errorText } from "@/components/common/states"
+import { StatusBadge, type StatusTone } from "@/components/common/status-badge"
+import DashboardLayout from "@/components/layout/dashboard-layout"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { comptesApi, usersApi, type User } from "@/lib/api"
+import { LIBELLES_STATUT, actionLien, basculePossible, statutCompte, type StatutCompte } from "@/lib/comptes"
 import { normalizeRole, roleLabel } from "@/lib/roles"
 
-// Importer les modals dynamiquement
-const CreateAccessModal = dynamic(
-  () => import("@/components/access/create-access-modal"),
-  { ssr: false }
-)
+const CreateAccessModal = dynamic(() => import("@/components/access/create-access-modal"), { ssr: false })
+const EditAccessModal = dynamic(() => import("@/components/access/edit-access-modal"), { ssr: false })
 
-const EditAccessModal = dynamic(
-  () => import("@/components/access/edit-access-modal"),
-  { ssr: false }
-)
+const LIMIT = 10
 
-interface AccessUser {
-  id: string
-  username: string
-  email: string
-  nom: string
-  prenom: string
-  role: string
-  is_active: boolean
+const TON_STATUT: Record<StatutCompte, StatusTone> = { actif: "success", en_attente: "warning", desactive: "neutral" }
+
+function couleurRole(role: string) {
+  switch (normalizeRole(role)) {
+    case "super_admin": return "bg-foreground text-background"
+    case "admin": return "bg-secondary text-white"
+    case "scientifique": return "bg-primary text-white"
+    case "finances": return "bg-green-600 text-white"
+    case "sante": return "bg-red-600 text-white"
+    default: return "bg-gray-500 text-white"
+  }
+}
+
+/** NOM en majuscules, prénoms capitalisés */
+function nomComplet(nom: string, prenom: string) {
+  const prenoms = (prenom || "").split(" ").map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ")
+  return `${(nom || "").toUpperCase()} ${prenoms}`.trim()
+}
+
+const champCsv = (valeur: string) => (/[",;\n]/.test(valeur) ? `"${valeur.replace(/"/g, '""')}"` : valeur)
+
+function ComptesListe({ rechargement }: { rechargement: number }) {
+  const [recherche, setRecherche] = useState("")
+  const [users, setUsers] = useState<User[] | null>(null)
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [erreur, setErreur] = useState<string | null>(null)
+  const [enBascule, setEnBascule] = useState<string | null>(null)
+  const [aModifier, setAModifier] = useState<User | null>(null)
+  const [aFermer, setAFermer] = useState<User | null>(null)
+  const [fermeture, setFermeture] = useState(false)
+  const [aRelancer, setARelancer] = useState<User | null>(null)
+  const [envoi, setEnvoi] = useState(false)
+
+  const charger = useCallback(async () => {
+    try {
+      const { data, total: nombre } = await usersApi.getUsers(page, LIMIT)
+      setErreur(null)
+      setUsers(data)
+      setTotal(nombre)
+    } catch (err) {
+      setErreur(errorText(err, "Erreur lors du chargement des comptes"))
+      setUsers([])
+    }
+  }, [page])
+
+  useEffect(() => { charger() }, [charger, rechargement])
+
+  const basculer = async (user: User) => {
+    setEnBascule(user.id)
+    try {
+      await usersApi.toggleUserStatus(user.id, !user.is_active)
+      setUsers((liste) => liste?.map((u) => (u.id === user.id ? { ...u, is_active: !user.is_active } : u)) ?? null)
+      toast.success(user.is_active ? `Compte ${user.username} désactivé` : `Compte ${user.username} réactivé`)
+    } catch (err) {
+      toast.error(errorText(err, "Modification du statut impossible"))
+    } finally {
+      setEnBascule(null)
+    }
+  }
+
+  const fermerSessions = async () => {
+    if (!aFermer) return
+    setFermeture(true)
+    try {
+      await usersApi.revokeSessions(aFermer.id)
+      toast.success(`Sessions de ${aFermer.username} fermées`)
+      setAFermer(null)
+    } catch (err) {
+      toast.error(errorText(err, "Fermeture des sessions impossible"))
+    } finally {
+      setFermeture(false)
+    }
+  }
+
+  const envoyerLien = async () => {
+    if (!aRelancer) return
+    setEnvoi(true)
+    try {
+      const resultat = await comptesApi.envoyerLien(aRelancer.id)
+      if (resultat.email_envoye) toast.success(`${resultat.message} à ${aRelancer.email}`)
+      else toast.warning(resultat.message)
+      setARelancer(null)
+    } catch (err) {
+      toast.error(errorText(err, "Envoi du lien impossible"))
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  const exporter = () => {
+    if (!users || users.length === 0) return
+    const lignes = [
+      ["Nom d'utilisateur", "Email", "Nom", "Prénom", "Rôle", "Statut"],
+      ...users.map((u) => [u.username, u.email, (u.nom || "").toUpperCase(), u.prenom || "", roleLabel(u.role),
+        LIBELLES_STATUT[statutCompte(u)]]),
+    ]
+    const blob = new Blob(["﻿" + lignes.map((l) => l.map((v) => champCsv(v ?? "")).join(",")).join("\n")],
+      { type: "text/csv;charset=utf-8;" })
+    const url = window.URL.createObjectURL(blob)
+    const lien = document.createElement("a")
+    lien.href = url
+    lien.download = `comptes-${new Date().toISOString().split("T")[0]}.csv`
+    document.body.appendChild(lien)
+    lien.click()
+    document.body.removeChild(lien)
+    window.URL.revokeObjectURL(url)
+  }
+
+  const terme = recherche.trim().toLowerCase()
+  const affiches = (users ?? []).filter((u) => !terme || [u.username, u.email, u.nom, u.prenom, roleLabel(u.role)]
+    .some((v) => (v ?? "").toLowerCase().includes(terme)))
+  const relance = aRelancer ? actionLien(aRelancer) : null
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 pt-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input placeholder="Rechercher sur cette page (nom, email, rôle…)" value={recherche} className="pl-10"
+              aria-label="Rechercher un compte" onChange={(e) => setRecherche(e.target.value)} />
+          </div>
+          <Button variant="outline" className="gap-2" onClick={exporter} disabled={!users || users.length === 0}>
+            <Download className="h-4 w-4" aria-hidden="true" />Exporter la page (CSV)
+          </Button>
+        </div>
+
+        {erreur ? (
+          <ErrorState message={erreur} onRetry={() => { setErreur(null); setUsers(null); charger() }} />
+        ) : !users ? (
+          <LoadingState label="Chargement des comptes…" />
+        ) : affiches.length === 0 ? (
+          <EmptyState message={terme ? "Aucun compte ne correspond à votre recherche." : "Aucun compte enregistré."} />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Rôle</TableHead>
+                  <TableHead>Nom d&apos;utilisateur</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead>Nom complet</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {affiches.map((u) => {
+                  const statut = statutCompte(u)
+                  const action = actionLien(u)
+                  return (
+                    <TableRow key={u.id}>
+                      <TableCell><Badge className={couleurRole(u.role)}>{roleLabel(u.role).toUpperCase()}</Badge></TableCell>
+                      <TableCell className="font-mono text-sm">{u.username}</TableCell>
+                      <TableCell className="hidden md:table-cell text-sm">{u.email}</TableCell>
+                      <TableCell>{nomComplet(u.nom, u.prenom) || "—"}</TableCell>
+                      <TableCell><StatusBadge tone={TON_STATUT[statut]}>{LIBELLES_STATUT[statut]}</StatusBadge></TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setAModifier(u)} disabled={enBascule === u.id}
+                            aria-label={`Modifier ${u.username}`} title="Modifier">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {action && (
+                            <Button variant="ghost" size="sm" onClick={() => setARelancer(u)} disabled={enBascule === u.id}
+                              aria-label={`${action.libelle} — ${u.username}`} title={action.libelle}>
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => setAFermer(u)} disabled={enBascule === u.id}
+                            aria-label={`Fermer les sessions de ${u.username}`} title="Fermer les sessions">
+                            <LogOut className="h-4 w-4" />
+                          </Button>
+                          <Switch checked={u.is_active} onCheckedChange={() => basculer(u)}
+                            disabled={enBascule === u.id || !basculePossible(u)}
+                            aria-label={u.is_active ? `Désactiver ${u.username}` : `Réactiver ${u.username}`}
+                            title={basculePossible(u) ? (u.is_active ? "Désactiver le compte" : "Réactiver le compte")
+                              : "Le compte s'active par le lien envoyé par email"}
+                            className="data-[state=checked]:bg-green-500" />
+                          {enBascule === u.id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        <Pager page={page} limit={LIMIT} total={total} onPageChange={(p) => { setUsers(null); setPage(p) }} disabled={!users} />
+      </CardContent>
+
+      {aModifier && (
+        <EditAccessModal user={aModifier} onClose={() => setAModifier(null)}
+          onSuccess={() => { setAModifier(null); charger() }} />
+      )}
+      <ConfirmDialog open={!!aFermer} title={`Fermer les sessions de ${aFermer?.username ?? ""} ?`}
+        description="Toutes les sessions ouvertes de ce compte seront fermées ; la personne devra se reconnecter."
+        confirmLabel="Fermer les sessions" busy={fermeture} onConfirm={fermerSessions} onCancel={() => setAFermer(null)} />
+      <ConfirmDialog open={!!aRelancer} tone="default" title={`${relance?.libelle ?? ""} — ${aRelancer?.username ?? ""}`}
+        description={`${relance?.confirmation ?? ""} Destinataire : ${aRelancer?.email ?? ""}.`}
+        confirmLabel="Envoyer" busy={envoi} onConfirm={envoyerLien} onCancel={() => setARelancer(null)} />
+    </Card>
+  )
 }
 
 export default function AccessManagementPage() {
-  const [isMounted, setIsMounted] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [users, setUsers] = useState<AccessUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<AccessUser | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalUsers, setTotalUsers] = useState(0)
-  const [togglingUserId, setTogglingUserId] = useState<string | null>(null)
-  const [revokeTarget, setRevokeTarget] = useState<AccessUser | null>(null)
-  const [revoking, setRevoking] = useState(false)
-
-  // F-A3 : fermer toutes les sessions d'un compte (appareil perdu, compte compromis)
-  const handleRevokeSessions = async () => {
-    if (!revokeTarget) return
-    setRevoking(true)
-    try {
-      await usersApi.revokeSessions(revokeTarget.id)
-      toast.success(`Sessions de ${revokeTarget.username} fermées`)
-      setRevokeTarget(null)
-    } catch (err: any) {
-      toast.error(err.message || "Fermeture des sessions impossible")
-    } finally {
-      setRevoking(false)
-    }
-  }
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (isMounted) {
-      loadUsers()
-    }
-  }, [currentPage, isMounted])
-
-  const loadUsers = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const { data, total } = await usersApi.getUsers(currentPage, 10)
-      setUsers(data as AccessUser[])
-      setTotalUsers(total)
-    } catch (err: any) {
-      setError(err.message || "Erreur lors du chargement des utilisateurs")
-      setUsers([])
-      setTotalUsers(0)
-    } finally {
-      setLoading(false)
-    }
-  }
-
- // ✅ Fonction pour formater le nom et les prénoms
-const formatFullName = (nom: string, prenom: string) => {
-  // Nom en MAJUSCULES
-  const formattedNom = nom ? nom.toUpperCase() : ""
-  
-  // Prénoms : chaque prénom commence par une majuscule
-  const formattedPrenom = prenom 
-    ? prenom
-        .split(' ')  // Séparer les prénoms par espace
-        .map(word => 
-          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-        )  // Capitaliser chaque prénom
-        .join(' ')  // Rejoindre avec espaces
-    : ""
-  
-  return `${formattedNom} ${formattedPrenom}`.trim()
-}
-
-
-  const handleToggleStatus = async (user: AccessUser) => {
-    try {
-      setTogglingUserId(user.id)
-      
-      const newStatus = !user.is_active
-      
-      await usersApi.toggleUserStatus(user.id, newStatus)
-      
-      setUsers(prevUsers => 
-        prevUsers.map(u => 
-          u.id === user.id ? { ...u, is_active: newStatus } : u
-        )
-      )
-      
-    } catch (err: any) {
-      toast.error(`Modification du statut impossible : ${err.message}`)
-    } finally {
-      setTogglingUserId(null)
-    }
-  }
-
-  const filteredUsers = (users || []).filter((user) => {
-    if (!searchTerm) return true
-    
-    const search = searchTerm.toLowerCase()
-    return (
-      user?.username?.toLowerCase().includes(search) ||
-      user?.email?.toLowerCase().includes(search) ||
-      user?.role?.toLowerCase().includes(search) ||
-      user?.nom?.toLowerCase().includes(search) ||
-      user?.prenom?.toLowerCase().includes(search)
-    )
-  })
-
-  const handleEdit = (user: AccessUser) => {
-    setSelectedUser(user)
-    setShowEditModal(true)
-  }
-
-  const getCommissionColor = (role: string) => {
-    if (!role) return "bg-gray-500 text-white"
-    
-    switch (normalizeRole(role)) {
-      case "admin":
-        return "bg-secondary text-white"
-      case "scientifique":
-        return "bg-primary text-white"
-      case "finances":
-        return "bg-green-600 text-white"
-      case "sante":
-        return "bg-red-600 text-white"
-      default:
-        return "bg-gray-500 text-white"
-    }
-  }
-
-  const getStatusBadge = (isActive: boolean) => {
-    return isActive ? (
-      <Badge className="bg-green-500 text-white">ACTIVÉ</Badge>
-    ) : (
-      <Badge className="bg-gray-400 text-white">DÉSACTIVÉ</Badge>
-    )
-  }
-
-  const handleExport = async () => {
-    try {
-      if (!users || users.length === 0) {
-        alert("Aucune donnée à exporter")
-        return
-      }
-
-      const csvContent = [
-        ["Nom d'utilisateur", "Email", "Nom", "Prénom", "Commission", "Statut"].join(","),
-        ...users.map(user => 
-          [
-            user.username || "",
-            user.email || "",
-            user.nom ? user.nom.toUpperCase() : "",
-            user.prenom ? user.prenom.charAt(0).toUpperCase() + user.prenom.slice(1).toLowerCase() : "",
-            user.role || "",
-            user.is_active ? "Activé" : "Désactivé"
-          ].join(",")
-        )
-      ].join("\n")
-
-      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `utilisateurs-${new Date().toISOString().split('T')[0]}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error("Erreur lors de l'export:", err)
-      alert("Erreur lors de l'export des données")
-    }
-  }
-
-  const totalPages = Math.ceil(totalUsers / 10)
-
-  if (!isMounted) {
-    return (
-      <DashboardLayout>
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-lg">Chargement...</span>
-        </div>
-      </DashboardLayout>
-    )
-  }
+  const [creation, setCreation] = useState(false)
+  const [rechargement, setRechargement] = useState(0)
+  const recharger = () => setRechargement((n) => n + 1)
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-2xl font-bold text-secondary">GESTION DES ACCÈS</h1>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2 bg-transparent"
-              onClick={handleExport}
-              disabled={!users || users.length === 0}
-            >
-              <Download className="h-4 w-4" />
-              EXPORTER
-            </Button>
-            <Button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              CRÉER UN ACCÈS
-            </Button>
-          </div>
-        </div>
-
-        {/* Message d'erreur */}
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-            <div className="flex items-start">
-              <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-red-800">Erreur</h3>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
-                <Button 
-                  onClick={loadUsers} 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-3"
-                >
-                  Réessayer
-                </Button>
-              </div>
-            </div>
-          </div>
+      <PageHeader
+        title="Gestion des accès"
+        description="Comptes du back-office, génération des comptes des membres du CO et journal des connexions."
+        actions={(
+          <Button className="gap-2" onClick={() => setCreation(true)}>
+            <Plus className="h-4 w-4" aria-hidden="true" />Créer un accès
+          </Button>
         )}
+      />
+      <Tabs defaultValue="comptes" className="space-y-4">
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="comptes">Comptes</TabsTrigger>
+          <TabsTrigger value="generation">Générer les comptes CO</TabsTrigger>
+          <TabsTrigger value="journal">Journal des connexions</TabsTrigger>
+        </TabsList>
+        <TabsContent value="comptes"><ComptesListe rechargement={rechargement} /></TabsContent>
+        <TabsContent value="generation"><ComptesCOGenerator onGenere={recharger} /></TabsContent>
+        <TabsContent value="journal"><ConnexionsJournal /></TabsContent>
+      </Tabs>
 
-        {/* Barre de recherche */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Recherche par nom, email ou commission..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="text-sm text-muted-foreground font-medium">
-            TOUS {filteredUsers.length.toString().padStart(3, "0")}
-          </div>
-        </div>
-
-        {/* Tableau des utilisateurs */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">
-              {filteredUsers.length > 0 
-                ? `Affichage de 1-${Math.min(10, filteredUsers.length)} sur ${totalUsers} accès`
-                : "Aucun utilisateur trouvé"
-              }
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-3 text-muted-foreground">Chargement des utilisateurs...</span>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">COMMISSION</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">NOM D&apos;UTILISATEUR</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">EMAIL</th>
-                        <th className="text-left py-3 px-4 font-semibold text-foreground">NOM COMPLET</th>
-                        <th className="text-center py-3 px-4 font-semibold text-foreground">STATUS</th>
-                        <th className="text-center py-3 px-4 font-semibold text-foreground">ACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredUsers.length > 0 ? (
-                        filteredUsers.map((user) => (
-                          <tr key={user.id} className="border-b hover:bg-muted/50 transition-colors">
-                            <td className="py-3 px-4">
-                              <Badge className={getCommissionColor(user.role)}>
-                                {user.role ? roleLabel(user.role).toUpperCase() : "N/A"}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4 text-foreground font-medium">
-                              {user.username || "N/A"}
-                            </td>
-                            <td className="py-3 px-4 text-foreground text-sm">
-                              {user.email || "N/A"}
-                            </td>
-                            {/* ✅ Nom et Prénom formatés */}
-                            <td className="py-3 px-4 text-foreground">
-                              {formatFullName(user.nom || "", user.prenom || "") || "N/A"}
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              {getStatusBadge(user.is_active ?? true)}
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex justify-center items-center gap-3">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEdit(user)}
-                                  className="text-primary hover:text-primary/80 hover:bg-primary/10"
-                                  title="Modifier"
-                                  disabled={togglingUserId === user.id}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setRevokeTarget(user)}
-                                  title="Fermer les sessions"
-                                  aria-label={`Fermer les sessions de ${user.username}`}
-                                  disabled={togglingUserId === user.id}
-                                >
-                                  <LogOut className="h-4 w-4" />
-                                </Button>
-
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={user.is_active ?? true}
-                                    onCheckedChange={() => handleToggleStatus(user)}
-                                    disabled={togglingUserId === user.id}
-                                    className="data-[state=checked]:bg-green-500"
-                                    title={user.is_active ? "Désactiver l'utilisateur" : "Activer l'utilisateur"}
-                                  />
-                                  {togglingUserId === user.id && (
-                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={6} className="text-center py-12">
-                            <div className="flex flex-col items-center justify-center text-muted-foreground">
-                              <AlertCircle className="h-12 w-12 mb-3 opacity-50" />
-                              <p className="text-lg font-medium">
-                                {searchTerm 
-                                  ? "Aucun utilisateur ne correspond à votre recherche" 
-                                  : "Aucun utilisateur enregistré"
-                                }
-                              </p>
-                              {!searchTerm && (
-                                <p className="text-sm mt-2">
-                                  Cliquez sur &quot;CRÉER UN ACCÈS&quot; pour ajouter un utilisateur
-                                </p>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && filteredUsers.length > 0 && (
-                  <div className="flex justify-center items-center gap-2 mt-6 pt-6 border-t">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      disabled={currentPage === 1 || loading}
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                    >
-                      Précédent
-                    </Button>
-                    
-                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                      const pageNum = i + 1
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={currentPage === pageNum ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCurrentPage(pageNum)}
-                          disabled={loading}
-                          className={currentPage === pageNum ? "bg-primary text-white" : ""}
-                        >
-                          {pageNum}
-                        </Button>
-                      )
-                    })}
-                    
-                    {totalPages > 5 && (
-                      <>
-                        <span className="text-muted-foreground px-2">...</span>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setCurrentPage(totalPages)}
-                          disabled={loading}
-                        >
-                          {totalPages}
-                        </Button>
-                      </>
-                    )}
-                    
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      disabled={currentPage === totalPages || loading}
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                    >
-                      Suivant
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Modals */}
-      {showCreateModal && (
-        <CreateAccessModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false)
-            setCurrentPage(1)
-            loadUsers()
-          }}
-        />
+      {creation && (
+        <CreateAccessModal onClose={() => setCreation(false)} onSuccess={() => { setCreation(false); recharger() }} />
       )}
-      
-      {showEditModal && selectedUser && (
-        <EditAccessModal
-          user={selectedUser}
-          onClose={() => {
-            setShowEditModal(false)
-            setSelectedUser(null)
-          }}
-          onSuccess={() => {
-            setShowEditModal(false)
-            setSelectedUser(null)
-            loadUsers()
-          }}
-        />
-      )}
-      <AlertDialog open={!!revokeTarget} onOpenChange={(open) => !open && !revoking && setRevokeTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Fermer les sessions de {revokeTarget?.username} ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Toutes les sessions ouvertes de ce compte seront fermées ; l&apos;utilisateur devra se reconnecter.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={revoking}>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleRevokeSessions() }} disabled={revoking}>
-              {revoking && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Fermer les sessions
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DashboardLayout>
   )
 }
