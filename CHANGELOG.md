@@ -55,6 +55,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
   le libellé `partielle` ne cite plus la date de naissance (retirée du recensement le 2026-11-22).
 
 ### Ajouté
+- Séminaristes (TAF lot 2) : repère « Ancien (confirmé) » / « Ancien déclaré — à vérifier », filtre
+  « Réinscriptions à vérifier » et, pour l'administration, actions « Lier à l'inscription de l'an dernier » / « Délier »
+  (`PATCH /admin/seminaristes/{matricule}/reinscription`).
 - Recensement CO (`/recensement-co`, rôle admin) : synthèse de l'édition en cours, fiches paginées avec recherche,
   filtres et export CSV/Excel, détail (santé signalée confidentielle, historique des éditions), correction,
   validation, rejet motivé et traitement des cas à vérifier (fusion ou personne différente) — routes `/admin/co/*`.
