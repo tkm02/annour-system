@@ -9,6 +9,8 @@ import SimpleBarChart, { recordToBars } from "@/components/common/bar-chart"
 import Pager from "@/components/common/pager"
 import { EmptyState, ErrorState, LoadingState, errorText } from "@/components/common/states"
 import Field from "@/components/finance/field"
+import { useAuth } from "@/contexts/auth-context"
+import { canWriteFinance } from "@/lib/roles"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -157,6 +159,8 @@ function RapportDialog({ numero, onClose }: { numero: string | null; onClose: ()
 }
 
 export default function RapportsPage() {
+  const { user } = useAuth()
+  const canWrite = canWriteFinance(user?.role)   // TAF lot 3 : administration en lecture seule
   const [type, setType] = useState("tous")
   const [annee, setAnnee] = useState("")
   const [page, setPage] = useState(1)
@@ -198,7 +202,9 @@ export default function RapportsPage() {
             <h1 className="text-2xl font-bold text-foreground">Rapports financiers</h1>
             <p className="text-muted-foreground">Rapports figés par période, exportables en PDF.</p>
           </div>
-          <Button className="gap-2" onClick={() => setGenerating(true)}><FilePlus2 className="h-4 w-4" />Générer un rapport</Button>
+          {canWrite && (
+            <Button className="gap-2" onClick={() => setGenerating(true)}><FilePlus2 className="h-4 w-4" />Générer un rapport</Button>
+          )}
         </div>
         <Card>
           <CardHeader className="flex flex-col sm:flex-row gap-3">

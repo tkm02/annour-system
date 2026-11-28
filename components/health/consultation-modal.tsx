@@ -10,6 +10,7 @@ import ConsultationFields from "@/components/health/consultation-fields"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useAuth } from "@/contexts/auth-context"
+import { isAdministration } from "@/lib/roles"
 import { santeApi, type Consultation } from "@/lib/api"
 import { diffConsultation, validateConsultation, type ConsultationFormValues, type Errors } from "@/lib/consultation-form"
 import { exportConsultationPdf } from "@/lib/consultation-pdf"
@@ -31,7 +32,7 @@ export default function ConsultationModal({ consultationId, onClose, onChanged }
   onChanged?: () => void
 }) {
   const { user } = useAuth()
-  const isAdmin = user?.role === "admin"
+  const isAdmin = isAdministration(user?.role)
   const [consultation, setConsultation] = useState<Consultation | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)

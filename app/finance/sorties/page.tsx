@@ -22,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/contexts/auth-context"
+import { canWriteFinance } from "@/lib/roles"
 import { ApiError, financeApi, type AuditLogResponse, type TransactionResponse } from "@/lib/api"
 import {
   CATEGORIES_SORTIE, DELETE_REASON_MIN, MODES_PAIEMENT, buildSortie, diffSortie, validateDeleteReason, validateSortie,
@@ -249,7 +251,8 @@ function AuditDialog({ reference, onClose }: { reference: string | null; onClose
   )
 }
 
-function SortiesList({ onEdit, onDelete, onAudit, refreshKey }: {
+function SortiesList({ onEdit, onDelete, onAudit, refreshKey, canWrite }: {
+  canWrite: boolean
   onEdit: (t: TransactionResponse) => void
   onDelete: (t: TransactionResponse) => void
   onAudit: (reference: string) => void
@@ -351,9 +354,9 @@ function SortiesList({ onEdit, onDelete, onAudit, refreshKey }: {
                     <TableCell className="text-right tabular-nums whitespace-nowrap">{formatMontant(t.montant)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 justify-end">
-                        <Button size="icon" variant="ghost" aria-label={`Modifier ${t.reference}`} onClick={() => onEdit(t)}><Pencil className="h-4 w-4" /></Button>
+                        {canWrite && <Button size="icon" variant="ghost" aria-label={`Modifier ${t.reference}`} onClick={() => onEdit(t)}><Pencil className="h-4 w-4" /></Button>}
                         <Button size="icon" variant="ghost" aria-label={`Historique de ${t.reference}`} onClick={() => onAudit(t.reference)}><History className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="text-destructive" aria-label={`Supprimer ${t.reference}`} onClick={() => onDelete(t)}><Trash2 className="h-4 w-4" /></Button>
+                        {canWrite && <Button size="icon" variant="ghost" className="text-destructive" aria-label={`Supprimer ${t.reference}`} onClick={() => onDelete(t)}><Trash2 className="h-4 w-4" /></Button>}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -368,7 +371,9 @@ function SortiesList({ onEdit, onDelete, onAudit, refreshKey }: {
   )
 }
 
-function Corbeille({ onAudit, onRestored, refreshKey }: { onAudit: (reference: string) => void; onRestored: () => void; refreshKey: number }) {
+function Corbeille({ onAudit, onRestored, refreshKey, canWrite }: {
+  onAudit: (reference: string) => void; onRestored: () => void; refreshKey: number; canWrite: boolean
+}) {
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<TransactionResponse[]>([])
   const [total, setTotal] = useState(0)
@@ -437,9 +442,11 @@ function Corbeille({ onAudit, onRestored, refreshKey }: { onAudit: (reference: s
                     <TableCell>
                       <div className="flex gap-1 justify-end">
                         <Button size="icon" variant="ghost" aria-label={`Historique de ${t.reference}`} onClick={() => onAudit(t.reference)}><History className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="outline" className="gap-1" disabled={restoring === t.reference} onClick={() => restore(t.reference)}>
-                          {restoring === t.reference ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}Restaurer
-                        </Button>
+                        {canWrite && (
+                          <Button size="sm" variant="outline" className="gap-1" disabled={restoring === t.reference} onClick={() => restore(t.reference)}>
+                            {restoring === t.reference ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}Restaurer
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -455,6 +462,8 @@ function Corbeille({ onAudit, onRestored, refreshKey }: { onAudit: (reference: s
 }
 
 export default function SortiesPage() {
+  const { user } = useAuth()
+  const canWrite = canWriteFinance(user?.role)   // TAF lot 3 : administration en lecture seule
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<TransactionResponse | null>(null)
   const [deleting, setDeleting] = useState<TransactionResponse | null>(null)
@@ -470,7 +479,9 @@ export default function SortiesPage() {
             <h1 className="text-2xl font-bold text-foreground">Sorties</h1>
             <p className="text-muted-foreground">Dépenses du séminaire. Une suppression passe par la corbeille.</p>
           </div>
-          <Button className="gap-2" onClick={() => { setEditing(null); setFormOpen(true) }}><Plus className="h-4 w-4" />Nouvelle sortie</Button>
+          {canWrite && (
+            <Button className="gap-2" onClick={() => { setEditing(null); setFormOpen(true) }}><Plus className="h-4 w-4" />Nouvelle sortie</Button>
+          )}
         </div>
         <Tabs defaultValue="sorties">
           <TabsList>
@@ -478,10 +489,10 @@ export default function SortiesPage() {
             <TabsTrigger value="corbeille">Corbeille</TabsTrigger>
           </TabsList>
           <TabsContent value="sorties">
-            <SortiesList refreshKey={refreshKey} onEdit={(t) => { setEditing(t); setFormOpen(true) }} onDelete={setDeleting} onAudit={setAudit} />
+            <SortiesList canWrite={canWrite} refreshKey={refreshKey} onEdit={(t) => { setEditing(t); setFormOpen(true) }} onDelete={setDeleting} onAudit={setAudit} />
           </TabsContent>
           <TabsContent value="corbeille">
-            <Corbeille refreshKey={refreshKey} onAudit={setAudit} onRestored={refresh} />
+            <Corbeille canWrite={canWrite} refreshKey={refreshKey} onAudit={setAudit} onRestored={refresh} />
           </TabsContent>
         </Tabs>
       </div>

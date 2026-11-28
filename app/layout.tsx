@@ -2,7 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Plus_Jakarta_Sans } from "next/font/google"
 import { GeistMono } from "geist/font/mono"
-import { Analytics } from "@vercel/analytics/next"
+import AnalyticsSansJeton from "@/components/layout/analytics"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 import { Suspense } from "react"
@@ -38,7 +38,7 @@ export default function RootLayout({
             <SonnerToaster theme="light" richColors closeButton position="top-right" />
           </Suspense>
         </AuthProvider>
-        <Analytics />
+        <AnalyticsSansJeton />
       </body>
     </html>
   )

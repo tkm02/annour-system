@@ -50,7 +50,7 @@ import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/auth-context";
-import { normalizeRole } from "@/lib/roles";
+import { isAdministration } from "@/lib/roles";
 import PDFGenerator, { SeminaristData } from "../../lib/pdf-generator";
 import PaymentStatusBadge from "@/components/finance/payment-status-badge";
 import { adminApi } from "@/lib/api";
@@ -83,7 +83,7 @@ export default function SeminaristesTable({
   const [exporting, setExporting] = useState(false);
 
   const {user} = useAuth();
-  const isAdmin = normalizeRole(user?.role) === "admin";
+  const isAdmin = isAdministration(user?.role);
 
   // ✅ FILTRES DYNAMIQUES
   const dynamicFilters = useMemo(() => {

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { usersApi } from "@/lib/api"
+import { MOT_DE_PASSE_MIN } from "@/lib/mot-de-passe"
 import { ROLES, ROLE_LABELS, normalizeRole } from "@/lib/roles"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,16 +37,17 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (formData.password && formData.password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères")
+
+    // Politique commune (TAF lot 3) ; les autres règles sont vérifiées par l'API
+    if (formData.password && formData.password.length < MOT_DE_PASSE_MIN) {
+      setError(`Le mot de passe doit contenir au moins ${MOT_DE_PASSE_MIN} caractères`)
       return
     }
-    
+
     try {
       setLoading(true)
       setError(null)
-      
+
       // Ne pas envoyer le password s'il est vide
       const updateData: any = {
         email: formData.email,
@@ -54,15 +56,15 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
         prenom: formData.prenom,
         role: formData.role,
       }
-      
+
       if (formData.password) {
         updateData.password = formData.password
       }
-      
+
       await usersApi.updateUser(user.id, updateData)
-      
+
       setSuccess(true)
-      
+
       setTimeout(() => {
         onSuccess()
       }, 1500)
@@ -75,7 +77,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
   }
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
@@ -94,21 +96,21 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
             <X className="h-4 w-4" />
           </Button>
         </div>
-        
+
         {success && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 flex items-center gap-2">
             <CheckCircle className="h-5 w-5" />
             <span>Utilisateur modifié avec succès!</span>
           </div>
         )}
-        
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             <strong className="font-bold">Erreur : </strong>
             <span className="block sm:inline">{error}</span>
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -121,7 +123,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
               disabled={loading || success}
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="username">Nom d&apos;utilisateur</Label>
             <Input
@@ -132,7 +134,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
               disabled={loading || success}
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="password">
               Nouveau mot de passe (optionnel)
@@ -146,7 +148,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
               disabled={loading || success}
             />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nom">Nom</Label>
@@ -158,7 +160,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
                 disabled={loading || success}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="prenom">Prénom</Label>
               <Input
@@ -170,7 +172,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
               />
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="role">Commission</Label>
             <select
@@ -185,18 +187,18 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
               ))}
             </select>
           </div>
-          
+
           <div className="flex gap-3 justify-end pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onClose} 
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
               disabled={loading || success}
             >
               Annuler
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading || success}
               className="bg-primary hover:bg-primary/90 text-white min-w-[120px]"
             >

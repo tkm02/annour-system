@@ -169,15 +169,95 @@ export interface User {
   last_login?: string;
   created_at?: string;
   updated_at?: string;
+  /** TAF lot 3 : compte créé sans mot de passe, lien d'activation pas encore utilisé */
+  en_attente_activation?: boolean;
+  personne_id?: string | null;
+  activated_at?: string | null;
 }
 
 export interface CreateUserPayload {
   email: string;
   username: string;
-  password: string;
+  /** Facultatif (TAF lot 3) : sans mot de passe, le compte reste inactif et un lien d'activation est envoyé */
+  password?: string;
   nom: string;
   prenom: string;
   role: string;
+}
+
+export interface CreatedUser extends User {
+  /** Résultat de l'envoi du lien d'activation (null si un mot de passe a été fixé) */
+  email_envoye?: boolean | null;
+}
+
+// ✅ COMPTES (TAF lot 3) : liens d'activation / réinitialisation, génération en lot, journal des connexions
+export type UsageLien = "activation" | "reset";
+/** Code renvoyé par l'API (400) quand un lien n'est pas utilisable */
+export type EtatLien = "invalide" | "expire" | "utilise";
+
+export interface VerificationLien {
+  usage: UsageLien;
+  username: string;
+  prenom: string;
+  expires_at: string;
+}
+
+export interface CompteCOApercu {
+  participation_id: string;
+  personne_id: string;
+  nom: string;
+  prenoms: string;
+  commission: string;
+  role: string | null;
+  email: string | null;
+  username: string | null;
+  statut: "a_creer" | "ignore";
+  motif: string | null;
+}
+
+export interface ApercuComptesCO {
+  edition: string;
+  a_creer: number;
+  ignores: number;
+  lignes: CompteCOApercu[];
+}
+
+export interface ResultatCompteCO {
+  participation_id: string;
+  nom: string;
+  prenoms: string;
+  username: string | null;
+  user_id: string | null;
+  statut: "cree" | "ignore" | "erreur";
+  motif: string | null;
+  email_envoye: boolean | null;
+}
+
+export interface RapportGenerationComptesCO {
+  edition: string;
+  crees: number;
+  ignores: number;
+  erreurs: number;
+  emails_non_envoyes: number;
+  resultats: ResultatCompteCO[];
+}
+
+export interface EnvoiLien {
+  message: string;
+  usage: UsageLien;
+  email_envoye: boolean;
+  expires_at: string;
+}
+
+export interface EvenementConnexion {
+  id: string;
+  type: string;
+  user_id: string | null;
+  username: string | null;
+  acteur_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
 }
 
 // ✅ MEMBRE CO (Comité d'Organisation)
@@ -282,10 +362,26 @@ export function buildApiError(status: number, bodyText: string, retryAfterHeader
     return new ApiError(status, lines.join("\n") || DEFAULT_ERROR_MESSAGES[422], { detail, fieldErrors });
   }
 
+  // Détail structuré {code, message} (ex. lien d'activation expiré, TAF lot 3)
+  const structured = champTexte(detail, "message").trim();
   const message = typeof detail === "string" && detail.trim()
     ? detail
-    : DEFAULT_ERROR_MESSAGES[status] ?? `Erreur ${status}.`;
+    : structured || (DEFAULT_ERROR_MESSAGES[status] ?? `Erreur ${status}.`);
   return new ApiError(status, message, { detail });
+}
+
+/** Valeur texte d'un champ d'un détail d'erreur objet ({code, message}) ; "" sinon. */
+function champTexte(detail: unknown, champ: string): string {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return "";
+  const valeur = (detail as Record<string, unknown>)[champ];
+  return typeof valeur === "string" ? valeur : "";
+}
+
+/** État d'un lien refusé par l'API (400 {code}) ; null pour toute autre erreur. */
+export function etatLien(error: unknown): EtatLien | null {
+  if (!(error instanceof ApiError) || error.status !== 400) return null;
+  const code = champTexte(error.detail, "code");
+  return code === "invalide" || code === "expire" || code === "utilise" ? code : null;
 }
 
 // ✅ API REQUEST GÉNÉRIQUE
@@ -733,7 +829,7 @@ export const usersApi = {
   },
   
   createUser: async (userData: CreateUserPayload) => {
-    return apiRequest<User>("/admin/auth/register", {
+    return apiRequest<CreatedUser>("/admin/auth/register", {
       method: "POST",
       body: JSON.stringify(userData),
     });
@@ -752,6 +848,34 @@ export const usersApi = {
       body: JSON.stringify({ is_active: isActive }),
     });
   },
+};
+
+// ✅ COMPTES API (TAF lot 3)
+const postJson = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
+
+export const comptesApi = {
+  // Parcours publics : le jeton vient du lien reçu par email (jamais stocké ni journalisé côté interface)
+  verifierLien: (jeton: string, usage: UsageLien) =>
+    apiRequest<VerificationLien>("/admin/auth/jeton/verifier", postJson({ jeton, usage })),
+  activer: (jeton: string, password: string) =>
+    apiRequest<{ message: string; username: string }>("/admin/auth/activation", postJson({ jeton, password })),
+  motDePasseOublie: (identifier: string) =>
+    apiRequest<{ message: string }>("/admin/auth/mot-de-passe-oublie", postJson({ identifier })),
+  reinitialiser: (jeton: string, password: string) =>
+    apiRequest<{ message: string; username: string }>("/admin/auth/reinitialisation", postJson({ jeton, password })),
+
+  // Gestion des accès (super_admin)
+  apercuComptesCO: () => apiRequest<ApercuComptesCO>("/admin/comptes-co/apercu"),
+  genererComptesCO: (participationIds?: string[]) =>
+    apiRequest<RapportGenerationComptesCO>(
+      "/admin/comptes-co/generer", postJson(participationIds ? { participation_ids: participationIds } : {})
+    ),
+  envoyerLien: (userId: string) =>
+    apiRequest<EnvoiLien>(`/admin/comptes/${encodeURIComponent(userId)}/envoyer-lien`, { method: "POST" }),
+  journal: (page = 1, limit = 50, filters: { type?: string; user_id?: string } = {}) =>
+    apiRequestWithTotal<EvenementConnexion>(
+      `/admin/comptes/journal${toQuery({ skip: (page - 1) * limit, limit, type: filters.type, user_id: filters.user_id })}`
+    ),
 };
 
 // ✅ FEEDBACK API
@@ -1383,6 +1507,7 @@ export default {
   dashboardApi,
   authApi,
   usersApi,
+  comptesApi,
   feedbackApi,
   coApi,
   recensementCoApi,

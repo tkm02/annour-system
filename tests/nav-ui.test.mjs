@@ -24,8 +24,10 @@ test("groupes : ordre conservé, entrées d'une section contiguës dans chaque m
     const order = items.map((i) => i.section).filter((s, i, a) => i === 0 || a[i - 1] !== s);
     assert.equal(new Set(order).size, order.length, `${role} : section non contiguë`);
   }
-  assert.deepEqual(groupBySection(navigationFor("admin")).map((s) => s.title),
-    ["Pilotage", "Séminaristes", "Comité d'organisation", "Accueil", "Pédagogie", "Finances", "Santé", "Administration"]);
+  // TAF lot 3 : la section « Administration » (Gérer les accès) n'apparaît que pour le super_admin
+  const sectionsAdmin = ["Pilotage", "Séminaristes", "Comité d'organisation", "Accueil", "Pédagogie", "Finances", "Santé"];
+  assert.deepEqual(groupBySection(navigationFor("admin")).map((s) => s.title), sectionsAdmin);
+  assert.deepEqual(groupBySection(navigationFor("super_admin")).map((s) => s.title), [...sectionsAdmin, "Administration"]);
 });
 
 test("chaque entrée a une section et un lien unique par rôle", () => {
