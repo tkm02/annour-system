@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { comptesApi, usersApi, type User } from "@/lib/api"
-import { LIBELLES_STATUT, actionLien, basculePossible, statutCompte, type StatutCompte } from "@/lib/comptes"
+import { LIBELLES_STATUT, actionLien, basculePossible, champCsv, statutCompte, type StatutCompte } from "@/lib/comptes"
 import { normalizeRole, roleLabel } from "@/lib/roles"
 
 const CreateAccessModal = dynamic(() => import("@/components/access/create-access-modal"), { ssr: false })
@@ -47,8 +47,6 @@ function nomComplet(nom: string, prenom: string) {
   const prenoms = (prenom || "").split(" ").map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ")
   return `${(nom || "").toUpperCase()} ${prenoms}`.trim()
 }
-
-const champCsv = (valeur: string) => (/[",;\n]/.test(valeur) ? `"${valeur.replace(/"/g, '""')}"` : valeur)
 
 function ComptesListe({ rechargement }: { rechargement: number }) {
   const [recherche, setRecherche] = useState("")
@@ -126,7 +124,7 @@ function ComptesListe({ rechargement }: { rechargement: number }) {
       ...users.map((u) => [u.username, u.email, (u.nom || "").toUpperCase(), u.prenom || "", roleLabel(u.role),
         LIBELLES_STATUT[statutCompte(u)]]),
     ]
-    const blob = new Blob(["﻿" + lignes.map((l) => l.map((v) => champCsv(v ?? "")).join(",")).join("\n")],
+    const blob = new Blob(["﻿" + lignes.map((l) => l.map((v) => champCsv(v)).join(",")).join("\n")],
       { type: "text/csv;charset=utf-8;" })
     const url = window.URL.createObjectURL(blob)
     const lien = document.createElement("a")

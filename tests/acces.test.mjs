@@ -3,8 +3,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  LIBELLES_EVENEMENTS, actionLien, basculePossible, libelleEvenement, navigateurCourt, statutCompte, tonEvenement,
+  LIBELLES_EVENEMENTS, actionLien, basculePossible, champCsv, libelleEvenement, navigateurCourt, statutCompte,
+  tonEvenement,
 } from "../lib/comptes.ts";
+import { ROLES_ATTRIBUABLES } from "../lib/roles.ts";
 
 const enAttente = { is_active: false, en_attente_activation: true };
 const actif = { is_active: true, en_attente_activation: false };
@@ -49,4 +51,17 @@ test("navigateur résumé", () => {
   assert.equal(navigateurCourt("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/131.0 Safari/537.36 Edg/131.0"),
     "Edge (ordinateur)");
   assert.equal(navigateurCourt("Mozilla/5.0 (Macintosh) Gecko/20100101 Firefox/133.0"), "Firefox (ordinateur)");
+});
+
+test("export CSV : formules neutralisées, guillemets et séparateurs échappés", () => {
+  assert.equal(champCsv('=HYPERLINK("http://x","Ouvrir")'), `"'=HYPERLINK(""http://x"",""Ouvrir"")"`);
+  for (const debut of ["+", "-", "@", "\t", "\r"]) assert.ok(champCsv(`${debut}1+1`).replace(/^"/, "").startsWith("'"), debut);
+  assert.equal(champCsv("KONÉ, Awa"), '"KONÉ, Awa"');
+  assert.equal(champCsv("kawa"), "kawa");
+  assert.equal(champCsv(null), "");
+  assert.equal(champCsv("Jean-Marc"), "Jean-Marc");   // tiret au milieu : inchangé
+});
+
+test("super_admin non attribuable depuis l'interface (décision du 2026-11-28)", () => {
+  assert.deepEqual(ROLES_ATTRIBUABLES, ["admin", "scientifique", "finances", "sante"]);
 });

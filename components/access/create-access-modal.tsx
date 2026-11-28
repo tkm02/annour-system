@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { usersApi } from "@/lib/api"
 import { MOT_DE_PASSE_MIN } from "@/lib/mot-de-passe"
-import { ROLES, ROLE_LABELS } from "@/lib/roles"
+import { ROLES_ATTRIBUABLES, ROLE_LABELS } from "@/lib/roles"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -211,7 +211,7 @@ export default function CreateAccessModal({ onClose, onSuccess }: CreateAccessMo
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               disabled={loading || success}
             >
-              {ROLES.map((role) => (
+              {ROLES_ATTRIBUABLES.map((role) => (
                 <option key={role} value={role}>{ROLE_LABELS[role].toUpperCase()}</option>
               ))}
             </select>

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { usersApi } from "@/lib/api"
 import { MOT_DE_PASSE_MIN } from "@/lib/mot-de-passe"
-import { ROLES, ROLE_LABELS, normalizeRole } from "@/lib/roles"
+import { ROLES_ATTRIBUABLES, ROLE_LABELS, normalizeRole } from "@/lib/roles"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -70,7 +70,6 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
       }, 1500)
     } catch (err: any) {
       setError(err.message || "Erreur lors de la modification")
-      console.error("Erreur:", err)
     } finally {
       setLoading(false)
     }
@@ -182,7 +181,7 @@ export default function EditAccessModal({ user, onClose, onSuccess }: EditAccess
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               disabled={loading || success}
             >
-              {ROLES.map((role) => (
+              {(formData.role === "super_admin" ? ["super_admin" as const] : ROLES_ATTRIBUABLES).map((role) => (
                 <option key={role} value={role}>{ROLE_LABELS[role].toUpperCase()}</option>
               ))}
             </select>

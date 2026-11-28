@@ -324,8 +324,11 @@ export default function SeminaristesTable({
         await scientificApi.updateSeminariste(editingMatricule, formData);
         toast.success("Séminariste modifié");
       } else {
-        await scientificApi.createSeminariste(formData);
-        toast.success("Séminariste ajouté");
+        const cree = await scientificApi.createSeminariste(formData);
+        // Décision du 2026-11-28 : créé par l'administration, le paiement reste à valider par la commission Finance
+        toast.success(cree?.payment_status === "en_attente"
+          ? "Séminariste ajouté — paiement à valider par la commission Finance"
+          : "Séminariste ajouté");
       }
 
       scientificApi.invalidateCache();

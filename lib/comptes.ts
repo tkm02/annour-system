@@ -70,6 +70,16 @@ export function tonEvenement(type: string): TonEvenement {
 
 export const libelleEvenement = (type: string) => LIBELLES_EVENEMENTS[type] ?? type
 
+/**
+ * Champ d'export CSV : une valeur commençant par = + - @ (ou tabulation / retour chariot) serait exécutée comme
+ * formule par un tableur ; elle est préfixée d'une apostrophe (revue de sécurité du lot 3). Guillemets échappés.
+ */
+export function champCsv(valeur: string | null | undefined): string {
+  let texte = valeur ?? ""
+  if (/^[=+\-@\t\r]/.test(texte)) texte = `'${texte}`
+  return /[",;\n\r]/.test(texte) ? `"${texte.replace(/"/g, '""')}"` : texte
+}
+
 /** Navigateur résumé (le journal garde l'en-tête complet, l'écran n'en montre que l'essentiel). */
 export function navigateurCourt(userAgent: string | null | undefined): string {
   if (!userAgent) return "—"
