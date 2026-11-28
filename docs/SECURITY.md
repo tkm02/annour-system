@@ -12,7 +12,8 @@
 | Autorisation | menus filtrés par rôle, garde client `protected-route.tsx` | confort uniquement : l'API reste juge ; afficher proprement les 403 |
 | Données sensibles à l'écran | santé, finances, identité, photos | pas de `console.log` de données, pas de données dans les URL, PDF générés côté client sans stockage |
 | Analytics | `@vercel/analytics` (`components/layout/analytics.tsx`) | ne transmettre aucune donnée personnelle dans les événements ; le paramètre `jeton` est retiré des adresses (`beforeSend`) |
-| Liens d'activation / réinitialisation (TAF lot 3) | jeton dans `?jeton=` | lu une fois, retiré de la barre d'adresse et de l'historique, jamais stocké ; pages `/activer`, `/reinitialiser` en `noindex` et `referrer: no-referrer` |
+| Liens d'activation / réinitialisation (TAF lot 3) | jeton dans `?jeton=` | lu une fois, retiré de la barre d'adresse et de l'**historique de l'onglet** (pas de l'historique global du navigateur ni des journaux de requêtes Vercel : F-40), jamais stocké ; pages `/activer`, `/reinitialiser` en `noindex` et `referrer: no-referrer` ; appels publics sans le jeton de session locale ; charges utiles Vercel Analytics à contrôler en préproduction (F-41) |
+| Exports CSV | `/acces` | valeurs commençant par `= + - @` (ou tabulation / retour chariot) préfixées d'une apostrophe (`champCsv`, `lib/comptes.ts`) |
 | Rôles (TAF lot 3) | `super_admin` seul à gérer les accès ; `admin` lit les finances sans les modifier | boutons masqués par `canManageAccess` / `canWriteFinance` (`lib/roles.ts`) : confort, l'API renvoie 403 |
 | Secrets Git | gitleaks en CI (diff bloquant), `.next/` exclu | — |
 

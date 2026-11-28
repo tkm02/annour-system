@@ -387,9 +387,10 @@ export function etatLien(error: unknown): EtatLien | null {
 // ✅ API REQUEST GÉNÉRIQUE
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  { session = true }: { session?: boolean } = {}
 ): Promise<T> {
-  const response = await rawRequest(endpoint, options);
+  const response = await rawRequest(endpoint, options, session);
   return response.json();
 }
 
@@ -463,7 +464,8 @@ function endSession() {
   }
 }
 
-async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
+/** `session` à false : appel public sans le jeton de session locale (et sans fermeture de session sur 401). */
+async function rawRequest(endpoint: string, options: RequestInit = {}, session = true): Promise<Response> {
   if (!API_BASE_URL) throw new ApiError(0, MISSING_API_URL_MESSAGE);
 
   const headers = new Headers(options.headers);
@@ -471,7 +473,7 @@ async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<
     headers.set("Content-Type", "application/json");
   }
 
-  const token = authApi.getToken();
+  const token = session ? authApi.getToken() : null;
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -852,17 +854,20 @@ export const usersApi = {
 
 // ✅ COMPTES API (TAF lot 3)
 const postJson = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
+const PUBLIC = { session: false };
 
 export const comptesApi = {
   // Parcours publics : le jeton vient du lien reçu par email (jamais stocké ni journalisé côté interface)
+  // (revue de sécurité : le jeton de session d'un éventuel autre compte connecté n'est jamais joint)
   verifierLien: (jeton: string, usage: UsageLien) =>
-    apiRequest<VerificationLien>("/admin/auth/jeton/verifier", postJson({ jeton, usage })),
+    apiRequest<VerificationLien>("/admin/auth/jeton/verifier", postJson({ jeton, usage }), PUBLIC),
   activer: (jeton: string, password: string) =>
-    apiRequest<{ message: string; username: string }>("/admin/auth/activation", postJson({ jeton, password })),
+    apiRequest<{ message: string; username: string }>("/admin/auth/activation", postJson({ jeton, password }), PUBLIC),
   motDePasseOublie: (identifier: string) =>
-    apiRequest<{ message: string }>("/admin/auth/mot-de-passe-oublie", postJson({ identifier })),
+    apiRequest<{ message: string }>("/admin/auth/mot-de-passe-oublie", postJson({ identifier }), PUBLIC),
   reinitialiser: (jeton: string, password: string) =>
-    apiRequest<{ message: string; username: string }>("/admin/auth/reinitialisation", postJson({ jeton, password })),
+    apiRequest<{ message: string; username: string }>("/admin/auth/reinitialisation", postJson({ jeton, password }),
+      PUBLIC),
 
   // Gestion des accès (super_admin)
   apercuComptesCO: () => apiRequest<ApercuComptesCO>("/admin/comptes-co/apercu"),

@@ -124,3 +124,19 @@ test("lien refusé : message et code lus dans le détail structuré de l'API", a
   assert.equal(api.etatLien(new Error("x")), null);
   assert.equal(api.buildApiError(400, JSON.stringify({ detail: { code: "autre" } })).message, "Requête invalide.");
 });
+
+test("parcours publics : jamais le jeton de session d'un compte déjà connecté, pas de déconnexion sur erreur", async () => {
+  store.set("authToken", "tok-autre-compte");
+  await api.comptesApi.verifierLien(JETON, "activation");
+  await api.comptesApi.activer(JETON, "Tamarin-Bleu-48");
+  await api.comptesApi.motDePasseOublie("kawa");
+  await api.comptesApi.reinitialiser(JETON, "Tamarin-Bleu-48");
+  assert.ok(calls.every((c) => c.headers.authorization === undefined));
+  responder = () => json({ detail: "x" }, 401);
+  await assert.rejects(api.comptesApi.activer(JETON, "Tamarin-Bleu-48"));
+  assert.equal(store.get("authToken"), "tok-autre-compte");
+  // Les appels authentifiés gardent le jeton
+  responder = () => json({});
+  await api.comptesApi.apercuComptesCO();
+  assert.equal(calls.at(-1).headers.authorization, "Bearer tok-autre-compte");
+});

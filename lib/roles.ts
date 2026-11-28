@@ -37,6 +37,9 @@ export function isAdministration(role?: string | null): boolean {
   return value === "admin" || value === "super_admin"
 }
 
+/** Rôles attribuables depuis l'interface : super_admin s'attribue uniquement par script (scripts/create_admin.py). */
+export const ROLES_ATTRIBUABLES = ROLES.filter((role) => role !== "super_admin")
+
 /** Gestion des accès (comptes, génération en lot, liens, journal des connexions) : super_admin seul. */
 export function canManageAccess(role?: string | null): boolean {
   return normalizeRole(role) === "super_admin"
