@@ -16,6 +16,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 - Nécessite le backend `feature/lot3-comptes-co` (contrat : `docs/features/comptes-co.md` du dépôt Backend) ;
   déployer **après** l'API.
 
+### Sécurité — revue du lot 3 (2026-11-28)
+- Export CSV de `/acces` protégé contre l'injection de formules ; appels publics des liens sans le jeton de session
+  locale ; rôle `super_admin` absent des listes de rôles (attribué uniquement par script, décision du 2026-11-28) ;
+  séminariste créé par l'administration signalé « paiement à valider par la commission Finance » ;
+  `console.error` retiré de la modification d'un accès ; F-40, F-41 au TECH_DEBT.
+
 ### Modifié — domaine de production (2026-11-24)
 - Badges : l'adresse du site public imprimée devient `annour.ci` (constante `SITE_PUBLIC` de `lib/edition.ts` au lieu
   de 12 copies de `https://an-nour25.vercel.app`, F-13). Back-office servi sur `https://backoffice.annour.ci`
