@@ -10,6 +10,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) · versions : 
 - Badges : plus aucune donnée de santé imprimée (séminaristes, CO, staff) ; champs santé retirés de l'ajout de staff.
 - Types : allergies / antécédents éventuellement `null` (l'API ne les renvoie plus au rôle scientifique).
 - Nécessite le backend `feature/lot4-donnees` (route `GET /admin/comptes/journal-sante`) ; déployer **après** l'API.
+- Revue de sécurité des lots 3-4 (2026-11-28) : libellés des nouvelles traces de l'administration (santé saisie ou
+  modifiée pour un séminariste ou un membre CO 2025) ; constats mineurs reportés (F-42, F-43). Les reçus PDF gardent
+  les allergies et antécédents (décision du 2026-11-28).
 
 ### Ajouté — comptes du back-office (TAF lot 3, 2026-11-27)
 - Rôle `super_admin` : seul à voir « Gérer les accès » ; l'administration (`admin`) consulte les finances sans
