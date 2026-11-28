@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import ComptesCOGenerator from "@/components/access/comptes-co-generator"
 import ConnexionsJournal from "@/components/access/connexions-journal"
+import SanteJournal from "@/components/access/sante-journal"
 import ConfirmDialog from "@/components/common/confirm-dialog"
 import { PageHeader } from "@/components/common/page-header"
 import Pager from "@/components/common/pager"
@@ -243,7 +244,7 @@ export default function AccessManagementPage() {
     <DashboardLayout>
       <PageHeader
         title="Gestion des accès"
-        description="Comptes du back-office, génération des comptes des membres du CO et journal des connexions."
+        description="Comptes du back-office, génération des comptes des membres du CO, journal des connexions et des accès aux données de santé."
         actions={(
           <Button className="gap-2" onClick={() => setCreation(true)}>
             <Plus className="h-4 w-4" aria-hidden="true" />Créer un accès
@@ -255,10 +256,12 @@ export default function AccessManagementPage() {
           <TabsTrigger value="comptes">Comptes</TabsTrigger>
           <TabsTrigger value="generation">Générer les comptes CO</TabsTrigger>
           <TabsTrigger value="journal">Journal des connexions</TabsTrigger>
+          <TabsTrigger value="journal-sante">Accès aux données de santé</TabsTrigger>
         </TabsList>
         <TabsContent value="comptes"><ComptesListe rechargement={rechargement} /></TabsContent>
         <TabsContent value="generation"><ComptesCOGenerator onGenere={recharger} /></TabsContent>
         <TabsContent value="journal"><ConnexionsJournal /></TabsContent>
+        <TabsContent value="journal-sante"><SanteJournal /></TabsContent>
       </Tabs>
 
       {creation && (

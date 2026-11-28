@@ -101,6 +101,15 @@ test("gestion des accès : aperçu, génération (sélection facultative), lien,
   assert.ok(calls.every((c) => c.headers.authorization === "Bearer tok-fictif"));
 });
 
+test("journal des accès santé (lot 4) : filtres et pagination", async () => {
+  store.set("authToken", "tok-fictif");
+  responder = () => json([], 200, { "X-Total-Count": "7" });
+  const page = await api.comptesApi.journalSante(2, 50, { action: "LIST_INSCRIPTIONS", role: "admin", cible: "" });
+  assert.equal(path(0), "/admin/comptes/journal-sante?skip=50&limit=50&action=LIST_INSCRIPTIONS&role=admin");
+  assert.equal(page.total, 7);
+  assert.equal(calls[0].headers.authorization, "Bearer tok-fictif");
+});
+
 test("création d'un compte sans mot de passe : champ absent du corps", async () => {
   store.set("authToken", "tok-fictif");
   await api.usersApi.createUser({ email: "n@an-nour-fictif.org", username: "nfatou", nom: "NDIAYE", prenom: "Fatou", role: "sante" });

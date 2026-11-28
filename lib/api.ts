@@ -48,8 +48,9 @@ export interface Seminariste {
   commune_habitation?: string;
   contact_parent?: string;
   contact_seminariste?: string;
-  allergie?: string;
-  antecedent_medical?: string;
+  /** TAF lot 4 : null pour le rôle scientifique (données de santé réservées à admin / sante) */
+  allergie?: string | null;
+  antecedent_medical?: string | null;
   dortoir_code?: string;
   note_entree?: number | null;        // ✅ NOTE DU TEST D'ENTRÉE
   /** TAF lot 2 : matricule de l'inscription de l'édition précédente (absent tant que l'API ne le renvoie pas) */
@@ -257,6 +258,21 @@ export interface EvenementConnexion {
   acteur_id: string | null;
   ip_address: string | null;
   user_agent: string | null;
+  created_at: string;
+}
+
+/** Accès aux données de santé (TAF lot 4) : noms de champs seulement, jamais de valeur médicale. */
+export interface AccesSante {
+  id: string;
+  action: string;
+  /** Matricule, CO:<personne>, MEMBRECO:<id> ou * (liste) */
+  cible: string;
+  consultation_id: string | null;
+  champs: string[];
+  user_id: string;
+  username: string;
+  role: string;
+  ip_address: string | null;
   created_at: string;
 }
 
@@ -880,6 +896,11 @@ export const comptesApi = {
   journal: (page = 1, limit = 50, filters: { type?: string; user_id?: string } = {}) =>
     apiRequestWithTotal<EvenementConnexion>(
       `/admin/comptes/journal${toQuery({ skip: (page - 1) * limit, limit, type: filters.type, user_id: filters.user_id })}`
+    ),
+  /** Journal des accès aux données de santé (super_admin seul, TAF lot 4) */
+  journalSante: (page = 1, limit = 50, filters: { action?: string; role?: string; cible?: string } = {}) =>
+    apiRequestWithTotal<AccesSante>(
+      `/admin/comptes/journal-sante${toQuery({ skip: (page - 1) * limit, limit, ...filters })}`
     ),
 };
 

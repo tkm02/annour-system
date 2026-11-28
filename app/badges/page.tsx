@@ -51,8 +51,6 @@ interface StaffMember {
   contact: string;
   commission: string; // "Formateur", "Sécurité", "Cuisine", "Santé", "Logistique", "Accueil", etc.
   statut: string; // Optionnel: "Membre", "Responsable", "Responsable Adjoint"
-  allergies: string;
-  antecedent_medical: string;
   selected: boolean;
 }
 
@@ -86,8 +84,6 @@ export default function BadgeGenerationPage() {
     contact: "",
     commission: "Sécurité",
     statut: "",
-    allergies: "",
-    antecedent_medical: "",
   });
 
   // ✅ STATE MEMBRES CO
@@ -533,34 +529,8 @@ export default function BadgeGenerationPage() {
 
     currentY += 25;
 
-    // Section Informations Médicales
-    pdf.setDrawColor(166, 195, 60);
-    pdf.roundedRect(x + 5, currentY, w - 10, 35, 3, 3);
-
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("INFORMATIONS MÉDICALES", x + w / 2, currentY + 5, { align: "center" });
-
-    currentY += 10;
-
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Allergies :", x + 8, currentY);
-    currentY += 4;
-
-    pdf.setFont("helvetica", "normal");
-    const allergieLines = pdf.splitTextToSize(membre.allergies || "RAS", w - 20);
-    pdf.text(allergieLines, x + 8, currentY);
-    currentY += allergieLines.length * 4 + 2;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Antécédents :", x + 8, currentY);
-    currentY += 4;
-
-    pdf.setFont("helvetica", "normal");
-    const antecedentLines = pdf.splitTextToSize(membre.antecedent_medical || "Néant", w - 20);
-    pdf.text(antecedentLines, x + 8, currentY);
+    // TAF lot 4 (décision D2) : aucune donnée de santé sur un badge porté visiblement ;
+    // la commission Santé consulte ces informations dans le module Santé.
 
     // QR CODE
     try {
@@ -653,12 +623,10 @@ export default function BadgeGenerationPage() {
       contact: newStaff.contact,
       commission: newStaff.commission,
       statut: newStaff.statut === "aucun" ? "" : newStaff.statut,
-      allergies: newStaff.allergies,
-      antecedent_medical: newStaff.antecedent_medical,
       selected: true,
     };
     setStaffList([...staffList, staff]);
-    setNewStaff({ nom: "", prenoms: "", contact: "", commission: "Sécurité", statut: "", allergies: "", antecedent_medical: "" });
+    setNewStaff({ nom: "", prenoms: "", contact: "", commission: "Sécurité", statut: "" });
     toast.success("Membre ajouté");
   };
 
@@ -880,34 +848,8 @@ export default function BadgeGenerationPage() {
 
     currentY += 25;
 
-    // Section Informations Médicales
-    pdf.setDrawColor(166, 195, 60);
-    pdf.roundedRect(x + 5, currentY, w - 10, 35, 3, 3);
-
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("INFORMATIONS MÉDICALES", x + w / 2, currentY + 5, { align: "center" });
-
-    currentY += 10;
-
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Allergies :", x + 8, currentY);
-    currentY += 4;
-
-    pdf.setFont("helvetica", "normal");
-    const allergieLines = pdf.splitTextToSize(staff.allergies || "RAS", w - 20);
-    pdf.text(allergieLines, x + 8, currentY);
-    currentY += allergieLines.length * 4 + 2;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Antécédents :", x + 8, currentY);
-    currentY += 4;
-
-    pdf.setFont("helvetica", "normal");
-    const antecedentLines = pdf.splitTextToSize(staff.antecedent_medical || "Néant", w - 20);
-    pdf.text(antecedentLines, x + 8, currentY);
+    // TAF lot 4 (décision D2) : aucune donnée de santé sur un badge porté visiblement ;
+    // la commission Santé consulte ces informations dans le module Santé.
 
     // QR CODE
     try {
@@ -1489,39 +1431,8 @@ export default function BadgeGenerationPage() {
 
     currentY += 20;
 
-    // SECTION INFORMATIONS MÉDICALES
-    pdf.setDrawColor(166, 195, 60);
-    pdf.roundedRect(x + 5, currentY, w - 10, 35, 3, 3);
-
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("INFORMATIONS MÉDICALES", x + w / 2, currentY + 5, {
-      align: "center",
-    });
-
-    currentY += 10;
-
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Allergies :", x + 8, currentY);
-    currentY += 4;
-
-    pdf.setFont("helvetica", "normal");
-    const allergieLines = pdf.splitTextToSize(sem.allergie || "RAS", w - 20);
-    pdf.text(allergieLines, x + 8, currentY);
-    currentY += allergieLines.length * 4 + 2;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Antécédents :", x + 8, currentY);
-    currentY += 4;
-
-    pdf.setFont("helvetica", "normal");
-    const antecedentLines = pdf.splitTextToSize(
-      sem.antecedent_medical || "Néant",
-      w - 20
-    );
-    pdf.text(antecedentLines, x + 8, currentY);
+    // TAF lot 4 (décision D2) : aucune donnée de santé sur un badge porté visiblement ;
+    // la commission Santé consulte ces informations dans le module Santé.
 
     // QR CODE
     try {
@@ -1724,27 +1635,6 @@ const BadgeVerso = ({ seminariste }: { seminariste: Seminariste }) => (
         </div>
       </div>
 
-      {/* Section Informations Médicales */}
-      <div className="border-2 border-[#A6C33C] rounded-xl p-4 mt-4 space-y-2.5">
-        <div className="text-center font-bold text-sm text-black">
-          INFORMATIONS MÉDICALES
-        </div>
-        <div className="space-y-2">
-          <div>
-            <div className="font-bold text-xs text-black">Allergies :</div>
-            <div className="text-xs text-black mt-0.5">
-              {seminariste.allergie || "RAS"}
-            </div>
-          </div>
-          <div>
-            <div className="font-bold text-xs text-black">Antécédents :</div>
-            <div className="text-xs text-black mt-0.5">
-              {seminariste.antecedent_medical || "Néant"}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* QR Code */}
       <div className="flex-1 flex items-center justify-center mt-4 mb-8">
         {qrCodes[seminariste.matricule] ? (
@@ -1863,21 +1753,6 @@ const BadgeCOVerso = ({ membre, qrCode }: { membre: MembreCO; qrCode?: string })
       <div className="border-2 border-[#A6C33C] rounded-xl p-4 mt-4 space-y-2.5">
         <div className="text-center font-bold text-sm text-black">Contact</div>
         <div className="text-center text-lg text-black">{membre.contact || "Non renseigné"}</div>
-      </div>
-
-      {/* Section Informations Médicales */}
-      <div className="border-2 border-[#A6C33C] rounded-xl p-4 mt-4 space-y-2.5">
-        <div className="text-center font-bold text-sm text-black">INFORMATIONS MÉDICALES</div>
-        <div className="space-y-2">
-          <div>
-            <div className="font-bold text-xs text-black">Allergies :</div>
-            <div className="text-xs text-black mt-0.5">{membre.allergies || "RAS"}</div>
-          </div>
-          <div>
-            <div className="font-bold text-xs text-black">Antécédents :</div>
-            <div className="text-xs text-black mt-0.5">{membre.antecedent_medical || "Néant"}</div>
-          </div>
-        </div>
       </div>
 
       {/* QR Code */}
@@ -2238,17 +2113,6 @@ const BadgeCOVerso = ({ membre, qrCode }: { membre: MembreCO; qrCode?: string })
                                             <SelectItem value="Responsable Adjoint">Responsable Adjoint</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <Input 
-                                        placeholder="Allergies (optionnel)"
-                                        value={newStaff.allergies}
-                                        onChange={(e) => setNewStaff({...newStaff, allergies: e.target.value})}
-                                    />
-                                    <Input 
-                                        placeholder="Antécédents médicaux (optionnel)"
-                                        value={newStaff.antecedent_medical}
-                                        onChange={(e) => setNewStaff({...newStaff, antecedent_medical: e.target.value})}
-                                        className="col-span-2"
-                                    />
                                 </div>
                                 <Button onClick={handleAddStaff} className="w-full bg-[#AC3] hover:bg-[#9B2]">
                                     <UserPlus className="mr-2 h-4 w-4" /> Ajouter
