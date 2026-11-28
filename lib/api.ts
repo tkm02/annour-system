@@ -48,8 +48,9 @@ export interface Seminariste {
   commune_habitation?: string;
   contact_parent?: string;
   contact_seminariste?: string;
-  allergie?: string;
-  antecedent_medical?: string;
+  /** TAF lot 4 : null pour le rôle scientifique (données de santé réservées à admin / sante) */
+  allergie?: string | null;
+  antecedent_medical?: string | null;
   dortoir_code?: string;
   note_entree?: number | null;        // ✅ NOTE DU TEST D'ENTRÉE
   /** TAF lot 2 : matricule de l'inscription de l'édition précédente (absent tant que l'API ne le renvoie pas) */
