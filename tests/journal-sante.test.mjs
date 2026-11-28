@@ -7,6 +7,7 @@ import { libelleActeurSante, libelleActionSante, libelleCibleSante } from "../li
 test("libellés des actions : connus traduits, inconnus affichés tels quels", () => {
   assert.equal(libelleActionSante("LIST_INSCRIPTIONS"), "Liste des inscriptions");
   assert.equal(libelleActionSante("READ_FICHE_CO"), "Lecture d'une fiche CO");
+  assert.equal(libelleActionSante("UPDATE_INSCRIPTION"), "Modification de la santé d'un séminariste");
   assert.equal(libelleActionSante("NOUVELLE_ACTION"), "NOUVELLE_ACTION");
 });
 

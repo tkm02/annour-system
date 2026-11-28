@@ -21,6 +21,11 @@ export const LIBELLES_ACTIONS_SANTE: Record<string, string> = {
   LIST_SEMINARISTES: "Liste des séminaristes (badges, pédagogie)",
   LIST_MEMBRES_CO_2025: "Liste des membres CO 2025",
   READ_MEMBRE_CO_2025: "Lecture d'un membre CO 2025",
+  // Revue de sécurité des lots 3-4 : saisies et modifications de l'administration
+  CREATE_INSCRIPTION: "Santé saisie à la création d'un séminariste",
+  UPDATE_INSCRIPTION: "Modification de la santé d'un séminariste",
+  CREATE_MEMBRE_CO_2025: "Santé saisie à la création d'un membre CO 2025",
+  UPDATE_MEMBRE_CO_2025: "Modification de la santé d'un membre CO 2025",
 }
 
 export const libelleActionSante = (action: string) => LIBELLES_ACTIONS_SANTE[action] ?? action
